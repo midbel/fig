@@ -7,15 +7,15 @@ import (
 )
 
 const (
-	kwTrue   = "true"
-	kwFalse  = "false"
-	kwOn     = "on"
-	kwOff    = "off"
-	kwYes    = "yes"
-	kwNo     = "no"
-	kwNull   = "null"
-	kwInf    = "inf"
-	kwNan    = "nan"
+	kwTrue  = "true"
+	kwFalse = "false"
+	kwOn    = "on"
+	kwOff   = "off"
+	kwYes   = "yes"
+	kwNo    = "no"
+	kwNull  = "null"
+	kwInf   = "inf"
+	kwNan   = "nan"
 )
 
 const (

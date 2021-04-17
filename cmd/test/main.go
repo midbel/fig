@@ -1,12 +1,12 @@
 package main
 
 import (
-  "flag"
-  "fmt"
-  "io"
-  "os"
+	"flag"
+	"fmt"
+	"io"
+	"os"
 
-  "github.com/midbel/fig"
+	"github.com/midbel/fig"
 )
 
 func main() {

@@ -1,7 +1,7 @@
 package fig
 
 import (
-  "fmt"
+	"fmt"
 )
 
 type Position struct {

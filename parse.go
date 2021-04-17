@@ -1,9 +1,10 @@
 package fig
 
 import (
-  "errors"
-  "fmt"
-  "io"
+	"errors"
+	"fmt"
+	"io"
+	"strings"
 )
 
 var (
@@ -56,6 +57,7 @@ var powers = map[rune]int{
 
 type Expr interface {
 	Eval() error
+	fmt.Stringer
 }
 
 type Unary struct {
@@ -109,6 +111,25 @@ func (v Variable) Eval() error {
 	return nil
 }
 
+type Array struct {
+	expr []Expr
+}
+
+func (a Array) String() string {
+	if len(a.expr) == 0 {
+		return "array()"
+	}
+	var str []string
+	for _, e := range a.expr {
+		str = append(str, e.String())
+	}
+	return fmt.Sprintf("array(%s)", strings.Join(str, ", "))
+}
+
+func (a Array) Eval() error {
+	return nil
+}
+
 type Node interface{}
 
 type Note struct {
@@ -116,11 +137,23 @@ type Note struct {
 	post string
 }
 
-type Table struct {
+type Object struct {
 	name  Token
 	nodes []Node
 
 	Note
+}
+
+func (o Object) String() string {
+	return fmt.Sprintf("table(%s)", o.name.Input)
+}
+
+func (o Object) Has(str string) bool {
+	return false
+}
+
+func (o Object) Get(str string) (Expr, error) {
+	return nil, nil
 }
 
 type Option struct {
@@ -128,6 +161,10 @@ type Option struct {
 	expr Expr
 
 	Note
+}
+
+func (o Option) String() string {
+	return fmt.Sprintf("option(%s, %s)", o.name.Input, o.expr)
 }
 
 type Parser struct {
@@ -194,52 +231,92 @@ func Parse(r io.Reader) error {
 
 func (p *Parser) Parse() error {
 	for !p.done() {
-		fmt.Println("current", p.curr)
-		if err := p.parse(); err != nil {
+		if _, err := p.parse(); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (p *Parser) parse() error {
+func (p *Parser) parse() (Node, error) {
+	var cs []string
 	for p.curr.Type == Comment {
+		cs = append(cs, p.curr.Input)
 		p.next()
 	}
-	var paths []Token
+	var (
+		paths []Token
+		err   error
+	)
+	if p.curr.Type == Macro {
+		return p.parseMacro()
+	}
 	for !p.done() {
 		if p.curr.Type == Assign || p.curr.Type == BegObj {
 			break
 		}
+		if p.curr.Type != Ident && p.curr.Type != String && p.curr.Type != Integer {
+			return nil, p.unexpectedToken()
+		}
 		paths = append(paths, p.curr)
 		p.next()
 	}
-	var err error
-	if p.curr.Type == Assign {
+	switch p.curr.Type {
+	case Assign:
 		if len(paths) != 1 {
-			return p.syntaxError()
+			return nil, p.syntaxError()
 		}
-		var expr Expr
-		expr, err = p.parseValue()
-		fmt.Println(expr, err)
+		var opt Option
+
+		opt.name = paths[0]
+		opt.pre = append(opt.pre, cs...)
+		if opt.expr, err = p.parseValue(); err != nil {
+			return nil, err
+		}
 		if p.curr.Type == Comment {
+			opt.post = p.curr.Input
 			p.next()
 		}
-	} else if p.curr.Type == BegObj {
+		fmt.Println(opt)
+		return opt, nil
+	case BegObj:
 		if len(paths) < 1 {
-			return p.syntaxError()
+			return nil, p.syntaxError()
 		}
 		err = p.parseObject()
-	} else {
-		err = p.unexpectedToken()
+		return nil, err
+	default:
+		return nil, p.unexpectedToken()
 	}
-	return err
+}
+
+func (p *Parser) parseMacro() (Node, error) {
+	p.next()
+	if p.curr.Type != BegGrp {
+		return nil, p.unexpectedToken()
+	}
+	for !p.done() && p.curr.Type != EndGrp {
+		p.next()
+	}
+	if p.curr.Type != EndGrp {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	switch p.curr.Type {
+	case Comment:
+		p.next()
+	case EOL:
+		p.next()
+	default:
+		return nil, p.unexpectedToken()
+	}
+	return nil, nil
 }
 
 func (p *Parser) parseObject() error {
 	p.next()
 	for !p.done() {
-		if err := p.parse(); err != nil {
+		if _, err := p.parse(); err != nil {
 			return err
 		}
 		if p.curr.Type == EndObj {
@@ -258,10 +335,8 @@ func (p *Parser) parseObject() error {
 
 func (p *Parser) parseArray() (Expr, error) {
 	p.next()
-	for !p.done() {
-		if p.curr.Type == EndArr {
-			break
-		}
+	var arr Array
+	for !p.done() && p.curr.Type != EndArr {
 		var (
 			expr Expr
 			err  error
@@ -274,7 +349,7 @@ func (p *Parser) parseArray() (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-		_ = expr
+		arr.expr = append(arr.expr, expr)
 		switch p.curr.Type {
 		case Comma:
 			p.next()
@@ -292,7 +367,7 @@ func (p *Parser) parseArray() (Expr, error) {
 		return nil, p.unexpectedToken()
 	}
 	p.next()
-	return nil, nil
+	return arr, nil
 }
 
 func (p *Parser) parseValue() (Expr, error) {
@@ -300,9 +375,9 @@ func (p *Parser) parseValue() (Expr, error) {
 	if p.curr.Type == BegArr {
 		return p.parseArray()
 	}
-  if p.curr.Type == EOL {
-    return nil, p.syntaxError()
-  }
+	if p.curr.Type == EOL {
+		return nil, p.syntaxError()
+	}
 	expr, err := p.parseExpr(bindLowest)
 	if err != nil {
 		err = fmt.Errorf("parsing expression: %w", err)
