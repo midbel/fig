@@ -1,0 +1,96 @@
+# a comment
+key = value
+boolean  = true
+boolean  = false
+nullable = null
+
+KB = 1K
+Kb = 1k
+
+.include("file://file.inc")
+
+arrays {
+  inline = [1, 2, 3]
+  automatic {
+    key = 1
+    key = 2
+    key = 3
+  }
+}
+
+section string {
+	single {
+		single-quote : 'string'
+	}
+	double {
+		double-quote : "string"
+	}
+}
+
+section integer {
+	int10 = 100_000
+	int16 = 0xdeadcafee
+	int8  = 0x01234567
+	int2  = 0x0101_1111
+}
+
+section float {
+	float1 = 3.14
+	float2 = 3.1415_9265
+	float3 = inf
+	float4 = nan
+  float5 = 1.1e-12
+}
+
+section datetimes {
+	date     = 2021-04-10
+	time     = 10:15:54
+	millis   = 10:32:34.123
+	datetime = 2021-04-10T10:15:54
+	datetime = 2021-04-10T10:15:54Z
+	datetime = 2021-04-10T10:15:54+02:00
+	datetime = 2021-04-10T10:15:54-07:00
+	datetime = 2021-04-10T10:15:54.456789
+}
+
+section compare {
+	eq  = 1 == 1
+	ne  = 1 != 1
+	gt  = 1 > 1
+	lt  = 1 < 1
+	ge  = 1 >= 1
+	le  = 1 <= 1
+	not = !(1 >= 1)
+}
+
+section variables {
+	local = $local
+	env   = @env
+}
+
+section relations {
+	and = true && false
+	or  = true || false
+}
+
+section arithmetic {
+	binand = 1 & 1
+	binor  = 1 | 1
+	binnot = ~1
+	grp    = 1 + (1 * 2) / ((1 + 2) / 2)
+	mod    = 1 % 1
+	div    = 1 / 1
+	mul    = 1 * 1
+	add    = 1 + 1
+	lshift = 1 << 2
+	rshift = 1 >> 2
+	min    = -1
+	sub    = 1 - 1
+  pow    = 1 ** 2
+}
+
+heredoc = <<STR
+the quick brown fox
+jumps over
+the lazy dog
+STR

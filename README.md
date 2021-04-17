@@ -2,7 +2,7 @@
 
 fig is inspired by multiple popular and less popular configuration file format such as TOML, HCL, UCL, NGINX. But also by JSON.
 
-### example
+### Example
 
 ```
 package  = "toml"
