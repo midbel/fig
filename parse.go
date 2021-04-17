@@ -300,6 +300,9 @@ func (p *Parser) parseValue() (Expr, error) {
 	if p.curr.Type == BegArr {
 		return p.parseArray()
 	}
+  if p.curr.Type == EOL {
+    return nil, p.syntaxError()
+  }
 	expr, err := p.parseExpr(bindLowest)
 	if err != nil {
 		err = fmt.Errorf("parsing expression: %w", err)
