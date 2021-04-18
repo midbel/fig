@@ -2,11 +2,12 @@ package fig
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
 type Expr interface {
-	Eval() error
+	Eval() (Value, error)
 	fmt.Stringer
 }
 
@@ -19,8 +20,23 @@ func (u Unary) String() string {
 	return fmt.Sprintf("unary(%s)", u.right)
 }
 
-func (u Unary) Eval() error {
-	return nil
+func (u Unary) Eval() (Value, error) {
+	right, err := u.right.Eval()
+	if err != nil {
+		return nil, err
+	}
+	switch u.op {
+	case Not:
+		right, err = right.not()
+	case Bnot:
+		right, err = right.binnot()
+	case Sub:
+		right, err = right.reverse()
+	case Add:
+	default:
+		return nil, ErrUnsupported
+	}
+	return right, err
 }
 
 type Binary struct {
@@ -33,8 +49,82 @@ func (b Binary) String() string {
 	return fmt.Sprintf("binary(left: %s, right: %s)", b.left, b.right)
 }
 
-func (b Binary) Eval() error {
-	return nil
+func (b Binary) Eval() (Value, error) {
+	left, err := b.left.Eval()
+	if err != nil {
+		return nil, err
+	}
+	right, err := b.right.Eval()
+	if err != nil {
+		return nil, err
+	}
+	switch b.op {
+	case Add:
+		left, err = left.add(right)
+	case Sub:
+		left, err = left.subtract(right)
+	case Div:
+		left, err = left.divide(right)
+	case Mul:
+		left, err = left.multiply(right)
+	case Mod:
+		left, err = left.modulo(right)
+	case Pow:
+		left, err = left.power(right)
+	case And:
+		left, err = left.and(right)
+	case Or:
+		left, err = left.or(right)
+	case Gt:
+		var cmp int
+		cmp, err = left.compare(right)
+		if err == nil {
+			left = makeBool(cmp > 0)
+		}
+	case Ge:
+		var cmp int
+		cmp, err = left.compare(right)
+		if err == nil {
+			left = makeBool(cmp >= 0)
+		}
+	case Lt:
+		var cmp int
+		cmp, err = left.compare(right)
+		if err == nil {
+			left = makeBool(cmp < 0)
+		}
+	case Le:
+		var cmp int
+		cmp, err = left.compare(right)
+		if err == nil {
+			left = makeBool(cmp <= 0)
+		}
+	case Equal:
+		var cmp int
+		cmp, err = left.compare(right)
+		if err == nil {
+			left = makeBool(cmp == 0)
+		}
+	case NotEqual:
+		var cmp int
+		cmp, err = left.compare(right)
+		if err == nil {
+			left = makeBool(cmp != 0)
+		}
+	case Lshift:
+		left, err = left.leftshift(right)
+	case Rshift:
+		left, err = left.rightshift(right)
+	case Band:
+		left, err = left.binand(right)
+	case Bor:
+		left, err = left.binor(right)
+	case Bnot:
+		left, err = left.binxor(right)
+	default:
+		return nil, ErrUnsupported
+	}
+	return left, nil
 }
 
 type Literal struct {
@@ -49,8 +139,37 @@ func (i Literal) String() string {
 	return fmt.Sprintf("literal(%s)", i.tok.Input)
 }
 
-func (i Literal) Eval() error {
-	return nil
+func (i Literal) Eval() (Value, error) {
+	var (
+		val Value
+		err error
+	)
+	switch i.tok.Type {
+	case Integer:
+		var n int64
+		if n, err = strconv.ParseInt(i.tok.Input, 0, 64); err == nil {
+			val = makeInt(n)
+		}
+	case Float:
+		var n float64
+		if n, err = strconv.ParseFloat(i.tok.Input, 64); err == nil {
+			val = makeDouble(n)
+		}
+	case String:
+		val = makeText(i.tok.Input)
+	case Boolean:
+		switch i.tok.Input {
+		case kwTrue, kwYes, kwOn:
+			val = makeBool(true)
+		case kwFalse, kwNo, kwOff:
+			val = makeBool(false)
+		default:
+			err = fmt.Errorf("%s: invalid boolean value")
+		}
+	default:
+		err = ErrUnsupported
+	}
+	return val, err
 }
 
 type Variable struct {
@@ -65,8 +184,8 @@ func (v Variable) String() string {
 	return fmt.Sprintf("variable(%s)", v.tok.Input)
 }
 
-func (v Variable) Eval() error {
-	return nil
+func (v Variable) Eval() (Value, error) {
+	return nil, nil
 }
 
 type Array struct {
@@ -84,8 +203,8 @@ func (a Array) String() string {
 	return fmt.Sprintf("array(%s)", strings.Join(str, ", "))
 }
 
-func (a Array) Eval() error {
-	return nil
+func (a Array) Eval() (Value, error) {
+	return nil, nil
 }
 
 type Node interface{}

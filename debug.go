@@ -19,13 +19,13 @@ func debugObject(obj *Object, level int, label bool) error {
 	if name == "" {
 		name = "document"
 	}
-	level+=2
+	level += 2
 	fmt.Print(strings.Repeat(" ", level))
-  if label {
-    fmt.Printf("object(%s) {", name)
-  } else {
-    fmt.Print("{")
-  }
+	if label {
+		fmt.Printf("object(%s) {", name)
+	} else {
+		fmt.Print("{")
+	}
 	fmt.Println()
 	for _, n := range obj.nodes {
 		switch n := n.(type) {
@@ -45,7 +45,7 @@ func debugObject(obj *Object, level int, label bool) error {
 }
 
 func debugList(i List, level int) error {
-	level+=2
+	level += 2
 	fmt.Print(strings.Repeat(" ", level))
 	fmt.Printf("list(%s) [", i.name.Input)
 	fmt.Println()
@@ -65,7 +65,7 @@ func debugList(i List, level int) error {
 }
 
 func debugOption(opt Option, level int) {
-	level+=2
+	level += 2
 	fmt.Print(strings.Repeat(" ", level))
 	fmt.Printf("%s: %s", opt.name.Input, opt.expr)
 	fmt.Println()

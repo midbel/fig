@@ -109,6 +109,7 @@ func Parse(r io.Reader) (*Object, error) {
 		Rshift:   p.parseInfix,
 		Band:     p.parseInfix,
 		Bor:      p.parseInfix,
+		Bnot:     p.parseInfix,
 		BegGrp:   p.parseCall,
 	}
 	p.next()
@@ -260,7 +261,7 @@ func (p *Parser) parseValue() (Expr, error) {
 	}
 	expr, err := p.parseExpr(bindLowest)
 	if err != nil {
-		err = fmt.Errorf("parsing expression: %w", err)
+		return nil, fmt.Errorf("parsing expression: %w", err)
 	}
 	if p.curr.Type == EOL {
 		p.next()
@@ -356,6 +357,24 @@ func (p *Parser) parseGroup() (Expr, error) {
 }
 
 func (p *Parser) parseCall(left Expr) (Expr, error) {
+	p.next()
+	for !p.done() && p.curr.Type != EndGrp {
+		_, err := p.parseExpr(bindLowest)
+		if err != nil {
+			return nil, err
+		}
+		if p.curr.Type != Comma {
+			return nil, p.unexpectedToken()
+		}
+		if p.peek.Type == EndObj {
+			return nil, p.syntaxError()
+		}
+		p.next()
+	}
+	if p.curr.Type != EndGrp {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
 	return nil, nil
 }
 
