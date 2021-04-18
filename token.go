@@ -26,7 +26,6 @@ const (
 	DateTime
 	Time
 	Boolean
-	Null
 	BegArr
 	EndArr
 	BegObj
@@ -68,6 +67,40 @@ type Token struct {
 	Position
 }
 
+func (t Token) IsComment() bool {
+	return t.Type == Comment
+}
+
+func (t Token) IsIdent() bool {
+	return t.Type == Ident || t.Type == String || t.Type == Integer
+}
+
+func (t Token) IsLiteral() bool {
+	switch t.Type {
+	case Ident, Integer, Float, String, Date, Time, DateTime, Boolean, Heredoc:
+		return true
+	default:
+		return false
+	}
+}
+
+func (t Token) IsVariable() bool {
+	return t.Type == LocalVar || t.Type == EnvVar
+}
+
+func (t Token) isZero() bool {
+	return t.Input == "" && t.Type == 0
+}
+
+func (t Token) exprDone() bool {
+	switch t.Type {
+	case Comma, Comment, EOL, EOF, EndArr:
+		return true
+	default:
+		return false
+	}
+}
+
 func (t Token) String() string {
 	var prefix string
 	switch t.Type {
@@ -97,8 +130,6 @@ func (t Token) String() string {
 		prefix = "time"
 	case Boolean:
 		prefix = "boolean"
-	case Null:
-		return "<null>"
 	case BegArr:
 		return "<beg-arr>"
 	case EndArr:

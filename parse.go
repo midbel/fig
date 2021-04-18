@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 )
 
 var (
 	ErrUnexpected = errors.New("unexpected token")
 	ErrSyntax     = errors.New("syntax error")
+	ErrAllow      = errors.New("not allowed")
 )
 
 const (
@@ -55,118 +55,6 @@ var powers = map[rune]int{
 	Assign:   bindAssign,
 }
 
-type Expr interface {
-	Eval() error
-	fmt.Stringer
-}
-
-type Unary struct {
-	right Expr
-	op    rune
-}
-
-func (u Unary) String() string {
-	return fmt.Sprintf("unary(%s)", u.right)
-}
-
-func (u Unary) Eval() error {
-	return nil
-}
-
-type Binary struct {
-	left  Expr
-	right Expr
-	op    rune
-}
-
-func (b Binary) String() string {
-	return fmt.Sprintf("binary(left: %s, right: %s)", b.left, b.right)
-}
-
-func (b Binary) Eval() error {
-	return nil
-}
-
-type Literal struct {
-	tok Token
-}
-
-func (i Literal) String() string {
-	return fmt.Sprintf("literal(%s)", i.tok.Input)
-}
-
-func (i Literal) Eval() error {
-	return nil
-}
-
-type Variable struct {
-	tok Token
-}
-
-func (v Variable) String() string {
-	return fmt.Sprintf("variable(%s)", v.tok.Input)
-}
-
-func (v Variable) Eval() error {
-	return nil
-}
-
-type Array struct {
-	expr []Expr
-}
-
-func (a Array) String() string {
-	if len(a.expr) == 0 {
-		return "array()"
-	}
-	var str []string
-	for _, e := range a.expr {
-		str = append(str, e.String())
-	}
-	return fmt.Sprintf("array(%s)", strings.Join(str, ", "))
-}
-
-func (a Array) Eval() error {
-	return nil
-}
-
-type Node interface{}
-
-type Note struct {
-	pre  []string
-	post string
-}
-
-type Object struct {
-	name  Token
-	nodes []Node
-
-	Note
-}
-
-func (o Object) String() string {
-	return fmt.Sprintf("table(%s)", o.name.Input)
-}
-
-func (o Object) Has(str string) bool {
-	return false
-}
-
-func (o Object) Get(str string) (Expr, error) {
-	return nil, nil
-}
-
-type Option struct {
-	name Token
-	expr Expr
-
-	Note
-}
-
-func (o Option) String() string {
-	return fmt.Sprintf("option(%s, %s)", o.name.Input, o.expr)
-}
-
 type Parser struct {
 	scan *Scanner
 	curr Token
@@ -176,10 +64,10 @@ type Parser struct {
 	prefix map[rune]func() (Expr, error)
 }
 
-func Parse(r io.Reader) error {
+func Parse(r io.Reader) (*Object, error) {
 	sc, err := Scan(r)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var p Parser
@@ -193,11 +81,11 @@ func Parse(r io.Reader) error {
 		Integer:  p.parseLiteral,
 		Float:    p.parseLiteral,
 		String:   p.parseLiteral,
+		Heredoc:  p.parseLiteral,
 		Date:     p.parseLiteral,
 		Time:     p.parseLiteral,
 		DateTime: p.parseLiteral,
 		Boolean:  p.parseLiteral,
-		Null:     p.parseLiteral,
 		LocalVar: p.parseVariable,
 		EnvVar:   p.parseVariable,
 		BegGrp:   p.parseGroup,
@@ -229,65 +117,60 @@ func Parse(r io.Reader) error {
 	return p.Parse()
 }
 
-func (p *Parser) Parse() error {
+func (p *Parser) Parse() (*Object, error) {
+	obj := createObject()
 	for !p.done() {
-		if _, err := p.parse(); err != nil {
-			return err
+		if p.curr.Type == Macro {
+			if _, err := p.parseMacro(); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if err := p.parse(obj); err != nil {
+			return nil, err
 		}
 	}
-	return nil
+	return obj, nil
 }
 
-func (p *Parser) parse() (Node, error) {
+func (p *Parser) parse(obj *Object) error {
 	var cs []string
-	for p.curr.Type == Comment {
+	for p.curr.IsComment() {
 		cs = append(cs, p.curr.Input)
 		p.next()
 	}
-	var (
-		paths []Token
-		err   error
-	)
-	if p.curr.Type == Macro {
-		return p.parseMacro()
-	}
-	for !p.done() {
-		if p.curr.Type == Assign || p.curr.Type == BegObj {
-			break
-		}
-		if p.curr.Type != Ident && p.curr.Type != String && p.curr.Type != Integer {
-			return nil, p.unexpectedToken()
-		}
-		paths = append(paths, p.curr)
-		p.next()
-	}
-	switch p.curr.Type {
-	case Assign:
-		if len(paths) != 1 {
-			return nil, p.syntaxError()
-		}
-		var opt Option
-
-		opt.name = paths[0]
+	if p.curr.IsIdent() && p.peek.Type == Assign {
+		var (
+			opt Option
+			err error
+		)
+		opt.name = p.curr
 		opt.pre = append(opt.pre, cs...)
+		p.next()
 		if opt.expr, err = p.parseValue(); err != nil {
-			return nil, err
+			return err
 		}
-		if p.curr.Type == Comment {
+		if p.curr.IsComment() {
 			opt.post = p.curr.Input
 			p.next()
 		}
-		fmt.Println(opt)
-		return opt, nil
-	case BegObj:
-		if len(paths) < 1 {
-			return nil, p.syntaxError()
-		}
-		err = p.parseObject()
-		return nil, err
-	default:
-		return nil, p.unexpectedToken()
+		return obj.register(opt)
 	}
+	var err error
+	for !p.done() && p.curr.Type != BegObj {
+		if !p.curr.IsIdent() {
+			return p.unexpectedToken()
+		}
+		obj, err = obj.insert(p.curr)
+		if err != nil {
+			return err
+		}
+		p.next()
+	}
+	if p.curr.Type != BegObj {
+		return p.unexpectedToken()
+	}
+	return p.parseObject(obj)
 }
 
 func (p *Parser) parseMacro() (Node, error) {
@@ -313,21 +196,18 @@ func (p *Parser) parseMacro() (Node, error) {
 	return nil, nil
 }
 
-func (p *Parser) parseObject() error {
+func (p *Parser) parseObject(obj *Object) error {
 	p.next()
-	for !p.done() {
-		if _, err := p.parse(); err != nil {
+	for !p.done() && p.curr.Type != EndObj {
+		if err := p.parse(obj); err != nil {
 			return err
-		}
-		if p.curr.Type == EndObj {
-			break
 		}
 	}
 	if p.curr.Type != EndObj {
 		return p.unexpectedToken()
 	}
 	p.next()
-	if p.curr.Type == Comment {
+	if p.curr.IsComment() {
 		p.next()
 	}
 	return nil
@@ -388,15 +268,6 @@ func (p *Parser) parseValue() (Expr, error) {
 	return expr, err
 }
 
-func (p *Parser) exprDone() bool {
-	switch p.curr.Type {
-	case Comma, Comment, EOL, EOF, EndArr:
-		return true
-	default:
-		return false
-	}
-}
-
 func (p *Parser) parseExpr(bind int) (Expr, error) {
 	prefix, ok := p.prefix[p.curr.Type]
 	if !ok {
@@ -406,7 +277,7 @@ func (p *Parser) parseExpr(bind int) (Expr, error) {
 	if err != nil {
 		return nil, err
 	}
-	for !p.exprDone() && bind < p.bindCurrent() {
+	for !p.curr.exprDone() && bind < p.bindCurrent() {
 		infix, ok := p.infix[p.curr.Type]
 		if !ok {
 			return nil, p.unexpectedToken()
@@ -435,21 +306,10 @@ func (p *Parser) parseUnary() (Expr, error) {
 }
 
 func (p *Parser) parseLiteral() (Expr, error) {
-	var expr Expr
-	switch p.curr.Type {
-	case Ident:
-	case Integer:
-	case Float:
-	case String:
-	case Date:
-	case Time:
-	case DateTime:
-	case Boolean:
-	case Null:
-	default:
+	if !p.curr.IsLiteral() {
 		return nil, p.unexpectedToken()
 	}
-	expr = Literal{tok: p.curr}
+	expr := makeLiteral(p.curr)
 	p.next()
 	if p.curr.Type == Ident {
 		p.next()
@@ -458,14 +318,10 @@ func (p *Parser) parseLiteral() (Expr, error) {
 }
 
 func (p *Parser) parseVariable() (Expr, error) {
-	var expr Expr
-	switch p.curr.Type {
-	case LocalVar:
-	case EnvVar:
-	default:
+	if !p.curr.IsVariable() {
 		return nil, p.unexpectedToken()
 	}
-	expr = Variable{tok: p.curr}
+	expr := makeVariable(p.curr)
 	p.next()
 	return expr, nil
 }

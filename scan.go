@@ -13,7 +13,6 @@ const (
 	kwOff   = "off"
 	kwYes   = "yes"
 	kwNo    = "no"
-	kwNull  = "null"
 	kwInf   = "inf"
 	kwNan   = "nan"
 )
@@ -160,7 +159,6 @@ func (s *Scanner) scanHeredoc(tok *Token) {
 		io.Copy(&s.str, &tmp)
 		prev = line
 	}
-	tok.Type = String
 	tok.Input = s.str.String()
 	if len(prev) == 0 {
 		tok.Type = Invalid
@@ -194,8 +192,6 @@ func (s *Scanner) scanIdent(tok *Token) {
 	switch tok.Input {
 	case kwTrue, kwFalse, kwOn, kwOff, kwYes, kwNo:
 		tok.Type = Boolean
-	case kwNull:
-		tok.Type = Null
 	case kwInf, kwNan:
 		tok.Type = Float
 	default:

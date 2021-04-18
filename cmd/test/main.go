@@ -49,5 +49,6 @@ func scanFile(r io.Reader) error {
 }
 
 func parseFile(r io.Reader) error {
-	return fig.Parse(r)
+	_, err := fig.Parse(r)
+	return err
 }
