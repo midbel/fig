@@ -194,6 +194,19 @@ func (v Variable) Eval() (Value, error) {
 	return nil, nil
 }
 
+type Func struct {
+	name Token
+	args []Expr
+}
+
+func (f Func) String() string {
+	return fmt.Sprintf("function(%s)", f.name.Input)
+}
+
+func (f Func) Eval() (Value, error) {
+	return nil, nil
+}
+
 type Array struct {
 	expr []Expr
 }

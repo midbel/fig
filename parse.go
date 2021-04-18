@@ -400,24 +400,35 @@ func (p *Parser) parseGroup() (Expr, error) {
 
 func (p *Parser) parseCall(left Expr) (Expr, error) {
 	p.next()
+	name, ok := left.(Literal)
+	if !ok || name.tok.Type != Ident {
+		return nil, p.syntaxError()
+	}
+	fn := Func{
+    name: name.tok,
+  }
 	for !p.done() && p.curr.Type != EndGrp {
-		_, err := p.parseExpr(bindLowest)
+		expr, err := p.parseExpr(bindLowest)
 		if err != nil {
 			return nil, err
 		}
-		if p.curr.Type != Comma {
-			return nil, p.unexpectedToken()
-		}
-		if p.peek.Type == EndObj {
-			return nil, p.syntaxError()
-		}
-		p.next()
+		fn.args = append(fn.args, expr)
+    switch p.curr.Type {
+    case EndGrp:
+    case Comma:
+      if p.peek.Type == EndGrp {
+        return nil, p.syntaxError()
+      }
+      p.next()
+    default:
+      return nil, p.unexpectedToken()
+    }
 	}
 	if p.curr.Type != EndGrp {
 		return nil, p.unexpectedToken()
 	}
 	p.next()
-	return nil, nil
+	return fn, nil
 }
 
 func (p *Parser) bindCurrent() int {
