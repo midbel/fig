@@ -4,12 +4,21 @@ import (
 	"errors"
 	"math"
 	"strings"
+	"time"
 )
 
 var (
 	ErrIncompatible = errors.New("incompatible types")
 	ErrUnsupported  = errors.New("unsupported operation")
 	ErrZeroDiv      = errors.New("division by zero")
+)
+
+const (
+	bindBool int = iota
+	bindText
+	bindInt
+	bindDouble
+	bindTime
 )
 
 type Value interface {
@@ -35,6 +44,8 @@ type Value interface {
 	binxor(Value) (Value, error)
 
 	isTrue() bool
+
+	bind() int
 }
 
 type Bool struct {
@@ -75,6 +86,10 @@ func (b Bool) isTrue() bool {
 	return b.inner
 }
 
+func (_ Bool) bind() int {
+	return bindBool
+}
+
 func (b Bool) add(_ Value) (Value, error)        { return nil, ErrUnsupported }
 func (b Bool) subtract(_ Value) (Value, error)   { return nil, ErrUnsupported }
 func (b Bool) multiply(_ Value) (Value, error)   { return nil, ErrUnsupported }
@@ -89,6 +104,98 @@ func (b Bool) binor(_ Value) (Value, error)      { return nil, ErrUnsupported }
 func (b Bool) binnot() (Value, error)            { return nil, ErrUnsupported }
 func (b Bool) binxor(_ Value) (Value, error)     { return nil, ErrUnsupported }
 
+type Moment struct {
+	inner time.Time
+}
+
+func makeMoment(mmt time.Time) Value {
+	return Moment{
+		inner: mmt,
+	}
+}
+
+func (m Moment) add(other Value) (Value, error) {
+	if m.bind() < other.bind() {
+		return other.add(m)
+	}
+	x, err := toInt(other)
+	if err != nil {
+		return nil, err
+	}
+	y := m.adjust().(Moment)
+	when := y.inner.Add(time.Duration(x) * time.Second)
+	return makeMoment(when), nil
+}
+
+func (m Moment) subtract(other Value) (Value, error) {
+	if m.bind() < other.bind() {
+		return other.subtract(m)
+	}
+	x, err := toInt(other)
+	if err != nil {
+		return nil, err
+	}
+	y := m.adjust().(Moment)
+	when := y.inner.Add(time.Duration(-x) * time.Second)
+	return makeMoment(when), nil
+}
+
+func (m Moment) compare(other Value) (int, error) {
+	x, ok := other.(Moment)
+	if !ok {
+		return -1, ErrIncompatible
+	}
+	y := m.adjust().(Moment)
+	if y.inner.Equal(x.inner) {
+		return 0, nil
+	}
+	if y.inner.After(x.inner) {
+		return 1, nil
+	}
+	return -1, nil
+}
+
+func (m Moment) and(other Value) (Value, error) {
+	return and(m, other), nil
+}
+
+func (m Moment) or(other Value) (Value, error) {
+	return or(m, other), nil
+}
+
+func (m Moment) not() (Value, error) {
+	return not(m), nil
+}
+
+func (m Moment) isTrue() bool {
+	return !m.inner.IsZero()
+}
+
+func (_ Moment) bind() int {
+	return bindTime
+}
+
+func (m Moment) adjust() Value {
+	if m.inner.Year() > 0 {
+		return m
+	}
+	n := time.Now()
+	n = m.inner.AddDate(n.Year(), int(n.Month()), n.Day()+1)
+	return makeMoment(n)
+}
+
+func (m Moment) multiply(_ Value) (Value, error)   { return nil, ErrUnsupported }
+func (m Moment) divide(_ Value) (Value, error)     { return nil, ErrUnsupported }
+func (m Moment) modulo(_ Value) (Value, error)     { return nil, ErrUnsupported }
+func (m Moment) power(_ Value) (Value, error)      { return nil, ErrUnsupported }
+func (m Moment) reverse() (Value, error)           { return nil, ErrUnsupported }
+func (m Moment) leftshift(_ Value) (Value, error)  { return nil, ErrUnsupported }
+func (m Moment) rightshift(_ Value) (Value, error) { return nil, ErrUnsupported }
+func (m Moment) binand(_ Value) (Value, error)     { return nil, ErrUnsupported }
+func (m Moment) binor(_ Value) (Value, error)      { return nil, ErrUnsupported }
+func (m Moment) binnot() (Value, error)            { return nil, ErrUnsupported }
+func (m Moment) binxor(_ Value) (Value, error)     { return nil, ErrUnsupported }
+
 type Int struct {
 	inner int64
 }
@@ -98,6 +205,9 @@ func makeInt(val int64) Value {
 }
 
 func (i Int) add(other Value) (Value, error) {
+	if i.bind() < other.bind() {
+		return other.add(i)
+	}
 	x, err := toInt(other)
 	if err != nil {
 		return nil, err
@@ -106,6 +216,9 @@ func (i Int) add(other Value) (Value, error) {
 }
 
 func (i Int) subtract(other Value) (Value, error) {
+	if i.bind() < other.bind() {
+		return other.subtract(i)
+	}
 	x, err := toInt(other)
 	if err != nil {
 		return nil, err
@@ -114,6 +227,9 @@ func (i Int) subtract(other Value) (Value, error) {
 }
 
 func (i Int) multiply(other Value) (Value, error) {
+	if i.bind() < other.bind() {
+		return other.multiply(i)
+	}
 	x, err := toInt(other)
 	if err != nil {
 		return nil, err
@@ -122,6 +238,9 @@ func (i Int) multiply(other Value) (Value, error) {
 }
 
 func (i Int) divide(other Value) (Value, error) {
+	if i.bind() < other.bind() {
+		return other.divide(i)
+	}
 	x, err := toInt(other)
 	if err != nil {
 		return nil, err
@@ -230,6 +349,10 @@ func (i Int) isTrue() bool {
 	return i.inner != 0
 }
 
+func (_ Int) bind() int {
+	return bindInt
+}
+
 type Double struct {
 	inner float64
 }
@@ -239,6 +362,9 @@ func makeDouble(val float64) Value {
 }
 
 func (d Double) add(other Value) (Value, error) {
+	if d.bind() < other.bind() {
+		return other.add(d)
+	}
 	x, err := toFloat(other)
 	if err != nil {
 		return nil, err
@@ -247,6 +373,9 @@ func (d Double) add(other Value) (Value, error) {
 }
 
 func (d Double) subtract(other Value) (Value, error) {
+	if d.bind() < other.bind() {
+		return other.subtract(d)
+	}
 	x, err := toFloat(other)
 	if err != nil {
 		return nil, err
@@ -255,6 +384,9 @@ func (d Double) subtract(other Value) (Value, error) {
 }
 
 func (d Double) multiply(other Value) (Value, error) {
+	if d.bind() < other.bind() {
+		return other.multiply(d)
+	}
 	x, err := toFloat(other)
 	if err != nil {
 		return nil, err
@@ -263,6 +395,9 @@ func (d Double) multiply(other Value) (Value, error) {
 }
 
 func (d Double) divide(other Value) (Value, error) {
+	if d.bind() < other.bind() {
+		return other.divide(d)
+	}
 	x, err := toFloat(other)
 	if err != nil {
 		return nil, err
@@ -309,14 +444,14 @@ func (d Double) or(other Value) (Value, error) {
 }
 
 func (d Double) compare(other Value) (int, error) {
-  x, err := toFloat(other)
+	x, err := toFloat(other)
 	if err != nil {
 		return -1, err
 	}
-  var (
-    left = math.Float64bits(d.inner)
-    right = math.Float64bits(x)
-  )
+	var (
+		left  = math.Float64bits(d.inner)
+		right = math.Float64bits(x)
+	)
 	if left == right {
 		return 0, nil
 	}
@@ -328,6 +463,10 @@ func (d Double) compare(other Value) (int, error) {
 
 func (d Double) isTrue() bool {
 	return d.inner != 0
+}
+
+func (_ Double) bind() int {
+	return bindDouble
 }
 
 func (d Double) leftshift(other Value) (Value, error)  { return nil, ErrUnsupported }
@@ -365,6 +504,10 @@ func (t Text) isTrue() bool {
 	return t.inner != ""
 }
 
+func (_ Text) bind() int {
+	return bindText
+}
+
 func (t Text) add(_ Value) (Value, error)        { return nil, ErrUnsupported }
 func (t Text) subtract(_ Value) (Value, error)   { return nil, ErrUnsupported }
 func (t Text) multiply(_ Value) (Value, error)   { return nil, ErrUnsupported }
@@ -398,6 +541,8 @@ func toInt(v Value) (int64, error) {
 		return v.inner, nil
 	case Double:
 		return int64(v.inner), nil
+	case Moment:
+		return v.inner.Unix(), nil
 	default:
 		return 0, ErrIncompatible
 	}
@@ -409,6 +554,8 @@ func toFloat(v Value) (float64, error) {
 		return float64(v.inner), nil
 	case Double:
 		return v.inner, nil
+	case Moment:
+		return float64(v.inner.Unix()), nil
 	default:
 		return 0, ErrIncompatible
 	}

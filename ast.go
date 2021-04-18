@@ -34,7 +34,7 @@ func (u Unary) Eval() (Value, error) {
 		right, err = right.reverse()
 	case Add:
 	default:
-		return nil, ErrUnsupported
+		err = ErrUnsupported
 	}
 	return right, err
 }
@@ -122,13 +122,14 @@ func (b Binary) Eval() (Value, error) {
 	case Bnot:
 		left, err = left.binxor(right)
 	default:
-		return nil, ErrUnsupported
+		err = ErrUnsupported
 	}
-	return left, nil
+	return left, err
 }
 
 type Literal struct {
 	tok Token
+	mul float64
 }
 
 func makeLiteral(tok Token) Literal {
@@ -136,7 +137,7 @@ func makeLiteral(tok Token) Literal {
 }
 
 func (i Literal) String() string {
-	return fmt.Sprintf("literal(%s)", i.tok.Input)
+	return fmt.Sprintf("literal(%s, multiplier: %.2f)", i.tok.Input, i.mul)
 }
 
 func (i Literal) Eval() (Value, error) {
@@ -157,6 +158,8 @@ func (i Literal) Eval() (Value, error) {
 		}
 	case String:
 		val = makeText(i.tok.Input)
+	case Date, DateTime:
+		val = Moment{}
 	case Boolean:
 		switch i.tok.Input {
 		case kwTrue, kwYes, kwOn:
@@ -168,6 +171,9 @@ func (i Literal) Eval() (Value, error) {
 		}
 	default:
 		err = ErrUnsupported
+	}
+	if i.mul != 0 {
+		val, err = val.multiply(makeDouble(i.mul))
 	}
 	return val, err
 }

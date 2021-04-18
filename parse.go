@@ -13,10 +13,22 @@ var (
 )
 
 const (
-	kilo = 1024
-	mega = kilo * kilo
-	giga = mega * kilo
-	tera = giga * kilo
+	iecKilo = 1024
+	iecMega = iecKilo * iecKilo
+	iecGiga = iecMega * iecKilo
+	iecTera = iecGiga * iecKilo
+
+	siKilo = 1000
+	siMega = siKilo * siKilo
+	siGiga = siMega * siKilo
+	siTera = siGiga * siKilo
+)
+
+const (
+	millis     = 1 / 1000
+	secPerMin  = 60
+	secPerHour = secPerMin * 60
+	secPerDay  = secPerHour * 24
 )
 
 const (
@@ -313,6 +325,36 @@ func (p *Parser) parseLiteral() (Expr, error) {
 	expr := makeLiteral(p.curr)
 	p.next()
 	if p.curr.Type == Ident {
+		switch p.curr.Input {
+		case "ms":
+			expr.mul = millis
+		case "s", "sec":
+		case "min":
+			expr.mul = secPerMin
+		case "h", "hour":
+			expr.mul = secPerHour
+		case "d", "day":
+			expr.mul = secPerDay
+		case "b", "B":
+		case "k":
+			expr.mul = iecKilo
+		case "K":
+			expr.mul = siKilo
+		case "m":
+			expr.mul = iecMega
+		case "M":
+			expr.mul = siMega
+		case "g":
+			expr.mul = iecGiga
+		case "G":
+			expr.mul = siGiga
+		case "t":
+			expr.mul = iecTera
+		case "T":
+			expr.mul = siTera
+		default:
+			return nil, p.unexpectedToken()
+		}
 		p.next()
 	}
 	return expr, nil
