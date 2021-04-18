@@ -100,6 +100,7 @@ func (s *Scanner) Scan() Token {
 	}
 	if k := s.peek(); s.char == pound || s.char == slash && k == star {
 		s.scanComment(&tok)
+		s.skipBlank()
 		return tok
 	}
 	switch {
@@ -244,7 +245,7 @@ func (s *Scanner) scanNumber(tok *Token) {
 		}
 	}
 	switch peek := s.peek(); {
-	case (s.char == 'e' || s.char == 'E') && isDigit(peek):
+	case (s.char == 'e' || s.char == 'E') && (isDigit(peek) || isSign(peek)):
 		s.scanExponent(tok)
 	case s.char == dot && isDigit(peek):
 		s.scanFraction(tok)
@@ -460,7 +461,7 @@ func (s *Scanner) scanIntegerWithBase(accept func(b rune) bool) string {
 		s.read()
 		if s.char == underscore {
 			s.read()
-			if !isDigit(s.char) {
+			if !accept(s.char) {
 				return ""
 			}
 		}

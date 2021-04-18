@@ -61,10 +61,13 @@ const (
 )
 
 type Token struct {
-	Input  string
-	Quoted bool
-	Type   rune
+	Input string
+	Type  rune
 	Position
+}
+
+func (t Token) Equal(other Token) bool {
+	return t.Input == other.Input && t.Type == other.Type
 }
 
 func (t Token) IsComment() bool {

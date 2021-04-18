@@ -167,7 +167,7 @@ func (i Literal) Eval() (Value, error) {
 		case kwFalse, kwNo, kwOff:
 			val = makeBool(false)
 		default:
-			err = fmt.Errorf("%s: invalid boolean value")
+			err = fmt.Errorf("%s: invalid boolean value", i.tok.Input)
 		}
 	default:
 		err = ErrUnsupported

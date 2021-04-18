@@ -405,24 +405,24 @@ func (p *Parser) parseCall(left Expr) (Expr, error) {
 		return nil, p.syntaxError()
 	}
 	fn := Func{
-    name: name.tok,
-  }
+		name: name.tok,
+	}
 	for !p.done() && p.curr.Type != EndGrp {
 		expr, err := p.parseExpr(bindLowest)
 		if err != nil {
 			return nil, err
 		}
 		fn.args = append(fn.args, expr)
-    switch p.curr.Type {
-    case EndGrp:
-    case Comma:
-      if p.peek.Type == EndGrp {
-        return nil, p.syntaxError()
-      }
-      p.next()
-    default:
-      return nil, p.unexpectedToken()
-    }
+		switch p.curr.Type {
+		case EndGrp:
+		case Comma:
+			if p.peek.Type == EndGrp {
+				return nil, p.syntaxError()
+			}
+			p.next()
+		default:
+			return nil, p.unexpectedToken()
+		}
 	}
 	if p.curr.Type != EndGrp {
 		return nil, p.unexpectedToken()
