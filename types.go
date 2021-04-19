@@ -3,6 +3,7 @@ package fig
 import (
 	"errors"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -20,6 +21,8 @@ const (
 	bindDouble
 	bindTime
 )
+
+const epsilon = 1e-9
 
 type Value interface {
 	add(Value) (Value, error)
@@ -44,6 +47,13 @@ type Value interface {
 	binxor(Value) (Value, error)
 
 	isTrue() bool
+
+	bind() int
+	toInt() (Value, error)
+	toDouble() (Value, error)
+	toBool() (Value, error)
+	toText() (Value, error)
+	toMoment() (Value, error)
 }
 
 type Bool struct {
@@ -84,6 +94,14 @@ func (b Bool) isTrue() bool {
 	return b.inner
 }
 
+func (_ Bool) bind() int {
+	return bindBool
+}
+
+func (b Bool) toBool() (Value, error) {
+	return b, nil
+}
+
 func (b Bool) add(_ Value) (Value, error)        { return nil, ErrUnsupported }
 func (b Bool) subtract(_ Value) (Value, error)   { return nil, ErrUnsupported }
 func (b Bool) multiply(_ Value) (Value, error)   { return nil, ErrUnsupported }
@@ -97,6 +115,10 @@ func (b Bool) binand(_ Value) (Value, error)     { return nil, ErrUnsupported }
 func (b Bool) binor(_ Value) (Value, error)      { return nil, ErrUnsupported }
 func (b Bool) binnot() (Value, error)            { return nil, ErrUnsupported }
 func (b Bool) binxor(_ Value) (Value, error)     { return nil, ErrUnsupported }
+func (b Bool) toInt() (Value, error)             { return nil, ErrIncompatible }
+func (b Bool) toDouble() (Value, error)          { return nil, ErrIncompatible }
+func (b Bool) toText() (Value, error)            { return nil, ErrIncompatible }
+func (b Bool) toMoment() (Value, error)          { return nil, ErrIncompatible }
 
 type Int struct {
 	inner int64
@@ -239,6 +261,30 @@ func (i Int) isTrue() bool {
 	return i.inner != 0
 }
 
+func (_ Int) bind() int {
+	return bindInt
+}
+
+func (i Int) toInt() (Value, error) {
+	return i, nil
+}
+
+func (i Int) toDouble() (Value, error) {
+	return makeDouble(float64(i.inner)), nil
+}
+
+func (i Int) toBool() (Value, error) {
+	return makeBool(i.isTrue()), nil
+}
+
+func (i Int) toText() (Value, error) {
+	return makeText(strconv.FormatInt(i.inner, 10)), nil
+}
+
+func (i Int) toMoment() (Value, error) {
+	return nil, ErrIncompatible
+}
+
 type Double struct {
 	inner float64
 }
@@ -290,7 +336,7 @@ func (d Double) modulo(other Value) (Value, error) {
 	if x == 0 {
 		return nil, ErrZeroDiv
 	}
-	return makeDouble(math.Pow(d.inner, x)), nil
+	return makeDouble(math.Mod(d.inner, x)), nil
 }
 
 func (d Double) power(other Value) (Value, error) {
@@ -322,14 +368,10 @@ func (d Double) compare(other Value) (int, error) {
 	if err != nil {
 		return -1, err
 	}
-	var (
-		left  = math.Float64bits(d.inner)
-		right = math.Float64bits(x)
-	)
-	if left == right {
+	if math.Abs(d.inner-x) < epsilon {
 		return 0, nil
 	}
-	if left > right {
+	if d.inner > x {
 		return 1, nil
 	}
 	return -1, nil
@@ -339,12 +381,30 @@ func (d Double) isTrue() bool {
 	return d.inner != 0
 }
 
+func (_ Double) bind() int {
+	return bindDouble
+}
+
+func (d Double) toInt() (Value, error) {
+	return makeInt(int64(d.inner)), nil
+}
+
+func (d Double) toDouble() (Value, error) {
+	return d, nil
+}
+
+func (d Double) toBool() (Value, error) {
+	return makeBool(d.isTrue()), nil
+}
+
 func (d Double) leftshift(other Value) (Value, error)  { return nil, ErrUnsupported }
 func (d Double) rightshift(other Value) (Value, error) { return nil, ErrUnsupported }
 func (d Double) binand(other Value) (Value, error)     { return nil, ErrUnsupported }
 func (d Double) binor(other Value) (Value, error)      { return nil, ErrUnsupported }
 func (d Double) binxor(other Value) (Value, error)     { return nil, ErrUnsupported }
 func (d Double) binnot() (Value, error)                { return nil, ErrUnsupported }
+func (d Double) toText() (Value, error)                { return nil, ErrIncompatible }
+func (d Double) toMoment() (Value, error)              { return nil, ErrIncompatible }
 
 type Text struct {
 	inner string
@@ -382,6 +442,18 @@ func (t Text) isTrue() bool {
 	return t.inner != ""
 }
 
+func (_ Text) bind() int {
+	return bindText
+}
+
+func (t Text) toBool() (Value, error) {
+	return makeBool(t.isTrue()), nil
+}
+
+func (t Text) toText() (Value, error) {
+	return t, nil
+}
+
 func (t Text) subtract(_ Value) (Value, error)   { return nil, ErrUnsupported }
 func (t Text) multiply(_ Value) (Value, error)   { return nil, ErrUnsupported }
 func (t Text) divide(_ Value) (Value, error)     { return nil, ErrUnsupported }
@@ -395,6 +467,9 @@ func (t Text) binand(_ Value) (Value, error)     { return nil, ErrUnsupported }
 func (t Text) binor(_ Value) (Value, error)      { return nil, ErrUnsupported }
 func (t Text) binxor(_ Value) (Value, error)     { return nil, ErrUnsupported }
 func (t Text) binnot() (Value, error)            { return nil, ErrUnsupported }
+func (t Text) toInt() (Value, error)             { return nil, ErrIncompatible }
+func (t Text) toDouble() (Value, error)          { return nil, ErrIncompatible }
+func (t Text) toMoment() (Value, error)          { return nil, ErrIncompatible }
 
 type Moment struct {
 	inner time.Time
@@ -457,6 +532,10 @@ func (m Moment) isTrue() bool {
 	return !m.inner.IsZero()
 }
 
+func (_ Moment) bind() int {
+	return bindTime
+}
+
 func (m Moment) adjust() Value {
 	if m.inner.Year() > 0 {
 		return m
@@ -464,6 +543,26 @@ func (m Moment) adjust() Value {
 	n := time.Now()
 	n = m.inner.AddDate(n.Year(), int(n.Month()), n.Day()+1)
 	return makeMoment(n)
+}
+
+func (m Moment) toInt() (Value, error) {
+	return makeInt(m.inner.Unix()), nil
+}
+
+func (m Moment) toDouble() (Value, error) {
+	return makeDouble(float64(m.inner.Unix())), nil
+}
+
+func (m Moment) toBool() (Value, error) {
+	return makeBool(m.isTrue()), nil
+}
+
+func (m Moment) toText() (Value, error) {
+	return makeText(m.inner.Format(time.RFC3339)), nil
+}
+
+func (m Moment) toMoment() (Value, error) {
+	return m, nil
 }
 
 func (m Moment) multiply(_ Value) (Value, error)   { return nil, ErrUnsupported }
@@ -488,6 +587,45 @@ func or(left, right Value) Value {
 
 func not(left Value) Value {
 	return makeBool(!left.isTrue())
+}
+
+// int <op> int => int
+// float <op> float => float
+// int <op> float => float
+// bool <op> bool => bool
+// * <op> bool => incompatible
+// * <op> text => text
+// int <op> moment => moment
+// float <op> moment => moment
+func promote(left, right Value) (Value, Value, error) {
+	var err error
+	if left.bind() < right.bind() {
+		// left should be promoted to the type of right
+		left, err = promoteValue(left, right)
+	} else if left.bind() > right.bind() {
+		// right should be promoted to the type of left
+		right, err = promoteValue(right, left)
+	}
+	return left, right, err
+}
+
+func promoteValue(left, right Value) (Value, error) {
+	var err error
+	switch right.(type) {
+	case Int:
+		left, err = left.toInt()
+	case Double:
+		left, err = left.toDouble()
+	case Bool:
+		left, err = left.toBool()
+	case Moment:
+		left, err = left.toMoment()
+	case Text:
+		left, err = left.toText()
+	default:
+		err = ErrIncompatible
+	}
+	return left, err
 }
 
 func toInt(v Value) (int64, error) {

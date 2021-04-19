@@ -17,6 +17,190 @@ type ValueCase struct {
 func TestValue(t *testing.T) {
 	t.Run("add", testValueAdd)
 	t.Run("subtract", testValueSubtract)
+	t.Run("multiply", testValueMultiply)
+	t.Run("divide", testValueDivide)
+	t.Run("modulo", testValueModulo)
+	t.Run("power", testValuePower)
+}
+
+func testValuePower(t *testing.T) {
+	data := []ValueCase{}
+	for _, d := range data {
+		got, err := d.Left.power(d.Right)
+		checkResult(t, d, got, err)
+	}
+}
+
+func testValueMultiply(t *testing.T) {
+	data := []ValueCase{
+		{
+			Left:  makeInt(1),
+			Right: makeInt(1),
+			Want:  makeInt(1),
+		},
+		{
+			Left:  makeInt(2),
+			Right: makeDouble(1.4),
+			Want:  makeInt(2),
+		},
+		{
+			Left:  makeDouble(1.4),
+			Right: makeInt(1),
+			Want:  makeDouble(1.4),
+		},
+		{
+			Left:  makeDouble(1.4),
+			Right: makeMoment(time.Now()),
+			Error: ErrIncompatible,
+		},
+		{
+			Left:  makeInt(1),
+			Right: makeText("foobar"),
+			Error: ErrIncompatible,
+		},
+		{
+			Left:  makeDouble(2.1),
+			Right: makeDouble(2.1),
+			Want:  makeDouble(4.41),
+		},
+		{
+			Left:  makeDouble(2.1),
+			Right: makeBool(false),
+			Error: ErrIncompatible,
+		},
+		{
+			Left:  makeBool(true),
+			Right: makeBool(false),
+			Error: ErrUnsupported,
+		},
+		{
+			Left:  makeMoment(time.Now()),
+			Right: makeInt(0),
+			Error: ErrUnsupported,
+		},
+	}
+	for _, d := range data {
+		got, err := d.Left.multiply(d.Right)
+		checkResult(t, d, got, err)
+	}
+}
+
+func testValueDivide(t *testing.T) {
+	data := []ValueCase{
+		{
+			Left:  makeInt(7),
+			Right: makeInt(2),
+			Want:  makeInt(3),
+		},
+		{
+			Left:  makeInt(2),
+			Right: makeDouble(1),
+			Want:  makeInt(2),
+		},
+		{
+			Left:  makeInt(2),
+			Right: makeDouble(0),
+			Error: ErrZeroDiv,
+		},
+		{
+			Left:  makeDouble(1.4),
+			Right: makeInt(1),
+			Want:  makeDouble(1.4),
+		},
+		{
+			Left:  makeDouble(1.4),
+			Right: makeMoment(time.Now()),
+			Error: ErrIncompatible,
+		},
+		{
+			Left:  makeInt(1),
+			Right: makeText("foobar"),
+			Error: ErrIncompatible,
+		},
+		{
+			Left:  makeDouble(2.1),
+			Right: makeDouble(2.1),
+			Want:  makeDouble(1),
+		},
+		{
+			Left:  makeDouble(2.1),
+			Right: makeBool(false),
+			Error: ErrIncompatible,
+		},
+		{
+			Left:  makeBool(true),
+			Right: makeBool(false),
+			Error: ErrUnsupported,
+		},
+		{
+			Left:  makeMoment(time.Now()),
+			Right: makeInt(0),
+			Error: ErrUnsupported,
+		},
+	}
+	for _, d := range data {
+		got, err := d.Left.divide(d.Right)
+		checkResult(t, d, got, err)
+	}
+}
+
+func testValueModulo(t *testing.T) {
+	data := []ValueCase{
+		{
+			Left:  makeInt(1),
+			Right: makeInt(1),
+			Want:  makeInt(0),
+		},
+		{
+			Left:  makeInt(1),
+			Right: makeInt(0),
+			Error: ErrZeroDiv,
+		},
+		{
+			Left:  makeInt(2),
+			Right: makeDouble(1.4),
+			Want:  makeInt(0),
+		},
+		{
+			Left:  makeDouble(1.4),
+			Right: makeInt(0),
+			Error: ErrZeroDiv,
+		},
+		{
+			Left:  makeDouble(1.4),
+			Right: makeDouble(0),
+			Error: ErrZeroDiv,
+		},
+		{
+			Left:  makeInt(1),
+			Right: makeText("foobar"),
+			Error: ErrIncompatible,
+		},
+		{
+			Left:  makeDouble(2.1),
+			Right: makeDouble(2.1),
+			Want:  makeDouble(0),
+		},
+		{
+			Left:  makeDouble(2.1),
+			Right: makeBool(false),
+			Error: ErrIncompatible,
+		},
+		{
+			Left:  makeBool(true),
+			Right: makeBool(false),
+			Error: ErrUnsupported,
+		},
+		{
+			Left:  makeMoment(time.Now()),
+			Right: makeInt(0),
+			Error: ErrUnsupported,
+		},
+	}
+	for _, d := range data {
+		got, err := d.Left.modulo(d.Right)
+		checkResult(t, d, got, err)
+	}
 }
 
 func testValueSubtract(t *testing.T) {
@@ -56,6 +240,11 @@ func testValueSubtract(t *testing.T) {
 			Right: makeBool(false),
 			Error: ErrIncompatible,
 		},
+		{
+			Left:  makeBool(true),
+			Right: makeBool(false),
+			Error: ErrUnsupported,
+		},
 	}
 	for _, d := range data {
 		got, err := d.Left.subtract(d.Right)
@@ -91,8 +280,8 @@ func testValueAdd(t *testing.T) {
 			Error: ErrIncompatible,
 		},
 		{
-			Left:   makeText("foobar"),
-			Right:  makeInt(1),
+			Left:  makeText("foobar"),
+			Right: makeInt(1),
 			Error: ErrIncompatible,
 		},
 		{
@@ -109,6 +298,11 @@ func testValueAdd(t *testing.T) {
 			Left:  makeText("foo"),
 			Right: makeText("bar"),
 			Want:  makeText("foobar"),
+		},
+		{
+			Left:  makeBool(true),
+			Right: makeBool(false),
+			Error: ErrUnsupported,
 		},
 	}
 	for _, d := range data {
@@ -145,7 +339,7 @@ func checkValue(want, got Value) bool {
 	case Double:
 		got, ok := got.(Double)
 		if ok {
-			ok = math.Abs(got.inner - want.inner) < 0.00001
+			ok = math.Abs(got.inner-want.inner) < epsilon
 		}
 		return ok
 	case Bool:
