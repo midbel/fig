@@ -1,55 +1,172 @@
 package fig
 
 import (
-  "testing"
+	"errors"
+	"math"
+	"testing"
+	"time"
 )
 
-func TestInt(t *testing.T) {
-  t.Run("basic", testBasicInt)
+type ValueCase struct {
+	Left  Value
+	Right Value
+	Want  Value
+	Error error
 }
 
-func testBasicInt(t *testing.T) {
-  var (
-    left = makeInt(4)
-    right = makeInt(2)
-    res Value
-  )
-  res, _ = left.add(right)
-  checkInt(t, res, 6)
-  res, _ = left.subtract(right)
-  checkInt(t, res, 2)
-  res, _ = left.multiply(right)
-  checkInt(t, res, 8)
-  res, _ = left.divide(right)
-  checkInt(t, res, 2)
-  res, _ = left.modulo(right)
-  checkInt(t, res, 0)
-  res, _ = left.power(right)
-  checkInt(t, res, 16)
-  res, _ = left.reverse()
-  checkInt(t, res, -4)
-  res, _ = left.leftshift(right)
-  checkInt(t, res, 16)
-  res, _ = left.rightshift(right)
-  checkInt(t, res, 1)
-  res, _ = left.binand(right)
-  checkInt(t, res, 0)
-  res, _ = left.binor(right)
-  checkInt(t, res, 6)
+func TestValue(t *testing.T) {
+	t.Run("add", testValueAdd)
+	t.Run("subtract", testValueSubtract)
 }
 
-func TestBool(t *testing.T) {
-  t.SkipNow()
+func testValueSubtract(t *testing.T) {
+	data := []ValueCase{
+		{
+			Left:  makeInt(1),
+			Right: makeInt(1),
+			Want:  makeInt(0),
+		},
+		{
+			Left:  makeInt(2),
+			Right: makeDouble(1.4),
+			Want:  makeInt(1),
+		},
+		{
+			Left:  makeDouble(1.4),
+			Right: makeInt(1),
+			Want:  makeDouble(0.4),
+		},
+		{
+			Left:  makeDouble(1.4),
+			Right: makeMoment(time.Now()),
+			Error: ErrIncompatible,
+		},
+		{
+			Left:  makeInt(1),
+			Right: makeText("foobar"),
+			Error: ErrIncompatible,
+		},
+		{
+			Left:  makeDouble(2.1),
+			Right: makeDouble(2.1),
+			Want:  makeDouble(0),
+		},
+		{
+			Left:  makeDouble(2.1),
+			Right: makeBool(false),
+			Error: ErrIncompatible,
+		},
+	}
+	for _, d := range data {
+		got, err := d.Left.subtract(d.Right)
+		checkResult(t, d, got, err)
+	}
 }
 
-func checkInt(t *testing.T, got Value, want int64) {
-  t.Helper()
-  i, ok := got.(Int)
-  if !ok {
-    t.Errorf("unexpected result! %T", got)
-    return
-  }
-  if i.inner != want {
-    t.Errorf("result mismatched! want %d, got %d", want, i.inner)
-  }
+func testValueAdd(t *testing.T) {
+	data := []ValueCase{
+		{
+			Left:  makeInt(1),
+			Right: makeInt(1),
+			Want:  makeInt(2),
+		},
+		{
+			Left:  makeInt(1),
+			Right: makeDouble(1.4),
+			Want:  makeInt(2),
+		},
+		{
+			Left:  makeDouble(1.4),
+			Right: makeInt(1),
+			Want:  makeDouble(2.4),
+		},
+		{
+			Left:  makeDouble(1.4),
+			Right: makeMoment(time.Now()),
+			Error: ErrIncompatible,
+		},
+		{
+			Left:  makeInt(1),
+			Right: makeText("foobar"),
+			Error: ErrIncompatible,
+		},
+		{
+			Left:   makeText("foobar"),
+			Right:  makeInt(1),
+			Error: ErrIncompatible,
+		},
+		{
+			Left:  makeDouble(2.1),
+			Right: makeDouble(2.1),
+			Want:  makeDouble(4.2),
+		},
+		{
+			Left:  makeDouble(2.1),
+			Right: makeBool(false),
+			Error: ErrIncompatible,
+		},
+		{
+			Left:  makeText("foo"),
+			Right: makeText("bar"),
+			Want:  makeText("foobar"),
+		},
+	}
+	for _, d := range data {
+		got, err := d.Left.add(d.Right)
+		checkResult(t, d, got, err)
+	}
+}
+
+func checkResult(t *testing.T, d ValueCase, got Value, err error) {
+	t.Helper()
+	if err != nil && d.Error == nil {
+		t.Errorf("unexpected error! %s", err)
+		return
+	}
+	if d.Error != nil {
+		if !errors.Is(err, d.Error) {
+			t.Errorf("errors mismatched! want %s, got %s", d.Error, err)
+		}
+		return
+	}
+	if !checkValue(d.Want, got) {
+		t.Errorf("values mismatched! want %v, got %v", d.Want, got)
+	}
+}
+
+func checkValue(want, got Value) bool {
+	switch want := want.(type) {
+	case Int:
+		got, ok := got.(Int)
+		if ok {
+			ok = got.inner == want.inner
+		}
+		return ok
+	case Double:
+		got, ok := got.(Double)
+		if ok {
+			ok = math.Abs(got.inner - want.inner) < 0.00001
+		}
+		return ok
+	case Bool:
+		got, ok := got.(Bool)
+		if ok {
+			ok = got.inner == want.inner
+		}
+		return ok
+	case Text:
+		got, ok := got.(Text)
+		if ok {
+			ok = got.inner == want.inner
+		}
+		return ok
+	case Moment:
+		got, ok := got.(Moment)
+		if ok {
+			ok = got.inner.Equal(want.inner)
+		}
+		return ok
+	default:
+		return false
+	}
 }
