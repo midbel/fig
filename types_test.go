@@ -14,6 +14,30 @@ type ValueCase struct {
 	Error error
 }
 
+func TestPromoteValue(t *testing.T) {
+	data := []ValueCase{
+		{
+			Left:  makeInt(1),
+			Right: makeInt(1),
+			Want:  makeInt(2),
+		},
+		{
+			Left:  makeInt(1),
+			Right: makeDouble(1.5),
+			Want:  makeDouble(2.5),
+		},
+		{
+			Left:  makeDouble(1.5),
+			Right: makeInt(1),
+			Want:  makeDouble(2.5),
+		},
+	}
+	for _, d := range data {
+		got, err := add(d.Left, d.Right)
+		checkResult(t, d, got, err)
+	}
+}
+
 func TestValue(t *testing.T) {
 	t.Run("add", testValueAdd)
 	t.Run("subtract", testValueSubtract)

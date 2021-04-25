@@ -15,11 +15,11 @@ var (
 )
 
 const (
-	bindBool int = iota
-	bindText
-	bindInt
-	bindDouble
-	bindTime
+	scoreBool int = iota
+	scoreText
+	scoreInt
+	scoreDouble
+	scoreTime
 )
 
 const epsilon = 1e-9
@@ -48,7 +48,7 @@ type Value interface {
 
 	isTrue() bool
 
-	bind() int
+	score() int
 	toInt() (Value, error)
 	toDouble() (Value, error)
 	toBool() (Value, error)
@@ -94,8 +94,8 @@ func (b Bool) isTrue() bool {
 	return b.inner
 }
 
-func (_ Bool) bind() int {
-	return bindBool
+func (_ Bool) score() int {
+	return scoreBool
 }
 
 func (b Bool) toBool() (Value, error) {
@@ -261,8 +261,8 @@ func (i Int) isTrue() bool {
 	return i.inner != 0
 }
 
-func (_ Int) bind() int {
-	return bindInt
+func (_ Int) score() int {
+	return scoreInt
 }
 
 func (i Int) toInt() (Value, error) {
@@ -381,8 +381,8 @@ func (d Double) isTrue() bool {
 	return d.inner != 0
 }
 
-func (_ Double) bind() int {
-	return bindDouble
+func (_ Double) score() int {
+	return scoreDouble
 }
 
 func (d Double) toInt() (Value, error) {
@@ -442,8 +442,8 @@ func (t Text) isTrue() bool {
 	return t.inner != ""
 }
 
-func (_ Text) bind() int {
-	return bindText
+func (_ Text) score() int {
+	return scoreText
 }
 
 func (t Text) toBool() (Value, error) {
@@ -532,8 +532,8 @@ func (m Moment) isTrue() bool {
 	return !m.inner.IsZero()
 }
 
-func (_ Moment) bind() int {
-	return bindTime
+func (_ Moment) score() int {
+	return scoreTime
 }
 
 func (m Moment) adjust() Value {
@@ -597,16 +597,101 @@ func not(left Value) Value {
 // * <op> text => text
 // int <op> moment => moment
 // float <op> moment => moment
+
+func add(left, right Value) (Value, error) {
+	var err error
+	left, right, err = promote(left, right)
+	if err != nil {
+		return nil, err
+	}
+	return left.add(right)
+}
+
+func subtract(left, right Value) (Value, error) {
+	var err error
+	left, right, err = promote(left, right)
+	if err != nil {
+		return nil, err
+	}
+	return left.subtract(right)
+}
+
+func multiply(left, right Value) (Value, error) {
+	var err error
+	left, right, err = promote(left, right)
+	if err != nil {
+		return nil, err
+	}
+	return left.multiply(right)
+}
+
+func divide(left, right Value) (Value, error) {
+	var err error
+	left, right, err = promote(left, right)
+	if err != nil {
+		return nil, err
+	}
+	return left.divide(right)
+}
+
+func modulo(left, right Value) (Value, error) {
+	var err error
+	left, right, err = promote(left, right)
+	if err != nil {
+		return nil, err
+	}
+	return left.modulo(right)
+}
+
+func power(left, right Value) (Value, error) {
+	return left.power(right)
+}
+
 func promote(left, right Value) (Value, Value, error) {
 	var err error
-	if left.bind() < right.bind() {
-		// left should be promoted to the type of right
+	if left.score() < right.score() {
 		left, err = promoteValue(left, right)
-	} else if left.bind() > right.bind() {
-		// right should be promoted to the type of left
+	} else if left.score() > right.score() {
 		right, err = promoteValue(right, left)
 	}
 	return left, right, err
+}
+
+func reverse(left Value) (Value, error) {
+	return left.reverse()
+}
+
+func compare(left, right Value) (int, error) {
+	var err error
+	left, right, err = promote(left, right)
+	if err != nil {
+		return 0, err
+	}
+	return left.compare(right)
+}
+
+func leftshift(left, right Value) (Value, error) {
+	return left.leftshift(right)
+}
+
+func rightshift(left, right Value) (Value, error) {
+	return left.rightshift(right)
+}
+
+func binand(left, right Value) (Value, error) {
+	return left.binand(right)
+}
+
+func binor(left, right Value) (Value, error) {
+	return left.binor(right)
+}
+
+func binxor(left, right Value) (Value, error) {
+	return left.binxor(right)
+}
+
+func binnot(left Value) (Value, error) {
+	return left.binnot()
 }
 
 func promoteValue(left, right Value) (Value, error) {
