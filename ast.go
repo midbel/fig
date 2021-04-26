@@ -156,7 +156,7 @@ func (i Literal) Eval() (Value, error) {
 		if n, err = strconv.ParseFloat(i.tok.Input, 64); err == nil {
 			val = makeDouble(n)
 		}
-	case String:
+	case String, Ident:
 		val = makeText(i.tok.Input)
 	case Date, DateTime:
 		val = Moment{}
@@ -254,14 +254,6 @@ func createObjectWithToken(tok Token) *Object {
 
 func (o *Object) String() string {
 	return fmt.Sprintf("object(%s)", o.name.Input)
-}
-
-func (o *Object) Has(str string) bool {
-	return false
-}
-
-func (o *Object) Get(str string) (Expr, error) {
-	return nil, nil
 }
 
 func (o *Object) IsRoot() bool {

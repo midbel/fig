@@ -734,3 +734,20 @@ func toFloat(v Value) (float64, error) {
 		return 0, ErrIncompatible
 	}
 }
+
+func toText(v Value) (string, error) {
+	switch v := v.(type) {
+	case Int:
+		return strconv.FormatInt(v.inner, 10), nil
+	case Double:
+		return strconv.FormatFloat(v.inner, 'f', -1, 64), nil
+	case Bool:
+		return strconv.FormatBool(v.inner), nil
+	case Moment:
+		return v.inner.Format(time.RFC3339), nil
+	case Text:
+		return v.inner, nil
+	default:
+		return "", ErrIncompatible
+	}
+}

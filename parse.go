@@ -131,6 +131,9 @@ func Parse(r io.Reader) (*Object, error) {
 }
 
 func (p *Parser) Parse() (*Object, error) {
+	for p.curr.Type == EOL {
+		p.next()
+	}
 	obj := createObject()
 	for !p.done() {
 		if p.curr.Type == Macro {
