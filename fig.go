@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 )
 
@@ -11,18 +12,20 @@ var ErrUndefined = errors.New("undefined")
 
 type Environment interface {
 	Resolve(string) (Value, error)
+	isLocal() bool
 }
 
 type Env struct {
+	rw     sync.RWMutex
 	values map[string]Value
 	parent Environment
 }
 
-func EmptyEnv() Environment {
+func EmptyEnv() *Env {
 	return EnclosedEnv(nil)
 }
 
-func EnclosedEnv(env Environment) Environment {
+func EnclosedEnv(env Environment) *Env {
 	e := Env{
 		values: make(map[string]Value),
 		parent: env,
@@ -35,10 +38,14 @@ func (e *Env) Delete(str string) {
 }
 
 func (e *Env) Define(str string, value Value) {
+	e.rw.Lock()
+	defer e.rw.Unlock()
 	e.values[str] = value
 }
 
 func (e *Env) Resolve(str string) (Value, error) {
+	e.rw.RLock()
+	defer e.rw.RUnlock()
 	v, ok := e.values[str]
 	if ok {
 		return v, nil
@@ -49,17 +56,23 @@ func (e *Env) Resolve(str string) (Value, error) {
 	return nil, undefinedVariable(str)
 }
 
-type env struct {
-	list []*Object
+func (e *Env) isLocal() bool {
+	return false
 }
 
-func createEnv(list []*Object) Environment {
+type env struct {
+	parent Environment
+	list   []*Object
+}
+
+func createEnv(list []*Object, other Environment) Environment {
 	size := len(list)
 	for i, j := 0, size-1; i < size/2; i, j = i+1, j-1 {
 		list[i], list[j] = list[j], list[i]
 	}
 	e := env{
-		list: list,
+		list:   list,
+		parent: other,
 	}
 	return &e
 }
@@ -77,24 +90,64 @@ func (e *env) Resolve(str string) (Value, error) {
 		if i == 0 {
 			continue
 		}
-		return opt.expr.Eval(createEnv(e.list[:i+1]))
+		return opt.expr.Eval(createEnv(e.list[:i+1], e.parent))
 	}
 	return nil, undefinedVariable(str)
 }
 
+func (e *env) isLocal() bool {
+	return true
+}
+
 type Document struct {
 	root *Object
+	env  Environment
 }
 
 func ParseDocument(r io.Reader) (*Document, error) {
+	return ParseDocumentWithEnv(r, EmptyEnv())
+}
+
+func ParseDocumentWithEnv(r io.Reader, env Environment) (*Document, error) {
 	root, err := Parse(r)
 	if err != nil {
 		return nil, err
 	}
 	doc := Document{
 		root: root,
+		env:  env,
 	}
 	return &doc, nil
+}
+
+func (d *Document) SetInt(str string, i int64) {
+	if e, ok := d.env.(*Env); ok {
+		e.Define(str, makeInt(i))
+	}
+}
+
+func (d *Document) SetBool(str string, b bool) {
+	if e, ok := d.env.(*Env); ok {
+		e.Define(str, makeBool(b))
+	}
+}
+
+func (d *Document) SetDouble(str string, f float64) {
+	if e, ok := d.env.(*Env); ok {
+		e.Define(str, makeDouble(f))
+	}
+}
+
+func (d *Document) SetText(str string, t string) {
+	if e, ok := d.env.(*Env); ok {
+		e.Define(str, makeText(str))
+	}
+}
+
+func (d *Document) SetTime(str string, t time.Time) {
+	if e, ok := d.env.(*Env); ok {
+		e.Define(str, makeMoment(t))
+	}
 }
 
 func (d *Document) Expr(paths ...string) (Expr, error) {
@@ -181,6 +234,14 @@ func (d *Document) Document(paths ...string) (*Document, error) {
 	return &doc, nil
 }
 
+func (d *Document) Decode(v interface{}) error {
+	return d.DecodeWithEnv(v, d.env)
+}
+
+func (d *Document) DecodeWithEnv(v interface{}, env Environment) error {
+	return nil
+}
+
 func (d *Document) eval(paths ...string) (Value, error) {
 	e, env, err := d.find(paths...)
 	if err != nil {
@@ -209,6 +270,7 @@ func (d *Document) find(paths ...string) (Expr, Environment, error) {
 		}
 		n, ok = obj.(*Object)
 		if !ok {
+			fmt.Printf("%s %T\n", paths[i], obj)
 			return nil, nil, fmt.Errorf("%s: not an object", paths[i])
 		}
 		list = append(list, n)
@@ -221,7 +283,7 @@ func (d *Document) find(paths ...string) (Expr, Environment, error) {
 	if !ok {
 		return nil, nil, fmt.Errorf("%s: not an option", o)
 	}
-	return opt.expr, createEnv(list), nil
+	return opt.expr, createEnv(list, d.env), nil
 }
 
 func undefinedVariable(str string) error {

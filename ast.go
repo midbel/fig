@@ -20,8 +20,8 @@ func (u Unary) String() string {
 	return fmt.Sprintf("unary(%s)", u.right)
 }
 
-func (u Unary) Eval(env Environment) (Value, error) {
-	right, err := u.right.Eval(env)
+func (u Unary) Eval(e Environment) (Value, error) {
+	right, err := u.right.Eval(e)
 	if err != nil {
 		return nil, err
 	}
@@ -49,12 +49,12 @@ func (b Binary) String() string {
 	return fmt.Sprintf("binary(left: %s, right: %s)", b.left, b.right)
 }
 
-func (b Binary) Eval(env Environment) (Value, error) {
-	left, err := b.left.Eval(env)
+func (b Binary) Eval(e Environment) (Value, error) {
+	left, err := b.left.Eval(e)
 	if err != nil {
 		return nil, err
 	}
-	right, err := b.right.Eval(env)
+	right, err := b.right.Eval(e)
 	if err != nil {
 		return nil, err
 	}
@@ -190,8 +190,15 @@ func (v Variable) String() string {
 	return fmt.Sprintf("variable(%s)", v.tok.Input)
 }
 
-func (v Variable) Eval(env Environment) (Value, error) {
-	return env.Resolve(v.tok.Input)
+func (v Variable) Eval(e Environment) (Value, error) {
+	if v.tok.Type == EnvVar {
+		e, ok := e.(*env)
+		if !ok {
+			return nil, undefinedVariable(v.tok.Input)
+		}
+		return e.parent.Resolve(v.tok.Input)
+	}
+	return e.Resolve(v.tok.Input)
 }
 
 type Func struct {
@@ -203,7 +210,7 @@ func (f Func) String() string {
 	return fmt.Sprintf("function(%s)", f.name.Input)
 }
 
-func (f Func) Eval(env Environment) (Value, error) {
+func (f Func) Eval(_ Environment) (Value, error) {
 	return nil, nil
 }
 
@@ -222,7 +229,7 @@ func (a Array) String() string {
 	return fmt.Sprintf("array(%s)", strings.Join(str, ", "))
 }
 
-func (a Array) Eval(env Environment) (Value, error) {
+func (a Array) Eval(_ Environment) (Value, error) {
 	return nil, nil
 }
 
@@ -262,6 +269,18 @@ func (o *Object) IsRoot() bool {
 
 func (o *Object) IsEmpty() bool {
 	return len(o.nodes) == 0
+}
+
+func (o *Object) get(tok Token) (*Object, error) {
+	n, ok := o.nodes[tok.Input]
+	if !ok {
+		return nil, fmt.Errorf("%s: object not found", tok.Input)
+	}
+	obj, ok := n.(*Object)
+	if !ok {
+		return nil, fmt.Errorf("%s should be an object", tok.Input)
+	}
+	return obj, nil
 }
 
 func (o *Object) insert(tok Token) (*Object, error) {

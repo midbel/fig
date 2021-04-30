@@ -22,10 +22,19 @@ unit {
   iec = 1k
 }
 
-variables local {
-	var  = 100
-	int  = $int
-	expr = $int / $var
+variables {
+	local {
+		var  = 100
+		int  = $int
+		expr = $int / $var
+	}
+	global {
+		int = @int
+	}
+}
+
+variables mix {
+	expr = $int - @int
 }
 `
 
@@ -35,6 +44,8 @@ func TestDocument(t *testing.T) {
 		t.Errorf("unexpected error parsing document: %s", err)
 		return
 	}
+	doc.SetInt("int", 5)
+
 	checkString(t, doc)
 	checkInt(t, doc)
 	checkFloat(t, doc)
@@ -54,6 +65,14 @@ func checkVariable(t *testing.T, doc *Document) {
 		{
 			Key:  []string{"variables", "local", "expr"},
 			Want: 1,
+		},
+		{
+			Key:  []string{"variables", "global", "int"},
+			Want: 5,
+		},
+		{
+			Key:  []string{"variables", "mix", "expr"},
+			Want: 95,
 		},
 	}
 	for _, d := range data {

@@ -177,7 +177,11 @@ func (p *Parser) parse(obj *Object) error {
 		if !p.curr.IsIdent() {
 			return p.unexpectedToken()
 		}
-		obj, err = obj.insert(p.curr)
+		if p.peek.Type == BegObj {
+			obj, err = obj.insert(p.curr)
+		} else {
+			obj, err = obj.get(p.curr)
+		}
 		if err != nil {
 			return err
 		}
