@@ -647,16 +647,6 @@ func power(left, right Value) (Value, error) {
 	return left.power(right)
 }
 
-func promote(left, right Value) (Value, Value, error) {
-	var err error
-	if left.score() < right.score() {
-		left, err = promoteValue(left, right)
-	} else if left.score() > right.score() {
-		right, err = promoteValue(right, left)
-	}
-	return left, right, err
-}
-
 func reverse(left Value) (Value, error) {
 	return left.reverse()
 }
@@ -692,6 +682,16 @@ func binxor(left, right Value) (Value, error) {
 
 func binnot(left Value) (Value, error) {
 	return left.binnot()
+}
+
+func promote(left, right Value) (Value, Value, error) {
+	var err error
+	if left.score() < right.score() {
+		left, err = promoteValue(left, right)
+	} else if left.score() > right.score() {
+		right, err = promoteValue(right, left)
+	}
+	return left, right, err
 }
 
 func promoteValue(left, right Value) (Value, error) {

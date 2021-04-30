@@ -21,6 +21,12 @@ unit {
   si  = 1K
   iec = 1k
 }
+
+variables local {
+	var  = 100
+	int  = $int
+	expr = $int / $var
+}
 `
 
 func TestDocument(t *testing.T) {
@@ -32,6 +38,34 @@ func TestDocument(t *testing.T) {
 	checkString(t, doc)
 	checkInt(t, doc)
 	checkFloat(t, doc)
+	checkVariable(t, doc)
+}
+
+func checkVariable(t *testing.T, doc *Document) {
+	t.Helper()
+	data := []struct {
+		Key  []string
+		Want int64
+	}{
+		{
+			Key:  []string{"variables", "local", "int"},
+			Want: 100,
+		},
+		{
+			Key:  []string{"variables", "local", "expr"},
+			Want: 1,
+		},
+	}
+	for _, d := range data {
+		got, err := doc.Int(d.Key...)
+		if err != nil {
+			t.Errorf("fail to find %s: %s", d.Key, err)
+			continue
+		}
+		if d.Want != got {
+			t.Errorf("integers/variables mismatched! want %d, got %d", d.Want, got)
+		}
+	}
 }
 
 func checkInt(t *testing.T, doc *Document) {

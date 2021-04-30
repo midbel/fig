@@ -7,7 +7,7 @@ import (
 )
 
 type Expr interface {
-	Eval() (Value, error)
+	Eval(Environment) (Value, error)
 	fmt.Stringer
 }
 
@@ -20,8 +20,8 @@ func (u Unary) String() string {
 	return fmt.Sprintf("unary(%s)", u.right)
 }
 
-func (u Unary) Eval() (Value, error) {
-	right, err := u.right.Eval()
+func (u Unary) Eval(env Environment) (Value, error) {
+	right, err := u.right.Eval(env)
 	if err != nil {
 		return nil, err
 	}
@@ -49,12 +49,12 @@ func (b Binary) String() string {
 	return fmt.Sprintf("binary(left: %s, right: %s)", b.left, b.right)
 }
 
-func (b Binary) Eval() (Value, error) {
-	left, err := b.left.Eval()
+func (b Binary) Eval(env Environment) (Value, error) {
+	left, err := b.left.Eval(env)
 	if err != nil {
 		return nil, err
 	}
-	right, err := b.right.Eval()
+	right, err := b.right.Eval(env)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func (i Literal) String() string {
 	return fmt.Sprintf("literal(%s, multiplier: %.2f)", i.tok.Input, i.mul)
 }
 
-func (i Literal) Eval() (Value, error) {
+func (i Literal) Eval(_ Environment) (Value, error) {
 	var (
 		val Value
 		err error
@@ -190,8 +190,8 @@ func (v Variable) String() string {
 	return fmt.Sprintf("variable(%s)", v.tok.Input)
 }
 
-func (v Variable) Eval() (Value, error) {
-	return nil, nil
+func (v Variable) Eval(env Environment) (Value, error) {
+	return env.Resolve(v.tok.Input)
 }
 
 type Func struct {
@@ -203,7 +203,7 @@ func (f Func) String() string {
 	return fmt.Sprintf("function(%s)", f.name.Input)
 }
 
-func (f Func) Eval() (Value, error) {
+func (f Func) Eval(env Environment) (Value, error) {
 	return nil, nil
 }
 
@@ -222,7 +222,7 @@ func (a Array) String() string {
 	return fmt.Sprintf("array(%s)", strings.Join(str, ", "))
 }
 
-func (a Array) Eval() (Value, error) {
+func (a Array) Eval(env Environment) (Value, error) {
 	return nil, nil
 }
 
