@@ -51,6 +51,7 @@ const (
 	ampersand  = '&'
 	pipe       = '|'
 	tilde      = '~'
+	question   = '?'
 )
 
 var escapes = map[rune]rune{
@@ -508,6 +509,8 @@ func (s *Scanner) scanOperator(tok *Token) {
 		tok.Type = Sub
 	case slash:
 		tok.Type = Div
+	case question:
+		tok.Type = Question
 	case star:
 		tok.Type = Mul
 		if peek := s.peek(); peek == star {
@@ -734,7 +737,7 @@ func isMacro(b rune) bool {
 
 func isOperator(b rune) bool {
 	return isSign(b) || b == tilde || b == pipe || b == ampersand ||
-		b == colon || b == equal || b == bang || b == slash ||
+		b == colon || b == equal || b == bang || b == slash || b == question ||
 		b == star || b == percent || b == langle || b == rangle ||
 		isGroup(b)
 }

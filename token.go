@@ -31,6 +31,7 @@ const (
 	BegObj
 	EndObj
 	Comma
+	Question
 	EOL
 	Not
 	Assign
@@ -97,7 +98,7 @@ func (t Token) isZero() bool {
 
 func (t Token) exprDone() bool {
 	switch t.Type {
-	case Comma, Comment, EOL, EOF, EndArr:
+	case Comma, Comment, EOL, EOF, EndArr, Assign:
 		return true
 	default:
 		return false
@@ -149,6 +150,8 @@ func (t Token) String() string {
 		return "<assign>"
 	case Comma:
 		return "<comma>"
+	case Question:
+		return "<question>"
 	case Invalid:
 		prefix = "invalid"
 	case Not:

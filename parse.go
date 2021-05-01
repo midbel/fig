@@ -34,6 +34,7 @@ const (
 const (
 	bindLowest = iota
 	bindAssign
+	bindCdt
 	bindRel
 	bindCmp
 	bindBin
@@ -65,6 +66,7 @@ var powers = map[rune]int{
 	Pow:      bindPow,
 	BegGrp:   bindCall,
 	Assign:   bindAssign,
+	Question: bindCdt,
 }
 
 type Parser struct {
@@ -123,6 +125,7 @@ func Parse(r io.Reader) (*Object, error) {
 		Bor:      p.parseInfix,
 		Bnot:     p.parseInfix,
 		BegGrp:   p.parseCall,
+		Question: p.parseTernary,
 	}
 	p.next()
 	p.next()
@@ -405,6 +408,26 @@ func (p *Parser) parseGroup() (Expr, error) {
 	return expr, nil
 }
 
+func (p *Parser) parseTernary(left Expr) (Expr, error) {
+	t := Ternary{
+		cond: left,
+	}
+
+	p.next()
+	var err error
+	if t.csq, err = p.parseExpr(bindCdt); err != nil {
+		return nil, err
+	}
+	if p.curr.Type != Assign {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	if t.alt, err = p.parseExpr(bindLowest); err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
 func (p *Parser) parseCall(left Expr) (Expr, error) {
 	p.next()
 	name, ok := left.(Literal)
@@ -447,7 +470,7 @@ func (p *Parser) bindPeek() int {
 }
 
 func (p *Parser) unexpectedToken() error {
-	return fmt.Errorf("%s %w: %s", p.curr.Position, ErrUnexpected, p.curr)
+	return fmt.Errorf("parser error: %s %w: %s", p.curr.Position, ErrUnexpected, p.curr)
 }
 
 func (p *Parser) syntaxError() error {
