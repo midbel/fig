@@ -43,6 +43,7 @@ functions {
 	lower = lower($upper)
 	max   = max(1, 9, 4, 7)
 	min   = min(1, 1, 0, -1)
+	replace = $lower != $upper ? replace("foobar", "oo", "OO") : ""
 }
 `
 
@@ -80,6 +81,10 @@ func checkString(t *testing.T, doc *Document) {
 		{
 			Key:  []string{"functions", "lower"},
 			Want: "literal",
+		},
+		{
+			Key:  []string{"functions", "replace"},
+			Want: "fOObar",
 		},
 	}
 	for _, d := range data {

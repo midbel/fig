@@ -312,6 +312,25 @@ func (o *Object) get(tok Token) (*Object, error) {
 	return obj, nil
 }
 
+func (o *Object) merge(node Node) error {
+	switch n := node.(type) {
+	case *Object:
+		o.mergeObject(n)
+	case List:
+	case Option:
+		return o.register(n)
+	default:
+		return fmt.Errorf("unexpected node type")
+	}
+	return nil
+}
+
+func (o *Object) mergeObject(other *Object) {
+	for k, v := range other.nodes {
+		o.nodes[k] = v
+	}
+}
+
 func (o *Object) insert(tok Token) (*Object, error) {
 	n, ok := o.nodes[tok.Input]
 	if !ok {

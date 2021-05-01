@@ -76,6 +76,7 @@ type Parser struct {
 
 	infix  map[rune]func(Expr) (Expr, error)
 	prefix map[rune]func() (Expr, error)
+	macros map[string]func([]Expr) (Node, error)
 }
 
 func Parse(r io.Reader) (*Object, error) {
@@ -86,6 +87,9 @@ func Parse(r io.Reader) (*Object, error) {
 
 	var p Parser
 	p.scan = sc
+	p.macros = map[string]func([]Expr) (Node, error){
+		"include": include,
+	}
 	p.prefix = map[rune]func() (Expr, error){
 		Add:      p.parseUnary,
 		Sub:      p.parseUnary,
@@ -140,7 +144,7 @@ func (p *Parser) Parse() (*Object, error) {
 	obj := createObject()
 	for !p.done() {
 		if p.curr.Type == Macro {
-			if _, err := p.parseMacro(); err != nil {
+			if err := p.parseMacro(obj); err != nil {
 				return nil, err
 			}
 			continue
@@ -175,6 +179,12 @@ func (p *Parser) parse(obj *Object) error {
 		}
 		return obj.register(opt)
 	}
+	if p.curr.Type == Macro {
+		if err := p.parseMacro(obj); err != nil {
+			return err
+		}
+		return nil
+	}
 	var err error
 	for !p.done() && p.curr.Type != BegObj {
 		if !p.curr.IsIdent() {
@@ -196,27 +206,34 @@ func (p *Parser) parse(obj *Object) error {
 	return p.parseObject(obj)
 }
 
-func (p *Parser) parseMacro() (Node, error) {
+func (p *Parser) parseMacro(obj *Object) error {
+	macro := p.curr
 	p.next()
 	if p.curr.Type != BegGrp {
-		return nil, p.unexpectedToken()
-	}
-	for !p.done() && p.curr.Type != EndGrp {
-		p.next()
-	}
-	if p.curr.Type != EndGrp {
-		return nil, p.unexpectedToken()
+		return p.unexpectedToken()
 	}
 	p.next()
+	args, err := p.parseArgs()
+	if err != nil {
+		return err
+	}
 	switch p.curr.Type {
 	case Comment:
 		p.next()
 	case EOL:
 		p.next()
 	default:
-		return nil, p.unexpectedToken()
+		return p.unexpectedToken()
 	}
-	return nil, nil
+	call, ok := p.macros[macro.Input]
+	if !ok {
+		return fmt.Errorf("%s: %w macro", macro.Input, ErrUndefined)
+	}
+	node, err := call(args)
+	if err != nil {
+		return err
+	}
+	return obj.merge(node)
 }
 
 func (p *Parser) parseObject(obj *Object) error {
@@ -437,12 +454,22 @@ func (p *Parser) parseCall(left Expr) (Expr, error) {
 	fn := Func{
 		name: name.tok,
 	}
+	args, err := p.parseArgs()
+	if err != nil {
+		return nil, err
+	}
+	fn.args = args
+	return fn, nil
+}
+
+func (p *Parser) parseArgs() ([]Expr, error) {
+	var args []Expr
 	for !p.done() && p.curr.Type != EndGrp {
 		expr, err := p.parseExpr(bindLowest)
 		if err != nil {
 			return nil, err
 		}
-		fn.args = append(fn.args, expr)
+		args = append(args, expr)
 		switch p.curr.Type {
 		case EndGrp:
 		case Comma:
@@ -458,7 +485,7 @@ func (p *Parser) parseCall(left Expr) (Expr, error) {
 		return nil, p.unexpectedToken()
 	}
 	p.next()
-	return fn, nil
+	return args, nil
 }
 
 func (p *Parser) bindCurrent() int {
