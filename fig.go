@@ -8,11 +8,14 @@ import (
 	"time"
 )
 
-var ErrUndefined = errors.New("undefined")
+var (
+	ErrUndefined = errors.New("undefined")
+	ErrResolved  = errors.New("variable cannot be resolved")
+)
 
 type Environment interface {
 	Resolve(string) (Value, error)
-	isLocal() bool
+	resolveLocal(string) (Value, error)
 }
 
 type Env struct {
@@ -56,8 +59,8 @@ func (e *Env) Resolve(str string) (Value, error) {
 	return nil, undefinedVariable(str)
 }
 
-func (e *Env) isLocal() bool {
-	return false
+func (e *Env) resolveLocal(str string) (Value, error) {
+	return e.Resolve(str)
 }
 
 type env struct {
@@ -66,10 +69,6 @@ type env struct {
 }
 
 func createEnv(list []*Object, other Environment) Environment {
-	size := len(list)
-	for i, j := 0, size-1; i < size/2; i, j = i+1, j-1 {
-		list[i], list[j] = list[j], list[i]
-	}
 	e := env{
 		list:   list,
 		parent: other,
@@ -78,6 +77,13 @@ func createEnv(list []*Object, other Environment) Environment {
 }
 
 func (e *env) Resolve(str string) (Value, error) {
+	if e.parent == nil {
+		return nil, undefinedVariable(str)
+	}
+	return e.parent.Resolve(str)
+}
+
+func (e *env) resolveLocal(str string) (Value, error) {
 	for i, obj := range e.list {
 		n, ok := obj.nodes[str]
 		if !ok {
@@ -87,16 +93,9 @@ func (e *env) Resolve(str string) (Value, error) {
 		if !ok {
 			return nil, fmt.Errorf("%s: not an option", str)
 		}
-		if i == 0 {
-			continue
-		}
-		return opt.expr.Eval(createEnv(e.list[:i+1], e.parent))
+		return opt.expr.Eval(createEnv(e.list[i+1:], e.parent))
 	}
 	return nil, undefinedVariable(str)
-}
-
-func (e *env) isLocal() bool {
-	return true
 }
 
 type Document struct {
@@ -283,9 +282,21 @@ func (d *Document) find(paths ...string) (Expr, Environment, error) {
 	if !ok {
 		return nil, nil, fmt.Errorf("%s: not an option", o)
 	}
-	return opt.expr, createEnv(list, d.env), nil
+	return opt.expr, createEnv(reverseList(list), d.env), nil
+}
+
+func reverseList(list []*Object) []*Object {
+	size := len(list)
+	for i, j := 0, size-1; i < size/2; i, j = i+1, j-1 {
+		list[i], list[j] = list[j], list[i]
+	}
+	return list
 }
 
 func undefinedVariable(str string) error {
 	return fmt.Errorf("%s: %w variable", str, ErrUndefined)
+}
+
+func undefinedFunction(str string) error {
+	return fmt.Errorf("%s: %w function", str, ErrUndefined)
 }

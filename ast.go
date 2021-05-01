@@ -127,6 +127,27 @@ func (b Binary) Eval(e Environment) (Value, error) {
 	return left, err
 }
 
+type Ternary struct {
+	cond Expr
+	csq  Expr
+	alt  Expr
+}
+
+func (t Ternary) Eval(e Environment) (Value, error) {
+	v, err := t.cond.Eval(e)
+	if err != nil {
+		return nil, err
+	}
+	if v.isTrue() {
+		return t.csq.Eval(e)
+	}
+	return t.alt.Eval(e)
+}
+
+func (t Ternary) String() string {
+	return fmt.Sprintf("ternary(cdt: %s, csq: %s, alt: %s)", t.cond, t.csq, t.alt)
+}
+
 type Literal struct {
 	tok Token
 	mul float64
@@ -191,12 +212,8 @@ func (v Variable) String() string {
 }
 
 func (v Variable) Eval(e Environment) (Value, error) {
-	if v.tok.Type == EnvVar {
-		e, ok := e.(*env)
-		if !ok {
-			return nil, undefinedVariable(v.tok.Input)
-		}
-		return e.parent.Resolve(v.tok.Input)
+	if v.tok.Type == LocalVar {
+		return e.resolveLocal(v.tok.Input)
 	}
 	return e.Resolve(v.tok.Input)
 }
@@ -210,8 +227,20 @@ func (f Func) String() string {
 	return fmt.Sprintf("function(%s)", f.name.Input)
 }
 
-func (f Func) Eval(_ Environment) (Value, error) {
-	return nil, nil
+func (f Func) Eval(e Environment) (Value, error) {
+	call, ok := builtins[f.name.Input]
+	if !ok {
+		return nil, undefinedFunction(f.name.Input)
+	}
+	args := make([]Value, len(f.args))
+	for i := range f.args {
+		a, err := f.args[i].Eval(e)
+		if err != nil {
+			return nil, err
+		}
+		args[i] = a
+	}
+	return call(args...)
 }
 
 type Array struct {

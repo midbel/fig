@@ -36,6 +36,14 @@ variables {
 variables mix {
 	expr = $int - @int
 }
+
+functions {
+	sqrt  = sqrt(4)
+	upper = upper($str1)
+	lower = lower($upper)
+	max   = max(1, 9, 4, 7)
+	min   = min(1, 1, 0, -1)
+}
 `
 
 func TestDocument(t *testing.T) {
@@ -49,40 +57,40 @@ func TestDocument(t *testing.T) {
 	checkString(t, doc)
 	checkInt(t, doc)
 	checkFloat(t, doc)
-	checkVariable(t, doc)
 }
 
-func checkVariable(t *testing.T, doc *Document) {
+func checkString(t *testing.T, doc *Document) {
 	t.Helper()
 	data := []struct {
 		Key  []string
-		Want int64
+		Want string
 	}{
 		{
-			Key:  []string{"variables", "local", "int"},
-			Want: 100,
+			Key:  []string{"str1"},
+			Want: "literal",
 		},
 		{
-			Key:  []string{"variables", "local", "expr"},
-			Want: 1,
+			Key:  []string{"str2"},
+			Want: "quoted",
 		},
 		{
-			Key:  []string{"variables", "global", "int"},
-			Want: 5,
+			Key:  []string{"functions", "upper"},
+			Want: "LITERAL",
 		},
 		{
-			Key:  []string{"variables", "mix", "expr"},
-			Want: 95,
+			Key:  []string{"functions", "lower"},
+			Want: "literal",
 		},
 	}
 	for _, d := range data {
-		got, err := doc.Int(d.Key...)
+		got, err := doc.Text(d.Key...)
 		if err != nil {
 			t.Errorf("fail to find %s: %s", d.Key, err)
 			continue
 		}
 		if d.Want != got {
-			t.Errorf("integers/variables mismatched! want %d, got %d", d.Want, got)
+			key := strings.Join(d.Key, ".")
+			t.Errorf("%s: strings mismatched! want %s, got %s", key, d.Want, got)
 		}
 	}
 }
@@ -113,6 +121,22 @@ func checkInt(t *testing.T, doc *Document) {
 			Key:  []string{"unit", "iec"},
 			Want: 1024,
 		},
+		{
+			Key:  []string{"variables", "local", "int"},
+			Want: 100,
+		},
+		{
+			Key:  []string{"variables", "local", "expr"},
+			Want: 1,
+		},
+		{
+			Key:  []string{"functions", "max"},
+			Want: 9,
+		},
+		{
+			Key:  []string{"functions", "min"},
+			Want: -1,
+		},
 	}
 	for _, d := range data {
 		got, err := doc.Int(d.Key...)
@@ -126,33 +150,6 @@ func checkInt(t *testing.T, doc *Document) {
 	}
 }
 
-func checkString(t *testing.T, doc *Document) {
-	t.Helper()
-	data := []struct {
-		Key  []string
-		Want string
-	}{
-		{
-			Key:  []string{"str1"},
-			Want: "literal",
-		},
-		{
-			Key:  []string{"str2"},
-			Want: "quoted",
-		},
-	}
-	for _, d := range data {
-		got, err := doc.Text(d.Key...)
-		if err != nil {
-			t.Errorf("fail to find %s: %s", d.Key, err)
-			continue
-		}
-		if d.Want != got {
-			t.Errorf("strings mismatched! want %s, got %s", d.Want, got)
-		}
-	}
-}
-
 func checkFloat(t *testing.T, doc *Document) {
 	t.Helper()
 	data := []struct {
@@ -162,6 +159,10 @@ func checkFloat(t *testing.T, doc *Document) {
 		{
 			Key:  []string{"float"},
 			Want: 1.2,
+		},
+		{
+			Key:  []string{"functions", "sqrt"},
+			Want: 2,
 		},
 	}
 	for _, d := range data {
