@@ -11,6 +11,7 @@ import (
 
 var (
 	ErrArgument = errors.New("invalid number of argument(s)")
+	ErrMissing  = errors.New("missing argument")
 )
 
 var builtins = map[string]func(...Value) (Value, error){
@@ -340,4 +341,8 @@ func base64DecodeUrl(vs ...Value) (Value, error) {
 
 func invalidArgument(fn string) error {
 	return fmt.Errorf("%s: %w given", fn, ErrArgument)
+}
+
+func missingArgument(fn, arg string) error {
+	return fmt.Errorf("%s: %w %s", fn, ErrMissing, arg)
 }
