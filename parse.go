@@ -76,10 +76,10 @@ type Parser struct {
 
 	infix  map[rune]func(Expr) (Expr, error)
 	prefix map[rune]func() (Expr, error)
-	macros map[string]func([]Expr) (Node, error)
+	macros map[string]func(map[string]Expr) (Node, error)
 }
 
-func Parse(r io.Reader) (*Object, error) {
+func NewParser(r io.Reader) (*Parser, error) {
 	sc, err := Scan(r)
 	if err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func Parse(r io.Reader) (*Object, error) {
 
 	var p Parser
 	p.scan = sc
-	p.macros = map[string]func([]Expr) (Node, error){
+	p.macros = map[string]func(map[string]Expr) (Node, error){
 		"include": include,
 	}
 	p.prefix = map[rune]func() (Expr, error){
@@ -134,6 +134,14 @@ func Parse(r io.Reader) (*Object, error) {
 	p.next()
 	p.next()
 
+	return &p, nil
+}
+
+func Parse(r io.Reader) (*Object, error) {
+	p, err := NewParser(r)
+	if err != nil {
+		return nil, err
+	}
 	return p.Parse()
 }
 
@@ -213,7 +221,7 @@ func (p *Parser) parseMacro(obj *Object) error {
 		return p.unexpectedToken()
 	}
 	p.next()
-	args, err := p.parseArgs()
+	args, err := p.parseMapArgs()
 	if err != nil {
 		return err
 	}
@@ -230,7 +238,7 @@ func (p *Parser) parseMacro(obj *Object) error {
 		return fmt.Errorf("%s: %w macro", macro.Input, ErrUndefined)
 	}
 	node, err := call(args)
-	if err != nil {
+	if err != nil || node == nil {
 		return err
 	}
 	return obj.merge(node)
@@ -475,6 +483,47 @@ func (p *Parser) parseArgs() ([]Expr, error) {
 		case Comma:
 			if p.peek.Type == EndGrp {
 				return nil, p.syntaxError()
+			}
+			p.next()
+		default:
+			return nil, p.unexpectedToken()
+		}
+	}
+	if p.curr.Type != EndGrp {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	return args, nil
+}
+
+func (p *Parser) parseMapArgs() (map[string]Expr, error) {
+	args := make(map[string]Expr)
+	for !p.done() && p.curr.Type != EndGrp {
+		if p.curr.Type != Ident {
+			return nil, p.unexpectedToken()
+		}
+		key := p.curr
+		p.next()
+		if p.curr.Type != Assign {
+			return nil, p.unexpectedToken()
+		}
+		p.next()
+		expr, err := p.parseExpr(bindLowest)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := args[key.Input]; ok {
+			return nil, fmt.Errorf("%s: duplicate argument", key.Input)
+		}
+		args[key.Input] = expr
+		switch p.curr.Type {
+		case EndGrp:
+		case Comma:
+			if p.peek.Type == EndGrp {
+				return nil, p.syntaxError()
+			}
+			if p.peek.Type == EOL {
+				p.next()
 			}
 			p.next()
 		default:

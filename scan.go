@@ -3,6 +3,7 @@ package fig
 import (
 	"bytes"
 	"io"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -149,19 +150,21 @@ func (s *Scanner) scanHeredoc(tok *Token) {
 	s.str.Reset()
 	for !isEOF(s.char) {
 		s.read()
+		s.skipBlank()
 		for !isNL(s.char) && !isEOF(s.char) {
 			tmp.WriteRune(s.char)
 			s.read()
 		}
 		line := tmp.String()
-		if line == label {
+		if strings.TrimSpace(line) == label {
 			break
 		}
 		tmp.WriteRune(nl)
 		io.Copy(&s.str, &tmp)
 		prev = line
 	}
-	tok.Input = s.str.String()
+	tok.Type = String
+	tok.Input = strings.TrimSpace(s.str.String())
 	if len(prev) == 0 {
 		tok.Type = Invalid
 	}
