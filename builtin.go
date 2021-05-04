@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -36,6 +37,8 @@ var builtins = map[string]func(...Value) (Value, error){
 	"dir":              dirname,
 	"basename":         basename,
 	"base":             basename,
+	"isdir":            isDir,
+	"isfile":           isFile,
 	"base64_encode":    base64EncodeStd,
 	"base64_decode":    base64DecodeStd,
 	"base64_urlencode": base64EncodeUrl,
@@ -267,6 +270,36 @@ func join(vs ...Value) (Value, error) {
 		return nil, err
 	}
 	return makeText(strings.Join(value, char)), nil
+}
+
+func isDir(vs ...Value) (Value, error) {
+	if len(vs) != 1 {
+		return nil, invalidArgument("isdir")
+	}
+	value, err := toText(vs[0])
+	if err != nil {
+		return nil, err
+	}
+	i, err := os.Stat(value)
+	if err != nil {
+		return nil, err
+	}
+	return makeBool(i.Mode().IsDir()), nil
+}
+
+func isFile(vs ...Value) (Value, error) {
+	if len(vs) != 1 {
+		return nil, invalidArgument("isfile")
+	}
+	value, err := toText(vs[0])
+	if err != nil {
+		return nil, err
+	}
+	i, err := os.Stat(value)
+	if err != nil {
+		return nil, err
+	}
+	return makeBool(i.Mode().IsRegular()), nil
 }
 
 func dirname(vs ...Value) (Value, error) {

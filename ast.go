@@ -46,7 +46,40 @@ type Binary struct {
 }
 
 func (b Binary) String() string {
-	return fmt.Sprintf("binary(left: %s, right: %s)", b.left, b.right)
+	var op string
+	switch b.op {
+	case Add:
+		op = "add"
+	case Sub:
+		op = "sub"
+	case Mul:
+		op = "mul"
+	case Div:
+		op = "div"
+	case Mod:
+		op = "mod"
+	case Pow:
+		op = "pow"
+	case And:
+		op = "and"
+	case Or:
+		op = "or"
+	case Gt:
+		op = "gt"
+	case Lt:
+		op = "lt"
+	case Ge:
+		op = "ge"
+	case Le:
+		op = "le"
+	case Equal:
+		op = "eq"
+	case NotEqual:
+		op = "ne"
+	default:
+		op = "other"
+	}
+	return fmt.Sprintf("binary(%s, left: %s, right: %s)", op, b.left, b.right)
 }
 
 func (b Binary) Eval(e Environment) (Value, error) {
@@ -158,7 +191,7 @@ func makeLiteral(tok Token) Literal {
 }
 
 func (i Literal) String() string {
-	return fmt.Sprintf("literal(%s, multiplier: %.2f)", i.tok.Input, i.mul)
+	return fmt.Sprintf("literal(%s)", i.tok.Input)
 }
 
 func (i Literal) Eval(_ Environment) (Value, error) {
@@ -270,8 +303,9 @@ type Note struct {
 }
 
 type Object struct {
-	name  Token
-	nodes map[string]Node
+	name     Token
+	priority int64
+	nodes    map[string]Node
 
 	Note
 }
@@ -383,6 +417,48 @@ func (o *Object) register(opt Option) error {
 		return fmt.Errorf("%s: can not be inserted", opt)
 	}
 	return nil
+}
+
+func (o *Object) getObject(str string) (*Object, error) {
+	n, ok := o.nodes[str]
+	if !ok {
+		return nil, fmt.Errorf("%s: %w object", str, ErrUndefined)
+	}
+	obj, ok := n.(*Object)
+	if !ok {
+		return nil, fmt.Errorf("%s: not an object", str)
+	}
+	return obj, nil
+}
+
+func (o *Object) getOption(str string) (Option, error) {
+	node, ok := o.nodes[str]
+	if !ok {
+		return Option{}, fmt.Errorf("%s: %w option", str, ErrUndefined)
+	}
+	opt, ok := node.(Option)
+	if !ok {
+		return Option{}, fmt.Errorf("%s: not an option", str)
+	}
+	return opt, nil
+}
+
+func (o *Object) copy() *Object {
+	list := make(map[string]Node)
+	for k, n := range o.nodes {
+		if opt, ok := n.(Option); ok {
+			list[k] = opt
+		}
+	}
+	obj := Object{
+		name:  o.name,
+		nodes: list,
+	}
+	return &obj
+}
+
+func (o *Object) unregister(opt string) {
+	delete(o.nodes, opt)
 }
 
 type List struct {

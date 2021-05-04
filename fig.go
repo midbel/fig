@@ -37,6 +37,8 @@ func EnclosedEnv(env Environment) *Env {
 }
 
 func (e *Env) Delete(str string) {
+	e.rw.Lock()
+	defer e.rw.Unlock()
 	delete(e.values, str)
 }
 
@@ -85,15 +87,14 @@ func (e *env) Resolve(str string) (Value, error) {
 
 func (e *env) resolveLocal(str string) (Value, error) {
 	for i, obj := range e.list {
-		n, ok := obj.nodes[str]
-		if !ok {
-			continue
+		opt, err := obj.getOption(str)
+		if err != nil {
+			if errors.Is(err, ErrUndefined) {
+				continue
+			}
+			return nil, err
 		}
-		opt, ok := n.(Option)
-		if !ok {
-			return nil, fmt.Errorf("%s: not an option", str)
-		}
-		return opt.expr.Eval(createEnv(e.list[i+1:], e.parent))
+		return opt.expr.Eval(createEnv(e.list[i:], e.parent))
 	}
 	return nil, undefinedVariable(str)
 }
@@ -250,38 +251,27 @@ func (d *Document) eval(paths ...string) (Value, error) {
 }
 
 func (d *Document) find(paths ...string) (Expr, Environment, error) {
-	var (
-		z    = len(paths) - 1
-		n    = d.root
-		o    string
-		list []*Object
-	)
-	if z < 0 {
+	if len(paths) == 0 {
 		return nil, nil, fmt.Errorf("empty path!")
 	}
-	o = paths[z]
-	paths = paths[:z]
-	list = append(list, n)
-	for i := 0; i < z; i++ {
-		obj, ok := n.nodes[paths[i]]
-		if !ok {
-			return nil, nil, fmt.Errorf("%s: object not found", paths[i])
+	var (
+		curr = d.root
+		err  error
+		list []*Object
+	)
+	list = append(list, curr.copy())
+	for i := 0; i < len(paths)-1; i++ {
+		curr, err = curr.getObject(paths[i])
+		if err != nil {
+			return nil, nil, err
 		}
-		n, ok = obj.(*Object)
-		if !ok {
-			fmt.Printf("%s %T\n", paths[i], obj)
-			return nil, nil, fmt.Errorf("%s: not an object", paths[i])
-		}
-		list = append(list, n)
+		list = append(list, curr.copy())
 	}
-	node, ok := n.nodes[o]
-	if !ok {
-		return nil, nil, fmt.Errorf("%s: option not found", o)
+	opt, err := curr.getOption(paths[len(paths)-1])
+	if err != nil {
+		return nil, nil, err
 	}
-	opt, ok := node.(Option)
-	if !ok {
-		return nil, nil, fmt.Errorf("%s: not an option", o)
-	}
+	list[len(list)-1].unregister(opt.name.Input)
 	return opt.expr, createEnv(reverseList(list), d.env), nil
 }
 
