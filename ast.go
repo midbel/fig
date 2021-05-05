@@ -241,7 +241,13 @@ func makeVariable(tok Token) Variable {
 }
 
 func (v Variable) String() string {
-	return fmt.Sprintf("variable(%s)", v.tok.Input)
+	var prefix string
+	if v.tok.Type == LocalVar {
+		prefix = "local"
+	} else {
+		prefix = "env"
+	}
+	return fmt.Sprintf("%s(%s)", prefix, v.tok.Input)
 }
 
 func (v Variable) Eval(e Environment) (Value, error) {

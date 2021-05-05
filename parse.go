@@ -170,6 +170,10 @@ func (p *Parser) parse(obj *Object) error {
 		cs = append(cs, p.curr.Input)
 		p.next()
 	}
+	if p.curr.Type == EndObj {
+		// TODO: lines before end-obj should not be lost
+		return nil
+	}
 	if p.curr.IsIdent() && p.peek.Type == Assign {
 		var (
 			opt Option
@@ -196,6 +200,7 @@ func (p *Parser) parse(obj *Object) error {
 	var err error
 	for !p.done() && p.curr.Type != BegObj {
 		if !p.curr.IsIdent() {
+			fmt.Println("parse error", p.curr, p.peek)
 			return p.unexpectedToken()
 		}
 		if p.peek.Type == BegObj {
@@ -212,36 +217,6 @@ func (p *Parser) parse(obj *Object) error {
 		return p.unexpectedToken()
 	}
 	return p.parseObject(obj)
-}
-
-func (p *Parser) parseMacro(obj *Object) error {
-	macro := p.curr
-	p.next()
-	if p.curr.Type != BegGrp {
-		return p.unexpectedToken()
-	}
-	p.next()
-	args, err := p.parseMapArgs()
-	if err != nil {
-		return err
-	}
-	switch p.curr.Type {
-	case Comment:
-		p.next()
-	case EOL:
-		p.next()
-	default:
-		return p.unexpectedToken()
-	}
-	call, ok := p.macros[macro.Input]
-	if !ok {
-		return fmt.Errorf("%s: %w macro", macro.Input, ErrUndefined)
-	}
-	node, err := call(args)
-	if err != nil || node == nil {
-		return err
-	}
-	return obj.merge(node)
 }
 
 func (p *Parser) parseObject(obj *Object) error {
@@ -314,6 +289,36 @@ func (p *Parser) parseValue() (Expr, error) {
 		p.next()
 	}
 	return expr, err
+}
+
+func (p *Parser) parseMacro(obj *Object) error {
+	macro := p.curr
+	p.next()
+	if p.curr.Type != BegGrp {
+		return p.unexpectedToken()
+	}
+	p.next()
+	args, err := p.parseMapArgs()
+	if err != nil {
+		return err
+	}
+	switch p.curr.Type {
+	case Comment:
+		p.next()
+	case EOL:
+		p.next()
+	default:
+		return p.unexpectedToken()
+	}
+	call, ok := p.macros[macro.Input]
+	if !ok {
+		return fmt.Errorf("%s: %w macro", macro.Input, ErrUndefined)
+	}
+	node, err := call(args)
+	if err != nil || node == nil {
+		return err
+	}
+	return obj.merge(node)
 }
 
 func (p *Parser) parseExpr(bind int) (Expr, error) {
