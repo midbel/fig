@@ -198,12 +198,11 @@ func (p *Parser) parse(obj *Object) error {
 		return nil
 	}
 	var err error
-	for !p.done() && p.curr.Type != BegObj {
+	for i := 0; !p.done() && p.curr.Type != BegObj; i++ {
 		if !p.curr.IsIdent() {
-			fmt.Println("parse error", p.curr, p.peek)
 			return p.unexpectedToken()
 		}
-		if p.peek.Type == BegObj {
+		if p.peek.Type == BegObj && i > 0 {
 			obj, err = obj.insert(p.curr)
 		} else {
 			obj, err = obj.get(p.curr)

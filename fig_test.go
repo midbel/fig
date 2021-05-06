@@ -15,6 +15,7 @@ float = 1.2
 expr {
   int = 100 + 1
   neg = -100
+	div = 500 / 100
 }
 
 compare {
@@ -28,6 +29,19 @@ compare {
 unit {
   si  = 1K
   iec = 1k
+}
+
+variables mix {
+	expr = $int - @int
+}
+
+functions {
+	sqrt  = sqrt(4)
+	upper = upper($str1)
+	lower = lower($upper)
+	max   = max(1, 9, 4, 7)
+	min   = min(1, 1, 0, -1)
+	replace = $lower != $upper ? replace("foobar", "oo", "OO") : ""
 }
 
 variables {
@@ -46,19 +60,6 @@ variables {
 	the lazy dog
 	DOC
 }
-
-variables mix {
-	expr = $int - @int
-}
-
-functions {
-	sqrt  = sqrt(4)
-	upper = upper($str1)
-	lower = lower($upper)
-	max   = max(1, 9, 4, 7)
-	min   = min(1, 1, 0, -1)
-	replace = $lower != $upper ? replace("foobar", "oo", "OO") : ""
-}
 `
 
 func TestDocument(t *testing.T) {
@@ -73,6 +74,38 @@ func TestDocument(t *testing.T) {
 	checkFloat(t, doc)
 	checkBool(t, doc)
 	checkInt(t, doc)
+}
+
+func checkInt(t *testing.T, doc *Document) {
+	t.Helper()
+	data := []struct {
+		Key  []string
+		Want int64
+	}{
+		{Key: []string{"int"}, Want: 100},
+		{Key: []string{"expr", "int"}, Want: 101},
+		{Key: []string{"expr", "neg"}, Want: -100},
+		{Key: []string{"expr", "div"}, Want: 5},
+		{Key: []string{"unit", "si"}, Want: 1000},
+		{Key: []string{"unit", "iec"}, Want: 1024},
+		{Key: []string{"functions", "max"}, Want: 9},
+		{Key: []string{"functions", "min"}, Want: -1},
+		{Key: []string{"variables", "local", "var"}, Want: 100},
+		{Key: []string{"variables", "local", "int"}, Want: 500},
+		{Key: []string{"variables", "local", "expr"}, Want: 5},
+	}
+	for _, d := range data {
+		got, err := doc.Int(d.Key...)
+		if err != nil {
+			key := strings.Join(d.Key, "/")
+			t.Errorf("fail to find %s: %s", key, err)
+			continue
+		}
+		if d.Want != got {
+			key := strings.Join(d.Key, "/")
+			t.Errorf("%s: integers mismatched! want %d, got %d", key, d.Want, got)
+		}
+	}
 }
 
 func checkBool(t *testing.T, doc *Document) {
@@ -91,7 +124,8 @@ func checkBool(t *testing.T, doc *Document) {
 	for _, d := range data {
 		got, err := doc.Bool(d.Key...)
 		if err != nil {
-			t.Errorf("fail to find %s: %s", d.Key, err)
+			key := strings.Join(d.Key, "/")
+			t.Errorf("fail to find %s: %s", key, err)
 			continue
 		}
 		if d.Want != got {
@@ -117,41 +151,13 @@ func checkString(t *testing.T, doc *Document) {
 	for _, d := range data {
 		got, err := doc.Text(d.Key...)
 		if err != nil {
-			t.Errorf("fail to find %s: %s", d.Key, err)
+			key := strings.Join(d.Key, "/")
+			t.Errorf("fail to find %s: %s", key, err)
 			continue
 		}
 		if d.Want != strings.ReplaceAll(got, "\r\n", "\n") {
 			key := strings.Join(d.Key, "/")
 			t.Errorf("%s: strings mismatched! want %s, got %s", key, d.Want, got)
-		}
-	}
-}
-
-func checkInt(t *testing.T, doc *Document) {
-	t.Helper()
-	data := []struct {
-		Key  []string
-		Want int64
-	}{
-		{Key: []string{"int"}, Want: 100},
-		{Key: []string{"expr", "int"}, Want: 101},
-		{Key: []string{"expr", "neg"}, Want: -100},
-		{Key: []string{"unit", "si"}, Want: 1000},
-		{Key: []string{"unit", "iec"}, Want: 1024},
-		{Key: []string{"variables", "local", "int"}, Want: 500},
-		{Key: []string{"variables", "local", "expr"}, Want: 5},
-		{Key: []string{"functions", "max"}, Want: 9},
-		{Key: []string{"functions", "min"}, Want: -1},
-	}
-	for _, d := range data {
-		got, err := doc.Int(d.Key...)
-		if err != nil {
-			t.Errorf("fail to find %s: %s", d.Key, err)
-			continue
-		}
-		if d.Want != got {
-			key := strings.Join(d.Key, "/")
-			t.Errorf("%s: integers mismatched! want %d, got %d", key, d.Want, got)
 		}
 	}
 }
@@ -168,7 +174,8 @@ func checkFloat(t *testing.T, doc *Document) {
 	for _, d := range data {
 		got, err := doc.Float(d.Key...)
 		if err != nil {
-			t.Errorf("fail to find %s: %s", d.Key, err)
+			key := strings.Join(d.Key, "/")
+			t.Errorf("fail to find %s: %s", key, err)
 			continue
 		}
 		if d.Want != got {

@@ -94,7 +94,12 @@ func (e *env) resolveLocal(str string) (Value, error) {
 			}
 			return nil, err
 		}
-		return opt.expr.Eval(createEnv(e.list[i:], e.parent))
+		e.list[i].unregister(str)
+		v, err := opt.expr.Eval(createEnv(e.list[i:], e.parent))
+		if err == nil {
+			e.list[i].replace(opt, v)
+		}
+		return v, err
 	}
 	return nil, undefinedVariable(str)
 }

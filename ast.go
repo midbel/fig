@@ -11,6 +11,18 @@ type Expr interface {
 	fmt.Stringer
 }
 
+type value struct {
+	inner Value
+}
+
+func (v value) Eval(_ Environment) (Value, error) {
+	return v.inner, nil
+}
+
+func (v value) String() string {
+	return fmt.Sprintf("value(%s)", v.inner)
+}
+
 type Unary struct {
 	right Expr
 	op    rune
@@ -343,7 +355,10 @@ func (o *Object) IsEmpty() bool {
 func (o *Object) get(tok Token) (*Object, error) {
 	n, ok := o.nodes[tok.Input]
 	if !ok {
-		return nil, fmt.Errorf("%s: object not found", tok.Input)
+		obj := createObjectWithToken(tok)
+		o.nodes[tok.Input] = obj
+		return obj, nil
+		// return nil, fmt.Errorf("%s: object not found", tok.Input)
 	}
 	obj, ok := n.(*Object)
 	if !ok {
@@ -422,6 +437,12 @@ func (o *Object) register(opt Option) error {
 	default:
 		return fmt.Errorf("%s: can not be inserted", opt)
 	}
+	return nil
+}
+
+func (o *Object) replace(opt Option, expr Value) error {
+	opt.expr = value{expr}
+	o.nodes[opt.name.Input] = opt
 	return nil
 }
 
