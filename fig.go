@@ -27,31 +27,31 @@ func ParseDocumentWithEnv(r io.Reader, env Environment) (*Document, error) {
 	return &doc, nil
 }
 
-func (d *Document) SetInt(str string, i int64) {
+func (d *Document) DefineInt(str string, i int64) {
 	if e, ok := d.env.(*Env); ok {
 		e.Define(str, makeInt(i))
 	}
 }
 
-func (d *Document) SetBool(str string, b bool) {
+func (d *Document) DefineBool(str string, b bool) {
 	if e, ok := d.env.(*Env); ok {
 		e.Define(str, makeBool(b))
 	}
 }
 
-func (d *Document) SetDouble(str string, f float64) {
+func (d *Document) DefineDouble(str string, f float64) {
 	if e, ok := d.env.(*Env); ok {
 		e.Define(str, makeDouble(f))
 	}
 }
 
-func (d *Document) SetText(str string, t string) {
+func (d *Document) DefineText(str string, t string) {
 	if e, ok := d.env.(*Env); ok {
 		e.Define(str, makeText(str))
 	}
 }
 
-func (d *Document) SetTime(str string, t time.Time) {
+func (d *Document) DefineTime(str string, t time.Time) {
 	if e, ok := d.env.(*Env); ok {
 		e.Define(str, makeMoment(t))
 	}
@@ -107,8 +107,7 @@ func (d *Document) Time(paths ...string) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, err
 	}
-	_ = t
-	return time.Now(), nil
+	return toTime(t)
 }
 
 func (d *Document) Text(paths ...string) (string, error) {

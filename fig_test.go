@@ -1,80 +1,61 @@
 package fig
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
-const sample = `
-bool  = true
-str1  = literal
-str2  = "quoted"
-int   = 100
-float = 1.2
-
-expr {
-  int = 100 + 1
-  neg = -100
-	div = 500 / 100
-}
-
-compare {
-	lt  = 100 < 1_000
-	gt  = 100 > 1_000
-	eq  = $lt == $gt
-	ne  = $lt != $gt
-	not = !$eq
-}
-
-unit {
-  si  = 1K
-  iec = 1k
-}
-
-variables mix {
-	expr = $int - @int
-	mod  = $int % $int
-}
-
-functions {
-	sqrt  = sqrt(4)
-	upper = upper($str1)
-	lower = lower($upper)
-	max   = max(1, 9, 4, 7)
-	min   = min(1, 1, 0, -1)
-	replace = $lower != $upper ? replace("foobar", "oo", "OO") : ""
-}
-
-variables {
-	local {
-		var  = 100
-		int  = $int * 5 # will get the int defined at top level of document
-		expr = ($int / $var) # will get the int defined in the current object
-	}
-	global {
-		int = @int
-	}
-
-	heredoc = <<DOC
-	the quick brown fox
-	jumps over
-	the lazy dog
-	DOC
-}
-`
-
 func TestDocument(t *testing.T) {
-	doc, err := ParseDocument(strings.NewReader(sample))
+	r, err := os.Open(filepath.Join("testdata", "main.fig"))
+	if err != nil {
+		t.Fatalf("fail to open sample config file: %s", err)
+		return
+	}
+	defer r.Close()
+	doc, err := ParseDocument(r)
 	if err != nil {
 		t.Errorf("unexpected error parsing document: %s", err)
 		return
 	}
-	doc.SetInt("int", 5)
+	doc.DefineInt("int", 5)
 
 	checkString(t, doc)
 	checkFloat(t, doc)
 	checkBool(t, doc)
 	checkInt(t, doc)
+	checkTime(t, doc)
+}
+
+func checkTime(t *testing.T, doc *Document) {
+	t.Helper()
+	data := []struct {
+		Key  []string
+		Want time.Time
+	}{
+		{Key: []string{"times", "date"}, Want: time.Date(2021, 5, 7, 0, 0, 0, 0, time.UTC)},
+		{Key: []string{"times", "dt1"}, Want: time.Date(2021, 5, 7, 19, 6, 47, 0, time.UTC)},
+		{Key: []string{"times", "dt2"}, Want: time.Date(2021, 5, 7, 19, 6, 47, 0, time.UTC)},
+		{Key: []string{"times", "dt3"}, Want: time.Date(2021, 5, 7, 19, 6, 47, 0, time.UTC)},
+		{Key: []string{"times", "dt4"}, Want: time.Date(2021, 5, 7, 19, 6, 47, 123_000_000, time.UTC)},
+		{Key: []string{"times", "dt5"}, Want: time.Date(2021, 5, 7, 19, 6, 47, 123_456_000, time.UTC)},
+		{Key: []string{"times", "dt6"}, Want: time.Date(2021, 5, 7, 19, 6, 47, 123_456_789, time.UTC)},
+		{Key: []string{"times", "time"}, Want: time.Date(0, 1, 1, 19, 6, 47, 0, time.UTC)},
+	}
+	for _, d := range data {
+		got, err := doc.Time(d.Key...)
+		if err != nil {
+			key := strings.Join(d.Key, "/")
+			t.Errorf("fail to find %s: %s", key, err)
+			continue
+		}
+		if !d.Want.Equal(got) {
+			key := strings.Join(d.Key, "/")
+			t.Errorf("%s: time mismatched! want %s, got %s", key, d.Want, got)
+		}
+	}
 }
 
 func checkInt(t *testing.T, doc *Document) {

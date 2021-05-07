@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+  "time"
 )
 
 type Expr interface {
@@ -181,6 +182,32 @@ func (t Ternary) String() string {
 	return fmt.Sprintf("ternary(cdt: %s, csq: %s, alt: %s)", t.cond, t.csq, t.alt)
 }
 
+var timePattern = []string{
+  "2006-01-02T15:04:05",
+  "2006-01-02T15:04:05Z",
+  "2006-01-02T15:04:05.000Z",
+  "2006-01-02T15:04:05.000000Z",
+  "2006-01-02T15:04:05.000000000Z",
+  "2006-01-02T15:04:05-07:00",
+  "2006-01-02T15:04:05.000-07:00",
+  "2006-01-02T15:04:05.000000-07:00",
+  "2006-01-02T15:04:05.000000000-07:00",
+  "2006-01-02 15:04:05",
+  "2006-01-02 15:04:05Z",
+  "2006-01-02 15:04:05.000Z",
+  "2006-01-02 15:04:05.000000Z",
+  "2006-01-02 15:04:05.000000000Z",
+  "2006-01-02 15:04:05-07:00",
+  "2006-01-02 15:04:05.000-07:00",
+  "2006-01-02 15:04:05.000000-07:00",
+  "2006-01-02 15:04:05.000000000-07:00",
+  "2006-01-02",
+  "15:04:05",
+  "15:04:05.000",
+  "15:04:05.000000",
+  "15:04:05.000000000",
+}
+
 type Literal struct {
 	tok Token
 	mul float64
@@ -212,8 +239,17 @@ func (i Literal) Eval(_ Environment) (Value, error) {
 		}
 	case String, Ident:
 		val = makeText(i.tok.Input)
-	case Date, DateTime:
-		val = Moment{}
+	case Date, DateTime, Time:
+    var when time.Time
+    for _, pattern := range timePattern {
+      when, err = time.Parse(pattern, i.tok.Input)
+      if err == nil {
+        break
+      }
+    }
+    if err == nil {
+      val = makeMoment(when)
+    }
 	case Boolean:
 		switch i.tok.Input {
 		case kwTrue, kwYes, kwOn:

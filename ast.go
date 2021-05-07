@@ -31,31 +31,21 @@ func createObjectWithToken(tok Token) *Object {
 	}
 }
 
+func (o *Object) Decode(v interface{}) error {
+	return nil
+}
+
 func (o *Object) String() string {
 	return fmt.Sprintf("object(%s)", o.name.Input)
 }
 
-func (o *Object) IsRoot() bool {
-	return o.name.isZero()
-}
-
-func (o *Object) IsEmpty() bool {
-	return len(o.nodes) == 0
-}
-
 func (o *Object) get(tok Token) (*Object, error) {
-	n, ok := o.nodes[tok.Input]
-	if !ok {
+	if _, ok := o.nodes[tok.Input]; !ok {
 		obj := createObjectWithToken(tok)
 		o.nodes[tok.Input] = obj
 		return obj, nil
-		// return nil, fmt.Errorf("%s: object not found", tok.Input)
 	}
-	obj, ok := n.(*Object)
-	if !ok {
-		return nil, fmt.Errorf("%s should be an object", tok.Input)
-	}
-	return obj, nil
+	return o.getObject(tok.Input)
 }
 
 func (o *Object) merge(node Node) error {

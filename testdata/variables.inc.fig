@@ -1,0 +1,22 @@
+variables {
+	heredoc = <<DOC
+	the quick brown fox
+	jumps over
+	the lazy dog
+	DOC
+}
+
+variables local {
+  var  = 100
+  int  = $int * 5 # will get the int defined at top level of document
+  expr = ($int / $var) # will get the int defined in the current object
+}
+
+variables global {
+  int = @int
+}
+
+variables mix {
+	expr = $int - @int
+	mod  = $int % $int
+}

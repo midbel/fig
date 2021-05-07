@@ -1,0 +1,8 @@
+functions {
+	sqrt  = sqrt(4)
+	upper = upper($str1)
+	lower = lower($upper)
+	max   = max(1, 9, 4, 7)
+	min   = min(1, 1, 0, -1)
+	replace = $lower != $upper ? replace("foobar", "oo", "OO") : ""
+}

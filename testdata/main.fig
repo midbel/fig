@@ -1,0 +1,38 @@
+bool  = true
+str1  = literal
+str2  = "quoted"
+int   = 100
+float = 1.2
+
+expr {
+  int = 100 + 1
+  neg = -100
+	div = 500 / 100
+}
+
+compare {
+	lt  = 100 < 1_000
+	gt  = 100 > 1_000
+	eq  = $lt == $gt
+	ne  = $lt != $gt
+	not = !$eq
+}
+
+unit {
+  si  = 1K
+  iec = 1k
+}
+
+times {
+  date = 2021-05-07
+  time = 19:06:47
+  dt1  = 2021-05-07T19:06:47Z
+  dt2  = 2021-05-07 19:06:47Z
+  dt3  = 2021-05-07 19:06:47-00:00
+  dt4  = 2021-05-07 19:06:47.123Z
+  dt5  = 2021-05-07 19:06:47.123456Z
+  dt6  = 2021-05-07 19:06:47.123456789Z
+}
+
+.include(file="testdata/variables.inc.fig")
+.include(file="testdata/functions.inc.fig")

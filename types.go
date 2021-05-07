@@ -751,3 +751,12 @@ func toText(v Value) (string, error) {
 		return "", ErrIncompatible
 	}
 }
+
+func toTime(v Value) (time.Time, error) {
+	switch v := v.(type) {
+	case Moment:
+		return v.inner, nil
+	default:
+		return time.Time{}, ErrIncompatible
+	}
+}
