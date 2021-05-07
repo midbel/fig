@@ -645,20 +645,20 @@ func (s *Scanner) read() {
 	}
 }
 
-func (s *Scanner) unread() {
-	if s.next <= 0 || s.char == zero {
-		return
-	}
-	if s.char == nl {
-		s.line--
-		s.column = s.seen
-	} else {
-		s.column--
-	}
-	s.next = s.curr
-	s.curr -= utf8.RuneLen(s.char)
-	s.char, _ = utf8.DecodeRune(s.input[s.curr:])
-}
+// func (s *Scanner) unread() {
+// 	if s.next <= 0 || s.char == zero {
+// 		return
+// 	}
+// 	if s.char == nl {
+// 		s.line--
+// 		s.column = s.seen
+// 	} else {
+// 		s.column--
+// 	}
+// 	s.next = s.curr
+// 	s.curr -= utf8.RuneLen(s.char)
+// 	s.char, _ = utf8.DecodeRune(s.input[s.curr:])
+// }
 
 func (s *Scanner) skipBlank() {
 	s.skip(isBlank)

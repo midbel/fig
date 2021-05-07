@@ -28,6 +28,8 @@ func TestScan(t *testing.T) {
     # scan dates
     2021-04-18, 2021-04-18T19:16:45.321Z, 2021-04-18 19:16:45.321+02:00
     19:16:45, 19:16:45.123
+		# scan macros
+		.include
   `
 
 	sc, err := Scan(strings.NewReader(strings.TrimSpace(str)))
@@ -91,6 +93,9 @@ func TestScan(t *testing.T) {
 		makeToken("19:16:45", Time),
 		makeToken("", Comma),
 		makeToken("19:16:45.123", Time),
+		makeToken("", EOL),
+		makeToken("scan macros", Comment),
+		makeToken("include", Macro),
 	}
 	for i := 0; ; i++ {
 		tok := sc.Scan()
