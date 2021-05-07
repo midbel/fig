@@ -33,6 +33,7 @@ unit {
 
 variables mix {
 	expr = $int - @int
+	mod  = $int % $int
 }
 
 functions {
@@ -93,6 +94,7 @@ func checkInt(t *testing.T, doc *Document) {
 		{Key: []string{"variables", "local", "var"}, Want: 100},
 		{Key: []string{"variables", "local", "int"}, Want: 500},
 		{Key: []string{"variables", "local", "expr"}, Want: 5},
+		{Key: []string{"variables", "mix", "mod"}, Want: 0},
 	}
 	for _, d := range data {
 		got, err := doc.Int(d.Key...)
