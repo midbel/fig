@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-  "time"
+	"time"
 )
 
 type Expr interface {
@@ -183,29 +183,29 @@ func (t Ternary) String() string {
 }
 
 var timePattern = []string{
-  "2006-01-02T15:04:05",
-  "2006-01-02T15:04:05Z",
-  "2006-01-02T15:04:05.000Z",
-  "2006-01-02T15:04:05.000000Z",
-  "2006-01-02T15:04:05.000000000Z",
-  "2006-01-02T15:04:05-07:00",
-  "2006-01-02T15:04:05.000-07:00",
-  "2006-01-02T15:04:05.000000-07:00",
-  "2006-01-02T15:04:05.000000000-07:00",
-  "2006-01-02 15:04:05",
-  "2006-01-02 15:04:05Z",
-  "2006-01-02 15:04:05.000Z",
-  "2006-01-02 15:04:05.000000Z",
-  "2006-01-02 15:04:05.000000000Z",
-  "2006-01-02 15:04:05-07:00",
-  "2006-01-02 15:04:05.000-07:00",
-  "2006-01-02 15:04:05.000000-07:00",
-  "2006-01-02 15:04:05.000000000-07:00",
-  "2006-01-02",
-  "15:04:05",
-  "15:04:05.000",
-  "15:04:05.000000",
-  "15:04:05.000000000",
+	"2006-01-02T15:04:05",
+	"2006-01-02T15:04:05Z",
+	"2006-01-02T15:04:05.000Z",
+	"2006-01-02T15:04:05.000000Z",
+	"2006-01-02T15:04:05.000000000Z",
+	"2006-01-02T15:04:05-07:00",
+	"2006-01-02T15:04:05.000-07:00",
+	"2006-01-02T15:04:05.000000-07:00",
+	"2006-01-02T15:04:05.000000000-07:00",
+	"2006-01-02 15:04:05",
+	"2006-01-02 15:04:05Z",
+	"2006-01-02 15:04:05.000Z",
+	"2006-01-02 15:04:05.000000Z",
+	"2006-01-02 15:04:05.000000000Z",
+	"2006-01-02 15:04:05-07:00",
+	"2006-01-02 15:04:05.000-07:00",
+	"2006-01-02 15:04:05.000000-07:00",
+	"2006-01-02 15:04:05.000000000-07:00",
+	"2006-01-02",
+	"15:04:05",
+	"15:04:05.000",
+	"15:04:05.000000",
+	"15:04:05.000000000",
 }
 
 type Literal struct {
@@ -240,16 +240,16 @@ func (i Literal) Eval(_ Environment) (Value, error) {
 	case String, Ident:
 		val = makeText(i.tok.Input)
 	case Date, DateTime, Time:
-    var when time.Time
-    for _, pattern := range timePattern {
-      when, err = time.Parse(pattern, i.tok.Input)
-      if err == nil {
-        break
-      }
-    }
-    if err == nil {
-      val = makeMoment(when)
-    }
+		var when time.Time
+		for _, pattern := range timePattern {
+			when, err = time.Parse(pattern, i.tok.Input)
+			if err == nil {
+				break
+			}
+		}
+		if err == nil {
+			val = makeMoment(when)
+		}
 	case Boolean:
 		switch i.tok.Input {
 		case kwTrue, kwYes, kwOn:
@@ -345,6 +345,41 @@ func (a Array) String() string {
 	return fmt.Sprintf("array(%s)", strings.Join(str, ", "))
 }
 
-func (a Array) Eval(_ Environment) (Value, error) {
-	return nil, nil
+func (a Array) Eval(e Environment) (Value, error) {
+	var (
+		vs  = make([]Value, len(a.expr))
+		err error
+	)
+	for i := range a.expr {
+		vs[i], err = a.expr[i].Eval(e)
+		if err != nil {
+			break
+		}
+	}
+	var v Value
+	if err == nil {
+		v = Slice{inner: vs}
+	}
+	return v, err
+}
+
+type Index struct {
+	arr Expr
+	ptr Expr
+}
+
+func (i Index) String() string {
+	return fmt.Sprintf("index(arr: %s, index: %s)", i.arr, i.ptr)
+}
+
+func (i Index) Eval(e Environment) (Value, error) {
+	arr, err := i.arr.Eval(e)
+	if err != nil {
+		return nil, err
+	}
+	ptr, err := i.ptr.Eval(e)
+	if err != nil {
+		return nil, err
+	}
+	return arr.at(ptr)
 }

@@ -39,15 +39,6 @@ func (o *Object) String() string {
 	return fmt.Sprintf("object(%s)", o.name.Input)
 }
 
-func (o *Object) get(tok Token) (*Object, error) {
-	if _, ok := o.nodes[tok.Input]; !ok {
-		obj := createObjectWithToken(tok)
-		o.nodes[tok.Input] = obj
-		return obj, nil
-	}
-	return o.getObject(tok.Input)
-}
-
 func (o *Object) merge(node Node) error {
 	switch n := node.(type) {
 	case *Object:
@@ -65,6 +56,16 @@ func (o *Object) mergeObject(other *Object) {
 	for k, v := range other.nodes {
 		o.nodes[k] = v
 	}
+}
+
+func (o *Object) get(tok Token) (*Object, error) {
+	if _, ok := o.nodes[tok.Input]; !ok {
+		obj := createObjectWithToken(tok)
+		o.nodes[tok.Input] = obj
+		return obj, nil
+	}
+	// return o.getObject(tok.Input)
+	return o.insert(tok)
 }
 
 func (o *Object) insert(tok Token) (*Object, error) {
@@ -134,7 +135,7 @@ func (o *Object) getObject(str string) (*Object, error) {
 	}
 	obj, ok := n.(*Object)
 	if !ok {
-		return nil, fmt.Errorf("%s: not an object", str)
+		return nil, fmt.Errorf("%s: not an object (%T)", str, n)
 	}
 	return obj, nil
 }

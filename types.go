@@ -12,10 +12,12 @@ var (
 	ErrIncompatible = errors.New("incompatible types")
 	ErrUnsupported  = errors.New("unsupported operation")
 	ErrZeroDiv      = errors.New("division by zero")
+	ErrIndex        = errors.New("index out of range")
 )
 
 const (
-	scoreBool int = iota
+	scoreLowest int = iota
+	scoreBool
 	scoreText
 	scoreInt
 	scoreDouble
@@ -32,6 +34,8 @@ type Value interface {
 	modulo(Value) (Value, error)
 	power(Value) (Value, error)
 	reverse() (Value, error)
+
+	at(Value) (Value, error)
 
 	not() (Value, error)
 	and(Value) (Value, error)
@@ -102,6 +106,7 @@ func (b Bool) toBool() (Value, error) {
 	return b, nil
 }
 
+func (b Bool) at(_ Value) (Value, error)         { return nil, ErrUnsupported }
 func (b Bool) add(_ Value) (Value, error)        { return nil, ErrUnsupported }
 func (b Bool) subtract(_ Value) (Value, error)   { return nil, ErrUnsupported }
 func (b Bool) multiply(_ Value) (Value, error)   { return nil, ErrUnsupported }
@@ -285,6 +290,8 @@ func (i Int) toMoment() (Value, error) {
 	return nil, ErrIncompatible
 }
 
+func (i Int) at(_ Value) (Value, error) { return nil, ErrUnsupported }
+
 type Double struct {
 	inner float64
 }
@@ -405,6 +412,7 @@ func (d Double) binxor(other Value) (Value, error)     { return nil, ErrUnsuppor
 func (d Double) binnot() (Value, error)                { return nil, ErrUnsupported }
 func (d Double) toText() (Value, error)                { return nil, ErrIncompatible }
 func (d Double) toMoment() (Value, error)              { return nil, ErrIncompatible }
+func (d Double) at(_ Value) (Value, error)             { return nil, ErrUnsupported }
 
 type Text struct {
 	inner string
@@ -454,6 +462,7 @@ func (t Text) toText() (Value, error) {
 	return t, nil
 }
 
+func (t Text) at(_ Value) (Value, error)         { return nil, ErrUnsupported }
 func (t Text) subtract(_ Value) (Value, error)   { return nil, ErrUnsupported }
 func (t Text) multiply(_ Value) (Value, error)   { return nil, ErrUnsupported }
 func (t Text) divide(_ Value) (Value, error)     { return nil, ErrUnsupported }
@@ -565,6 +574,7 @@ func (m Moment) toMoment() (Value, error) {
 	return m, nil
 }
 
+func (m Moment) at(_ Value) (Value, error)         { return nil, ErrUnsupported }
 func (m Moment) multiply(_ Value) (Value, error)   { return nil, ErrUnsupported }
 func (m Moment) divide(_ Value) (Value, error)     { return nil, ErrUnsupported }
 func (m Moment) modulo(_ Value) (Value, error)     { return nil, ErrUnsupported }
@@ -576,6 +586,75 @@ func (m Moment) binand(_ Value) (Value, error)     { return nil, ErrUnsupported 
 func (m Moment) binor(_ Value) (Value, error)      { return nil, ErrUnsupported }
 func (m Moment) binnot() (Value, error)            { return nil, ErrUnsupported }
 func (m Moment) binxor(_ Value) (Value, error)     { return nil, ErrUnsupported }
+
+type Slice struct {
+	inner []Value
+}
+
+func (s Slice) isTrue() bool {
+	return len(s.inner) > 0
+}
+
+func (s Slice) score() int {
+	return scoreLowest
+}
+
+func (s Slice) and(other Value) (Value, error) {
+	return and(s, other), nil
+}
+
+func (s Slice) or(other Value) (Value, error) {
+	return or(s, other), nil
+}
+
+func (s Slice) compare(other Value) (int, error) {
+	x, ok := other.(Slice)
+	if !ok {
+		return -1, ErrIncompatible
+	}
+	if len(s.inner) == len(x.inner) {
+		return 0, nil
+	}
+	if len(s.inner) > len(x.inner) {
+		return 1, nil
+	}
+	return -1, nil
+}
+
+func (s Slice) at(ix Value) (Value, error) {
+	y, err := toInt(ix)
+	if err != nil {
+		return nil, ErrIncompatible
+	}
+	x := int(y)
+	if x < 0 {
+		x = len(s.inner) + x
+	}
+	if x < 0 || x >= len(s.inner) {
+		return nil, ErrIndex
+	}
+	return s.inner[x], nil
+}
+
+func (s Slice) add(_ Value) (Value, error)        { return nil, ErrUnsupported }
+func (s Slice) subtract(_ Value) (Value, error)   { return nil, ErrUnsupported }
+func (s Slice) multiply(_ Value) (Value, error)   { return nil, ErrUnsupported }
+func (s Slice) divide(_ Value) (Value, error)     { return nil, ErrUnsupported }
+func (s Slice) modulo(_ Value) (Value, error)     { return nil, ErrUnsupported }
+func (s Slice) power(_ Value) (Value, error)      { return nil, ErrUnsupported }
+func (s Slice) reverse() (Value, error)           { return nil, ErrUnsupported }
+func (s Slice) not() (Value, error)               { return nil, ErrUnsupported }
+func (s Slice) leftshift(_ Value) (Value, error)  { return nil, ErrUnsupported }
+func (s Slice) rightshift(_ Value) (Value, error) { return nil, ErrUnsupported }
+func (s Slice) binand(_ Value) (Value, error)     { return nil, ErrUnsupported }
+func (s Slice) binor(_ Value) (Value, error)      { return nil, ErrUnsupported }
+func (s Slice) binnot() (Value, error)            { return nil, ErrUnsupported }
+func (s Slice) binxor(Value) (Value, error)       { return nil, ErrUnsupported }
+func (s Slice) toInt() (Value, error)             { return nil, ErrUnsupported }
+func (s Slice) toDouble() (Value, error)          { return nil, ErrUnsupported }
+func (s Slice) toBool() (Value, error)            { return nil, ErrUnsupported }
+func (s Slice) toText() (Value, error)            { return nil, ErrUnsupported }
+func (s Slice) toMoment() (Value, error)          { return nil, ErrUnsupported }
 
 func and(left, right Value) Value {
 	return makeBool(left.isTrue() && right.isTrue())

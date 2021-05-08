@@ -42,7 +42,10 @@ func checkTime(t *testing.T, doc *Document) {
 		{Key: []string{"times", "dt4"}, Want: time.Date(2021, 5, 7, 19, 6, 47, 123_000_000, time.UTC)},
 		{Key: []string{"times", "dt5"}, Want: time.Date(2021, 5, 7, 19, 6, 47, 123_456_000, time.UTC)},
 		{Key: []string{"times", "dt6"}, Want: time.Date(2021, 5, 7, 19, 6, 47, 123_456_789, time.UTC)},
-		{Key: []string{"times", "time"}, Want: time.Date(0, 1, 1, 19, 6, 47, 0, time.UTC)},
+		{Key: []string{"times", "time1"}, Want: time.Date(0, 1, 1, 19, 6, 47, 0, time.UTC)},
+		{Key: []string{"times", "time2"}, Want: time.Date(0, 1, 1, 19, 6, 47, 123_000_000, time.UTC)},
+		{Key: []string{"times", "time3"}, Want: time.Date(0, 1, 1, 19, 6, 47, 123_456_000, time.UTC)},
+		{Key: []string{"times", "time4"}, Want: time.Date(0, 1, 1, 19, 6, 47, 123_456_789, time.UTC)},
 	}
 	for _, d := range data {
 		got, err := doc.Time(d.Key...)

@@ -42,6 +42,7 @@ const (
 	bindAdd
 	bindMul
 	bindPow
+	bindIndex
 	bindCall
 )
 
@@ -65,6 +66,7 @@ var powers = map[rune]int{
 	Mod:      bindMul,
 	Pow:      bindPow,
 	BegGrp:   bindCall,
+	BegArr:   bindIndex,
 	Assign:   bindAssign,
 	Question: bindCdt,
 }
@@ -107,6 +109,7 @@ func NewParser(r io.Reader) (*Parser, error) {
 		LocalVar: p.parseVariable,
 		EnvVar:   p.parseVariable,
 		BegGrp:   p.parseGroup,
+		BegArr:   p.parseArray,
 	}
 	p.infix = map[rune]func(Expr) (Expr, error){
 		Add:      p.parseInfix,
@@ -129,6 +132,7 @@ func NewParser(r io.Reader) (*Parser, error) {
 		Bor:      p.parseInfix,
 		Bnot:     p.parseInfix,
 		BegGrp:   p.parseCall,
+		BegArr:   p.parseIndex,
 		Question: p.parseTernary,
 	}
 	p.next()
@@ -202,7 +206,7 @@ func (p *Parser) parse(obj *Object) error {
 		if !p.curr.IsIdent() {
 			return p.unexpectedToken()
 		}
-		if p.peek.Type == BegObj && i > 0 {
+		if p.peek.Type == BegObj {
 			obj, err = obj.insert(p.curr)
 		} else {
 			obj, err = obj.get(p.curr)
@@ -235,48 +239,8 @@ func (p *Parser) parseObject(obj *Object) error {
 	return nil
 }
 
-func (p *Parser) parseArray() (Expr, error) {
-	p.next()
-	var arr Array
-	for !p.done() && p.curr.Type != EndArr {
-		var (
-			expr Expr
-			err  error
-		)
-		if p.curr.Type == BegArr {
-			expr, err = p.parseArray()
-		} else {
-			expr, err = p.parseExpr(bindLowest)
-		}
-		if err != nil {
-			return nil, err
-		}
-		arr.expr = append(arr.expr, expr)
-		switch p.curr.Type {
-		case Comma:
-			p.next()
-		case EndArr:
-		case EOL:
-			if p.peek.Type != EndArr {
-				return nil, p.unexpectedToken()
-			}
-			p.next()
-		default:
-			return nil, p.unexpectedToken()
-		}
-	}
-	if p.curr.Type != EndArr {
-		return nil, p.unexpectedToken()
-	}
-	p.next()
-	return arr, nil
-}
-
 func (p *Parser) parseValue() (Expr, error) {
 	p.next()
-	if p.curr.Type == BegArr {
-		return p.parseArray()
-	}
 	if p.curr.Type == EOL {
 		return nil, p.syntaxError()
 	}
@@ -339,6 +303,43 @@ func (p *Parser) parseExpr(bind int) (Expr, error) {
 		}
 	}
 	return left, nil
+}
+
+func (p *Parser) parseArray() (Expr, error) {
+	p.next()
+	var arr Array
+	for !p.done() && p.curr.Type != EndArr {
+		var (
+			expr Expr
+			err  error
+		)
+		if p.curr.Type == BegArr {
+			expr, err = p.parseArray()
+		} else {
+			expr, err = p.parseExpr(bindLowest)
+		}
+		if err != nil {
+			return nil, err
+		}
+		arr.expr = append(arr.expr, expr)
+		switch p.curr.Type {
+		case Comma:
+			p.next()
+		case EndArr:
+		case EOL:
+			if p.peek.Type != EndArr {
+				return nil, p.unexpectedToken()
+			}
+			p.next()
+		default:
+			return nil, p.unexpectedToken()
+		}
+	}
+	if p.curr.Type != EndArr {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	return arr, nil
 }
 
 func (p *Parser) parseUnary() (Expr, error) {
@@ -422,6 +423,23 @@ func (p *Parser) parseInfix(left Expr) (Expr, error) {
 		return nil, err
 	}
 	return expr, nil
+}
+
+func (p *Parser) parseIndex(left Expr) (Expr, error) {
+	p.next()
+	ix := Index{
+		arr: left,
+	}
+	ptr, err := p.parseExpr(bindLowest)
+	if err != nil {
+		return nil, err
+	}
+	ix.ptr = ptr
+	if p.curr.Type != EndArr {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	return ix, nil
 }
 
 func (p *Parser) parseGroup() (Expr, error) {
