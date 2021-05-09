@@ -178,6 +178,10 @@ func (p *Parser) parse(obj *Object) error {
 		// TODO: lines before end-obj should not be lost
 		return nil
 	}
+	if p.curr.Type == Ident && p.peek.Type == BegGrp {
+		_, err := p.parseFunction()
+		return err
+	}
 	if p.curr.IsIdent() && p.peek.Type == Assign {
 		var (
 			opt Option
@@ -252,6 +256,36 @@ func (p *Parser) parseValue() (Expr, error) {
 		p.next()
 	}
 	return expr, err
+}
+
+func (p *Parser) parseFunction() (Expr, error) {
+	name := p.curr
+	p.next()
+	if p.curr.Type != BegGrp {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	args, err := p.parseArgs()
+	if err != nil {
+		return nil, err
+	}
+	if _, err = p.parseFunctionBody(); err != nil {
+		return nil, err
+	}
+	_, _ = name, args
+	return nil, nil
+}
+
+func (p *Parser) parseFunctionBody() (Expr, error) {
+	if p.curr.Type != BegObj {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	if p.curr.Type != EndObj {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	return nil, nil
 }
 
 func (p *Parser) parseMacro(obj *Object) error {
