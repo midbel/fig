@@ -1,56 +1,19 @@
 package fig
 
 import (
-	"strings"
+	"os"
 	"testing"
 )
 
-const sample = `
-package = fig
-version = "1.0.0"
-
-dev {
-  mail = "dev@midbel.org"
-  mail = "noreply@midbel.org"
-  mail = "info@midbel.org"
-  repo = "https://github.com/midbel"
-}
-
-changelog {
-  date    = 2021-05-07
-  version = join([0, 2, 0], ".")
-}
-
-changelog {
-  date    = 2021-05-07
-  version = join([0, 1, 0], ".")
-}
-
-resource binary {
-  path = "bin/figdebug"
-  mode = 0o755
-}
-
-resource binary {
-  path = "bin/figtest"
-  mode = 0o755
-}
-
-resource doc {
-  type = man
-  path = "docs/fig.1.gz"
-  mode = 0o644
-}
-
-resource doc {
-  type = readme
-  path = "docs/README"
-  mode = 0o644
-}
-`
-
 func TestParse(t *testing.T) {
-	obj, err := Parse(strings.NewReader(sample))
+	r, err := os.Open("testdata/package.fig")
+	if err != nil {
+		t.Fatalf("fail to open sample file")
+		return
+	}
+	defer r.Close()
+
+	obj, err := Parse(r)
 	if err != nil {
 		t.Errorf("invalid document %s", err)
 		return
@@ -61,7 +24,7 @@ func TestParse(t *testing.T) {
 
 	dev, ok := obj.nodes["dev"].(*Object)
 	if !ok {
-		t.Errorf("rev: expected %T, got %T", dev, obj.nodes["resource"])
+		t.Errorf("dev: expected %T, got %T", dev, obj.nodes["resource"])
 		return
 	}
 	testOption(t, dev, []string{"repo"})
@@ -80,12 +43,12 @@ func testObject(t *testing.T, obj *Object, keys []string) {
 	for _, k := range keys {
 		o, ok := obj.nodes[k]
 		if !ok {
-			t.Errorf("object %s: key not found!", k)
+			t.Errorf("%s(object): key not found!", k)
 			continue
 		}
 		opt, ok := o.(*Object)
 		if !ok {
-			t.Errorf("types mismatched! expected %T, got %T", opt, o)
+			t.Errorf("%s(object): types mismatched! expected %T, got %T", k, opt, o)
 			continue
 		}
 	}
@@ -96,12 +59,12 @@ func testList(t *testing.T, obj *Object, keys []string) {
 	for _, k := range keys {
 		o, ok := obj.nodes[k]
 		if !ok {
-			t.Errorf("list %s: key not found!", k)
+			t.Errorf("%s(list): key not found!", k)
 			continue
 		}
 		opt, ok := o.(List)
 		if !ok {
-			t.Errorf("types mismatched! expected %T, got %T", opt, o)
+			t.Errorf("%s(list): types mismatched! expected %T, got %T", k, opt, o)
 			continue
 		}
 	}
@@ -112,12 +75,12 @@ func testOption(t *testing.T, obj *Object, keys []string) {
 	for _, k := range keys {
 		o, ok := obj.nodes[k]
 		if !ok {
-			t.Errorf("option %s: key not found!", k)
+			t.Errorf("%s(option): key not found!", k)
 			continue
 		}
 		opt, ok := o.(Option)
 		if !ok {
-			t.Errorf("types mismatched! expected %T, got %T", opt, o)
+			t.Errorf("%s(option): types mismatched! expected %T, got %T", k, opt, o)
 			continue
 		}
 	}

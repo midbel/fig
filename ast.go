@@ -58,14 +58,35 @@ func (o *Object) mergeObject(other *Object) {
 	}
 }
 
+func (o *Object) isLeaf() bool {
+	for _, n := range o.nodes {
+		switch n.(type) {
+		case *Object, List:
+			return false
+		default:
+		}
+	}
+	return true
+}
+
 func (o *Object) get(tok Token) (*Object, error) {
-	if _, ok := o.nodes[tok.Input]; !ok {
+	n, ok := o.nodes[tok.Input]
+	if !ok {
 		obj := createObjectWithToken(tok)
 		o.nodes[tok.Input] = obj
 		return obj, nil
 	}
-	// return o.getObject(tok.Input)
-	return o.insert(tok)
+	switch n := n.(type) {
+	case *Object:
+		return n, nil
+	case List:
+		x := n.nodes[len(n.nodes)-1]
+		if obj, ok := x.(*Object); ok {
+			return obj, nil
+		}
+	default:
+	}
+	return nil, fmt.Errorf("%s: not an object (%T)", tok.Input, n)
 }
 
 func (o *Object) insert(tok Token) (*Object, error) {
@@ -78,6 +99,9 @@ func (o *Object) insert(tok Token) (*Object, error) {
 	var obj *Object
 	switch x := n.(type) {
 	case *Object:
+		if !x.isLeaf() {
+			return x, nil
+		}
 		obj = createObjectWithToken(tok)
 		i := List{
 			name:  tok,

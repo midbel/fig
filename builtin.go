@@ -53,6 +53,8 @@ func length(vs ...Value) (Value, error) {
 	switch v := vs[0].(type) {
 	case Text:
 		size = len(v.inner)
+	case Slice:
+		size = len(v.inner)
 	default:
 	}
 	return makeInt(int64(size)), nil
