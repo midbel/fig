@@ -16,6 +16,7 @@ var (
 )
 
 var builtins = map[string]func(...Value) (Value, error){
+	"typeof":           typeof,
 	"len":              length,
 	"rand":             rand,
 	"sqrt":             sqrt,
@@ -43,6 +44,13 @@ var builtins = map[string]func(...Value) (Value, error){
 	"base64_decode":    base64DecodeStd,
 	"base64_urlencode": base64EncodeUrl,
 	"base64_urldecode": base64DecodeUrl,
+}
+
+func typeof(vs ...Value) (Value, error) {
+	if len(vs) != 1 {
+		return nil, invalidArgument("typeof")
+	}
+	return nil, nil
 }
 
 func length(vs ...Value) (Value, error) {

@@ -48,6 +48,7 @@ const (
 	scoreInt
 	scoreDouble
 	scoreTime
+	scoreSlice
 )
 
 const epsilon = 1e-9
@@ -160,58 +161,160 @@ func makeInt(val int64) Value {
 }
 
 func (i Int) add(other Value) (Value, error) {
-	x, err := toInt(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreInt:
+		x, _ := toInt(other)
+		return makeInt(i.inner + x), nil
+	case scoreDouble:
+		d, _ := i.toDouble()
+		return d.add(other)
+	case scoreText:
+		t, _ := i.toText()
+		return t.add(other)
+	case scoreTime:
+		m, ok := other.(Moment)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return m.addDuration(time.Duration(i.inner) * time.Second)
+	case scoreSlice:
+		s, ok := other.(Slice)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return s.apply(func(curr Value) (Value, error) {
+			return i.add(curr)
+		})
+	default:
+		return nil, ErrIncompatible
 	}
-	return makeInt(i.inner + x), nil
 }
 
 func (i Int) subtract(other Value) (Value, error) {
-	x, err := toInt(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreInt:
+		x, _ := toInt(other)
+		return makeInt(i.inner - x), nil
+	case scoreDouble:
+		d, _ := i.toDouble()
+		return d.subtract(other)
+	case scoreTime:
+		m, ok := other.(Moment)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return m.addDuration(time.Duration(-i.inner) * time.Second)
+	case scoreSlice:
+		s, ok := other.(Slice)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return s.apply(func(curr Value) (Value, error) {
+			return i.subtract(curr)
+		})
+	default:
+		return nil, ErrIncompatible
 	}
-	return makeInt(i.inner - x), nil
 }
 
 func (i Int) multiply(other Value) (Value, error) {
-	x, err := toInt(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreInt:
+		x, _ := toInt(other)
+		return makeInt(i.inner * x), nil
+	case scoreDouble:
+		d, err := i.toDouble()
+		if err != nil {
+			return nil, err
+		}
+		return d.multiply(other)
+	case scoreText:
+		t, ok := other.(Text)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return t.multiply(i)
+	case scoreSlice:
+		s, ok := other.(Slice)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return s.apply(func(curr Value) (Value, error) {
+			return i.multiply(curr)
+		})
+	default:
+		return nil, ErrIncompatible
 	}
-	return makeInt(i.inner * x), nil
 }
 
 func (i Int) divide(other Value) (Value, error) {
-	x, err := toInt(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreInt:
+		x, _ := toInt(other)
+		if x == 0 {
+			return nil, ErrZeroDiv
+		}
+		return makeInt(i.inner / x), nil
+	case scoreDouble:
+		d, _ := i.toDouble()
+		return d.divide(other)
+	case scoreSlice:
+		s, ok := other.(Slice)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return s.apply(func(curr Value) (Value, error) {
+			return i.divide(curr)
+		})
+	default:
+		return nil, ErrIncompatible
 	}
-	if x == 0 {
-		return nil, ErrZeroDiv
-	}
-	return makeInt(i.inner / x), nil
 }
 
 func (i Int) modulo(other Value) (Value, error) {
-	x, err := toInt(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreInt:
+		x, _ := toInt(other)
+		if x == 0 {
+			return nil, ErrZeroDiv
+		}
+		return makeInt(i.inner % x), nil
+	case scoreDouble:
+		d, _ := i.toDouble()
+		return d.modulo(other)
+	case scoreSlice:
+		s, ok := other.(Slice)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return s.apply(func(curr Value) (Value, error) {
+			return i.modulo(curr)
+		})
+	default:
+		return nil, ErrIncompatible
 	}
-	if x == 0 {
-		return nil, ErrZeroDiv
-	}
-	return makeInt(i.inner % x), nil
 }
 
 func (i Int) power(other Value) (Value, error) {
-	x, err := toInt(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreInt:
+		x, _ := toInt(other)
+		r := math.Pow(float64(i.inner), float64(x))
+		return makeInt(int64(r)), nil
+	case scoreDouble:
+		d, _ := i.toDouble()
+		return d.power(other)
+	case scoreSlice:
+		s, ok := other.(Slice)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return s.apply(func(curr Value) (Value, error) {
+			return i.power(curr)
+		})
+	default:
+		return nil, ErrIncompatible
 	}
-	r := math.Pow(float64(i.inner), float64(x))
-	return makeInt(int64(r)), nil
 }
 
 func (i Int) reverse() (Value, error) {
@@ -327,57 +430,135 @@ func makeDouble(val float64) Value {
 }
 
 func (d Double) add(other Value) (Value, error) {
-	x, err := toFloat(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreDouble:
+		x, _ := toFloat(other)
+		return makeDouble(d.inner + x), nil
+	case scoreInt:
+		i, _ := other.toDouble()
+		return d.add(i)
+	case scoreSlice:
+		s, ok := other.(Slice)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return s.apply(func(curr Value) (Value, error) {
+			return d.add(curr)
+		})
+	default:
+		return nil, ErrIncompatible
 	}
-	return makeDouble(d.inner + x), nil
 }
 
 func (d Double) subtract(other Value) (Value, error) {
-	x, err := toFloat(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreDouble:
+		x, _ := toFloat(other)
+		return makeDouble(d.inner - x), nil
+	case scoreInt:
+		i, _ := other.toDouble()
+		return d.subtract(i)
+	case scoreSlice:
+		s, ok := other.(Slice)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return s.apply(func(curr Value) (Value, error) {
+			return d.subtract(curr)
+		})
+	default:
+		return nil, ErrIncompatible
 	}
-	return makeDouble(d.inner - x), nil
 }
 
 func (d Double) multiply(other Value) (Value, error) {
-	x, err := toFloat(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreDouble:
+		x, _ := toFloat(other)
+		return makeDouble(d.inner * x), nil
+	case scoreInt:
+		i, _ := other.toDouble()
+		return d.multiply(i)
+	case scoreSlice:
+		s, ok := other.(Slice)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return s.apply(func(curr Value) (Value, error) {
+			return d.multiply(curr)
+		})
+	default:
+		return nil, ErrIncompatible
 	}
-	return makeDouble(d.inner * x), nil
 }
 
 func (d Double) divide(other Value) (Value, error) {
-	x, err := toFloat(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreDouble:
+		x, _ := toFloat(other)
+		if x == 0 {
+			return nil, ErrZeroDiv
+		}
+		return makeDouble(d.inner / x), nil
+	case scoreInt:
+		i, _ := other.toDouble()
+		return d.divide(i)
+	case scoreSlice:
+		s, ok := other.(Slice)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return s.apply(func(curr Value) (Value, error) {
+			return d.divide(curr)
+		})
+	default:
+		return nil, ErrIncompatible
 	}
-	if x == 0 {
-		return nil, ErrZeroDiv
-	}
-	return makeDouble(d.inner / x), nil
 }
 
 func (d Double) modulo(other Value) (Value, error) {
-	x, err := toFloat(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreDouble:
+		x, _ := toFloat(other)
+		if x == 0 {
+			return nil, ErrZeroDiv
+		}
+		return makeDouble(math.Mod(d.inner, x)), nil
+	case scoreInt:
+		i, _ := other.toDouble()
+		return d.modulo(i)
+	case scoreSlice:
+		s, ok := other.(Slice)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return s.apply(func(curr Value) (Value, error) {
+			return d.modulo(curr)
+		})
+	default:
+		return nil, ErrIncompatible
 	}
-	if x == 0 {
-		return nil, ErrZeroDiv
-	}
-	return makeDouble(math.Mod(d.inner, x)), nil
 }
 
 func (d Double) power(other Value) (Value, error) {
-	x, err := toFloat(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreDouble:
+		x, _ := toFloat(other)
+		return makeDouble(math.Pow(d.inner, x)), nil
+	case scoreInt:
+		i, _ := other.toDouble()
+		return d.power(i)
+	case scoreSlice:
+		s, ok := other.(Slice)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return s.apply(func(curr Value) (Value, error) {
+			return d.power(curr)
+		})
+	default:
+		return nil, ErrIncompatible
 	}
-	return makeDouble(math.Pow(d.inner, x)), nil
 }
 
 func (d Double) reverse() (Value, error) {
@@ -456,6 +637,14 @@ func (t Text) add(other Value) (Value, error) {
 	return makeText(t.inner + x.inner), nil
 }
 
+func (t Text) multiply(other Value) (Value, error) {
+	x, ok := other.(Int)
+	if !ok {
+		return nil, ErrIncompatible
+	}
+	return makeText(strings.Repeat(t.inner, int(x.inner))), nil
+}
+
 func (t Text) and(other Value) (Value, error) {
 	return and(t, other), nil
 }
@@ -523,7 +712,6 @@ func (t Text) toMoment() (Value, error) {
 
 func (_ Text) at(_ Value) (Value, error)         { return nil, ErrUnsupported }
 func (_ Text) subtract(_ Value) (Value, error)   { return nil, ErrUnsupported }
-func (_ Text) multiply(_ Value) (Value, error)   { return nil, ErrUnsupported }
 func (_ Text) divide(_ Value) (Value, error)     { return nil, ErrUnsupported }
 func (_ Text) modulo(_ Value) (Value, error)     { return nil, ErrUnsupported }
 func (_ Text) power(_ Value) (Value, error)      { return nil, ErrUnsupported }
@@ -554,6 +742,11 @@ func (m Moment) add(other Value) (Value, error) {
 	y := m.adjust().(Moment)
 	when := y.inner.Add(time.Duration(x) * time.Second)
 	return makeMoment(when), nil
+}
+
+func (m Moment) addDuration(d time.Duration) (Value, error) {
+	w := m.inner.Add(d)
+	return makeMoment(w), nil
 }
 
 func (m Moment) subtract(other Value) (Value, error) {
@@ -647,12 +840,40 @@ type Slice struct {
 	inner []Value
 }
 
+func makeSlice(vs []Value) Value {
+	return Slice{inner: vs}
+}
+
+func (s Slice) add(other Value) (Value, error) {
+	return nil, ErrUnsupported
+}
+
+func (s Slice) subtract(other Value) (Value, error) {
+	return nil, ErrUnsupported
+}
+
+func (s Slice) multiply(other Value) (Value, error) {
+	return nil, ErrUnsupported
+}
+
+func (s Slice) divide(other Value) (Value, error) {
+	return nil, ErrUnsupported
+}
+
+func (s Slice) modulo(other Value) (Value, error) {
+	return nil, ErrUnsupported
+}
+
+func (s Slice) power(other Value) (Value, error) {
+	return nil, ErrUnsupported
+}
+
 func (s Slice) isTrue() bool {
 	return len(s.inner) > 0
 }
 
 func (s Slice) score() int {
-	return scoreLowest
+	return scoreSlice
 }
 
 func (s Slice) and(other Value) (Value, error) {
@@ -692,12 +913,18 @@ func (s Slice) at(ix Value) (Value, error) {
 	return s.inner[x], nil
 }
 
-func (_ Slice) add(_ Value) (Value, error)        { return nil, ErrUnsupported }
-func (_ Slice) subtract(_ Value) (Value, error)   { return nil, ErrUnsupported }
-func (_ Slice) multiply(_ Value) (Value, error)   { return nil, ErrUnsupported }
-func (_ Slice) divide(_ Value) (Value, error)     { return nil, ErrUnsupported }
-func (_ Slice) modulo(_ Value) (Value, error)     { return nil, ErrUnsupported }
-func (_ Slice) power(_ Value) (Value, error)      { return nil, ErrUnsupported }
+func (s Slice) apply(fn func(curr Value) (Value, error)) (Value, error) {
+	vs := make([]Value, len(s.inner))
+	for i := range s.inner {
+		x, err := fn(s.inner[i])
+		if err != nil {
+			return nil, err
+		}
+		vs[i] = x
+	}
+	return makeSlice(vs), nil
+}
+
 func (_ Slice) reverse() (Value, error)           { return nil, ErrUnsupported }
 func (_ Slice) not() (Value, error)               { return nil, ErrUnsupported }
 func (_ Slice) leftshift(_ Value) (Value, error)  { return nil, ErrUnsupported }
@@ -717,135 +944,11 @@ func and(left, right Value) Value {
 }
 
 func or(left, right Value) Value {
-	return makeBool(left.isTrue() && right.isTrue())
+	return makeBool(left.isTrue() || right.isTrue())
 }
 
 func not(left Value) Value {
 	return makeBool(!left.isTrue())
-}
-
-func add(left, right Value) (Value, error) {
-	var err error
-	left, right, err = promote(left, right)
-	if err != nil {
-		return nil, err
-	}
-	return left.add(right)
-}
-
-func subtract(left, right Value) (Value, error) {
-	var err error
-	left, right, err = promote(left, right)
-	if err != nil {
-		return nil, err
-	}
-	return left.subtract(right)
-}
-
-func multiply(left, right Value) (Value, error) {
-	var err error
-	left, right, err = promote(left, right)
-	if err != nil {
-		return nil, err
-	}
-	return left.multiply(right)
-}
-
-func divide(left, right Value) (Value, error) {
-	var err error
-	left, right, err = promote(left, right)
-	if err != nil {
-		return nil, err
-	}
-	return left.divide(right)
-}
-
-func modulo(left, right Value) (Value, error) {
-	var err error
-	left, right, err = promote(left, right)
-	if err != nil {
-		return nil, err
-	}
-	return left.modulo(right)
-}
-
-func power(left, right Value) (Value, error) {
-	return left.power(right)
-}
-
-func reverse(left Value) (Value, error) {
-	return left.reverse()
-}
-
-func compare(left, right Value) (int, error) {
-	var err error
-	left, right, err = promote(left, right)
-	if err != nil {
-		return 0, err
-	}
-	return left.compare(right)
-}
-
-func leftshift(left, right Value) (Value, error) {
-	return left.leftshift(right)
-}
-
-func rightshift(left, right Value) (Value, error) {
-	return left.rightshift(right)
-}
-
-func binand(left, right Value) (Value, error) {
-	return left.binand(right)
-}
-
-func binor(left, right Value) (Value, error) {
-	return left.binor(right)
-}
-
-func binxor(left, right Value) (Value, error) {
-	return left.binxor(right)
-}
-
-func binnot(left Value) (Value, error) {
-	return left.binnot()
-}
-
-// int <op> int => int
-// float <op> float => float
-// int <op> float => float
-// bool <op> bool => bool
-// * <op> bool => incompatible
-// * <op> text => text
-// int <op> moment => moment
-// float <op> moment => moment
-
-func promote(left, right Value) (Value, Value, error) {
-	var err error
-	if left.score() < right.score() {
-		left, err = promoteValue(left, right)
-	} else if left.score() > right.score() {
-		right, err = promoteValue(right, left)
-	}
-	return left, right, err
-}
-
-func promoteValue(left, right Value) (Value, error) {
-	var err error
-	switch right.(type) {
-	case Int:
-		left, err = left.toInt()
-	case Double:
-		left, err = left.toDouble()
-	case Bool:
-		left, err = left.toBool()
-	case Moment:
-		left, err = left.toMoment()
-	case Text:
-		left, err = left.toText()
-	default:
-		err = ErrIncompatible
-	}
-	return left, err
 }
 
 func toInt(v Value) (int64, error) {
