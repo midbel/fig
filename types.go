@@ -348,43 +348,93 @@ func (i Int) compare(other Value) (int, error) {
 }
 
 func (i Int) leftshift(other Value) (Value, error) {
-	x, err := toInt(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreInt:
+		x, _ := toInt(other)
+		return makeInt(i.inner << x), nil
+	case scoreSlice:
+		s, ok := other.(Slice)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return s.apply(func(curr Value) (Value, error) {
+			return i.leftshift(curr)
+		})
+	default:
+		return nil, ErrIncompatible
 	}
-	return makeInt(i.inner << x), nil
 }
 
 func (i Int) rightshift(other Value) (Value, error) {
-	x, err := toInt(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreInt:
+		x, _ := toInt(other)
+		return makeInt(i.inner >> x), nil
+	case scoreSlice:
+		s, ok := other.(Slice)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return s.apply(func(curr Value) (Value, error) {
+			return i.rightshift(curr)
+		})
+	default:
+		return nil, ErrIncompatible
 	}
-	return makeInt(i.inner >> x), nil
 }
 
 func (i Int) binand(other Value) (Value, error) {
-	x, err := toInt(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreInt:
+		x, _ := toInt(other)
+		return makeInt(i.inner & x), nil
+	case scoreSlice:
+		s, ok := other.(Slice)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return s.apply(func(curr Value) (Value, error) {
+			return i.binand(curr)
+		})
+	default:
+		return nil, ErrIncompatible
 	}
-	return makeInt(i.inner & x), nil
 }
 
 func (i Int) binor(other Value) (Value, error) {
-	x, err := toInt(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreInt:
+		x, _ := toInt(other)
+		return makeInt(i.inner | x), nil
+	case scoreSlice:
+		s, ok := other.(Slice)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return s.apply(func(curr Value) (Value, error) {
+			return i.binor(curr)
+		})
+	default:
+		return nil, ErrIncompatible
 	}
-	return makeInt(i.inner | x), nil
 }
 
 func (i Int) binxor(other Value) (Value, error) {
-	x, err := toInt(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreInt:
+		x, _ := toInt(other)
+		return makeInt(i.inner ^ x), nil
+	case scoreSlice:
+		s, ok := other.(Slice)
+		if !ok {
+			return nil, ErrIncompatible
+		}
+		return s.apply(func(curr Value) (Value, error) {
+			return i.leftshift(curr)
+		})
+	default:
+		return nil, ErrIncompatible
 	}
-	return makeInt(i.inner ^ x), nil
 }
 
 func (i Int) binnot() (Value, error) {
@@ -964,6 +1014,87 @@ func (s Slice) compare(other Value) (int, error) {
 	return -1, nil
 }
 
+func (s Slice) leftshift(other Value) (Value, error) {
+	switch sc := other.score(); sc {
+	case scoreInt, scoreDouble:
+		return s.apply(func(curr Value) (Value, error) {
+			return curr.leftshift(other)
+		})
+	case scoreSlice:
+		return s.combine(other, func(fst, snd Value) (Value, error) {
+			return fst.leftshift(snd)
+		})
+	default:
+		return nil, ErrIncompatible
+	}
+}
+
+func (s Slice) rightshift(other Value) (Value, error) {
+	switch sc := other.score(); sc {
+	case scoreInt, scoreDouble:
+		return s.apply(func(curr Value) (Value, error) {
+			return curr.rightshift(other)
+		})
+	case scoreSlice:
+		return s.combine(other, func(fst, snd Value) (Value, error) {
+			return fst.rightshift(snd)
+		})
+	default:
+		return nil, ErrIncompatible
+	}
+}
+
+func (s Slice) binand(other Value) (Value, error) {
+	switch sc := other.score(); sc {
+	case scoreInt, scoreDouble:
+		return s.apply(func(curr Value) (Value, error) {
+			return curr.binand(other)
+		})
+	case scoreSlice:
+		return s.combine(other, func(fst, snd Value) (Value, error) {
+			return fst.binand(snd)
+		})
+	default:
+		return nil, ErrIncompatible
+	}
+}
+
+func (s Slice) binor(other Value) (Value, error) {
+	switch sc := other.score(); sc {
+	case scoreInt, scoreDouble:
+		return s.apply(func(curr Value) (Value, error) {
+			return curr.binor(other)
+		})
+	case scoreSlice:
+		return s.combine(other, func(fst, snd Value) (Value, error) {
+			return fst.binor(snd)
+		})
+	default:
+		return nil, ErrIncompatible
+	}
+}
+
+func (s Slice) binnot() (Value, error) {
+	return s.apply(func(curr Value) (Value, error) {
+		return curr.binnot()
+	})
+}
+
+func (s Slice) binxor(other Value) (Value, error) {
+	switch sc := other.score(); sc {
+	case scoreInt, scoreDouble:
+		return s.apply(func(curr Value) (Value, error) {
+			return curr.binxor(other)
+		})
+	case scoreSlice:
+		return s.combine(other, func(fst, snd Value) (Value, error) {
+			return fst.binxor(snd)
+		})
+	default:
+		return nil, ErrIncompatible
+	}
+}
+
 func (s Slice) at(ix Value) (Value, error) {
 	y, err := toInt(ix)
 	if err != nil {
@@ -1010,19 +1141,13 @@ func (s Slice) apply(fn func(curr Value) (Value, error)) (Value, error) {
 	return makeSlice(vs), nil
 }
 
-func (_ Slice) reverse() (Value, error)           { return nil, ErrUnsupported }
-func (_ Slice) not() (Value, error)               { return nil, ErrUnsupported }
-func (_ Slice) leftshift(_ Value) (Value, error)  { return nil, ErrUnsupported }
-func (_ Slice) rightshift(_ Value) (Value, error) { return nil, ErrUnsupported }
-func (_ Slice) binand(_ Value) (Value, error)     { return nil, ErrUnsupported }
-func (_ Slice) binor(_ Value) (Value, error)      { return nil, ErrUnsupported }
-func (_ Slice) binnot() (Value, error)            { return nil, ErrUnsupported }
-func (_ Slice) binxor(Value) (Value, error)       { return nil, ErrUnsupported }
-func (_ Slice) toInt() (Value, error)             { return nil, ErrUnsupported }
-func (_ Slice) toDouble() (Value, error)          { return nil, ErrUnsupported }
-func (_ Slice) toBool() (Value, error)            { return nil, ErrUnsupported }
-func (_ Slice) toText() (Value, error)            { return nil, ErrUnsupported }
-func (_ Slice) toMoment() (Value, error)          { return nil, ErrUnsupported }
+func (_ Slice) reverse() (Value, error)  { return nil, ErrUnsupported }
+func (_ Slice) not() (Value, error)      { return nil, ErrUnsupported }
+func (_ Slice) toInt() (Value, error)    { return nil, ErrUnsupported }
+func (_ Slice) toDouble() (Value, error) { return nil, ErrUnsupported }
+func (_ Slice) toBool() (Value, error)   { return nil, ErrUnsupported }
+func (_ Slice) toText() (Value, error)   { return nil, ErrUnsupported }
+func (_ Slice) toMoment() (Value, error) { return nil, ErrUnsupported }
 
 func and(left, right Value) Value {
 	return makeBool(left.isTrue() && right.isTrue())

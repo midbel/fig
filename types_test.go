@@ -13,6 +13,167 @@ type ValueTestCase struct {
 	err   error
 }
 
+func TestValueLeftShift(t *testing.T) {
+	data := []ValueTestCase{
+		{
+			left:  makeInt(1),
+			right: makeInt(1),
+			want:  makeInt(2),
+		},
+		{
+			left:  makeInt(1),
+			right: makeSlice([]Value{makeInt(1), makeInt(2)}),
+			want:  makeSlice([]Value{makeInt(2), makeInt(4)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(1), makeInt(2)}),
+			right: makeInt(1),
+			want:  makeSlice([]Value{makeInt(2), makeInt(4)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(1), makeInt(2)}),
+			right: makeSlice([]Value{makeInt(3), makeInt(1)}),
+			want:  makeSlice([]Value{makeInt(8), makeInt(4)}),
+		},
+		{
+			left:  makeInt(1),
+			right: makeDouble(2),
+			err:   ErrIncompatible,
+		},
+		{
+			left:  makeDouble(1),
+			right: makeDouble(2),
+			err:   ErrUnsupported,
+		},
+		{
+			left:  makeText("hello"),
+			right: makeDouble(2),
+			err:   ErrUnsupported,
+		},
+	}
+	for _, d := range data {
+		got, err := d.left.leftshift(d.right)
+		checkValueTestCase(t, d, got, err)
+	}
+}
+
+func TestValueRightShift(t *testing.T) {
+	data := []ValueTestCase{
+		{
+			left:  makeInt(1),
+			right: makeInt(1),
+			want:  makeInt(0),
+		},
+		{
+			left:  makeInt(4),
+			right: makeSlice([]Value{makeInt(1), makeInt(2)}),
+			want:  makeSlice([]Value{makeInt(2), makeInt(1)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(8), makeInt(4)}),
+			right: makeInt(1),
+			want:  makeSlice([]Value{makeInt(4), makeInt(2)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(8), makeInt(2)}),
+			right: makeSlice([]Value{makeInt(3), makeInt(1)}),
+			want:  makeSlice([]Value{makeInt(1), makeInt(1)}),
+		},
+		{
+			left:  makeInt(1),
+			right: makeDouble(2),
+			err:   ErrIncompatible,
+		},
+		{
+			left:  makeDouble(1),
+			right: makeDouble(2),
+			err:   ErrUnsupported,
+		},
+		{
+			left:  makeText("hello"),
+			right: makeDouble(2),
+			err:   ErrUnsupported,
+		},
+	}
+	for _, d := range data {
+		got, err := d.left.rightshift(d.right)
+		checkValueTestCase(t, d, got, err)
+	}
+}
+
+func TestValueBinaryAnd(t *testing.T) {
+	data := []ValueTestCase{
+		{
+			left:  makeInt(1),
+			right: makeInt(1),
+			want:  makeInt(1),
+		},
+		{
+			left:  makeInt(1),
+			right: makeSlice([]Value{makeInt(1), makeInt(2)}),
+			want:  makeSlice([]Value{makeInt(1), makeInt(0)}),
+		},
+		{
+			left:  makeInt(1),
+			right: makeDouble(2),
+			err:   ErrIncompatible,
+		},
+		{
+			left:  makeDouble(1),
+			right: makeDouble(2),
+			err:   ErrUnsupported,
+		},
+		{
+			left:  makeText("hello"),
+			right: makeDouble(2),
+			err:   ErrUnsupported,
+		},
+	}
+	for _, d := range data {
+		got, err := d.left.binand(d.right)
+		checkValueTestCase(t, d, got, err)
+	}
+}
+
+func TestValueBinaryOr(t *testing.T) {
+	data := []ValueTestCase{
+		{
+			left:  makeInt(1),
+			right: makeInt(1),
+			want:  makeInt(1),
+		},
+		{
+			left:  makeInt(1),
+			right: makeInt(2),
+			want:  makeInt(3),
+		},
+		{
+			left:  makeInt(1),
+			right: makeSlice([]Value{makeInt(0), makeInt(2)}),
+			want:  makeSlice([]Value{makeInt(1), makeInt(3)}),
+		},
+		{
+			left:  makeInt(1),
+			right: makeDouble(2),
+			err:   ErrIncompatible,
+		},
+		{
+			left:  makeDouble(1),
+			right: makeDouble(2),
+			err:   ErrUnsupported,
+		},
+		{
+			left:  makeText("hello"),
+			right: makeDouble(2),
+			err:   ErrUnsupported,
+		},
+	}
+	for _, d := range data {
+		got, err := d.left.binor(d.right)
+		checkValueTestCase(t, d, got, err)
+	}
+}
+
 func TestValuePower(t *testing.T) {
 	data := []ValueTestCase{
 		{
@@ -92,7 +253,7 @@ func TestValueDivide(t *testing.T) {
 		{
 			left:  makeDouble(2),
 			right: makeDouble(0),
-			err: ErrIncompatible,
+			err:   ErrZeroDiv,
 		},
 		{
 			left:  makeInt(30),
