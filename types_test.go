@@ -36,6 +36,26 @@ func TestValuePower(t *testing.T) {
 			want:  makeSlice([]Value{makeInt(4), makeDouble(16.0)}),
 		},
 		{
+			left:  makeDouble(2),
+			right: makeSlice([]Value{makeInt(2), makeDouble(4.0)}),
+			want:  makeSlice([]Value{makeDouble(4), makeDouble(16.0)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(2), makeDouble(4.0)}),
+			right: makeInt(2),
+			want:  makeSlice([]Value{makeInt(4), makeDouble(16.0)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(2), makeDouble(4.0)}),
+			right: makeDouble(2),
+			want:  makeSlice([]Value{makeDouble(4), makeDouble(16.0)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(2), makeDouble(4.0)}),
+			right: makeSlice([]Value{makeInt(2), makeDouble(2.0)}),
+			want:  makeSlice([]Value{makeInt(4), makeDouble(16.0)}),
+		},
+		{
 			left:  makeInt(2),
 			right: makeText("hello"),
 			err:   ErrIncompatible,
@@ -70,6 +90,11 @@ func TestValueDivide(t *testing.T) {
 			want:  makeDouble(1.0),
 		},
 		{
+			left:  makeDouble(2),
+			right: makeDouble(0),
+			err: ErrIncompatible,
+		},
+		{
 			left:  makeInt(30),
 			right: makeMoment(time.Date(2021, 5, 11, 19, 5, 41, 0, time.UTC)),
 			err:   ErrIncompatible,
@@ -78,6 +103,31 @@ func TestValueDivide(t *testing.T) {
 			left:  makeInt(10),
 			right: makeSlice([]Value{makeInt(2), makeDouble(2.0)}),
 			want:  makeSlice([]Value{makeInt(5), makeDouble(5.0)}),
+		},
+		{
+			left:  makeDouble(10),
+			right: makeSlice([]Value{makeInt(2), makeDouble(2.0)}),
+			want:  makeSlice([]Value{makeDouble(5), makeDouble(5.0)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(50), makeDouble(200.0)}),
+			right: makeInt(10),
+			want:  makeSlice([]Value{makeInt(5), makeDouble(20.0)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(50), makeDouble(200.0)}),
+			right: makeSlice([]Value{makeInt(5), makeDouble(20.0)}),
+			want:  makeSlice([]Value{makeInt(10), makeDouble(10.0)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(50), makeDouble(200.0)}),
+			right: makeSlice([]Value{makeInt(0), makeDouble(20.0)}),
+			err:   ErrZeroDiv,
+		},
+		{
+			left:  makeSlice([]Value{makeInt(50), makeDouble(200.0)}),
+			right: makeSlice([]Value{makeDouble(20.0)}),
+			err:   ErrIncompatible,
 		},
 		{
 			left:  makeInt(2),
@@ -149,9 +199,29 @@ func TestValueModulo(t *testing.T) {
 			want:  makeSlice([]Value{makeInt(0), makeInt(1), makeDouble(1.0)}),
 		},
 		{
+			left:  makeSlice([]Value{makeInt(10), makeInt(3), makeDouble(3.0)}),
+			right: makeInt(2),
+			want:  makeSlice([]Value{makeInt(0), makeInt(1), makeDouble(1.0)}),
+		},
+		{
 			left:  makeDouble(10),
 			right: makeSlice([]Value{makeInt(2), makeDouble(3), makeDouble(3.0)}),
 			want:  makeSlice([]Value{makeDouble(0), makeDouble(1), makeDouble(1.0)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(10), makeDouble(3), makeDouble(3.0)}),
+			right: makeDouble(2),
+			want:  makeSlice([]Value{makeDouble(0), makeDouble(1), makeDouble(1.0)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(10), makeDouble(3), makeDouble(3.0)}),
+			right: makeSlice([]Value{makeInt(5), makeInt(2), makeDouble(2)}),
+			want:  makeSlice([]Value{makeInt(0), makeDouble(1), makeDouble(1.0)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(10), makeDouble(3), makeDouble(3.0)}),
+			right: makeSlice([]Value{makeInt(0), makeInt(2), makeDouble(2)}),
+			err:   ErrZeroDiv,
 		},
 		{
 			left:  makeInt(2),
@@ -216,6 +286,21 @@ func TestValueMultiply(t *testing.T) {
 			left:  makeDouble(5),
 			right: makeSlice([]Value{makeInt(5), makeDouble(200.5)}),
 			want:  makeSlice([]Value{makeDouble(25), makeDouble(1002.5)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(5), makeDouble(200.5)}),
+			right: makeInt(5),
+			want:  makeSlice([]Value{makeInt(25), makeDouble(1002.5)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(5), makeDouble(200.5)}),
+			right: makeDouble(5),
+			want:  makeSlice([]Value{makeDouble(25), makeDouble(1002.5)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(5), makeDouble(200.5)}),
+			right: makeSlice([]Value{makeInt(5), makeDouble(5)}),
+			want:  makeSlice([]Value{makeInt(25), makeDouble(1002.5)}),
 		},
 		{
 			left:  makeInt(2),
