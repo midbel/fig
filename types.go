@@ -845,27 +845,93 @@ func makeSlice(vs []Value) Value {
 }
 
 func (s Slice) add(other Value) (Value, error) {
-	return nil, ErrUnsupported
+	switch sc := other.score(); sc {
+	case scoreInt, scoreDouble:
+		return s.apply(func(curr Value) (Value, error) {
+			return curr.add(other)
+		})
+	case scoreSlice:
+		return s.combine(other, func(fst, snd Value) (Value, error) {
+			return fst.add(snd)
+		})
+	default:
+		return nil, ErrIncompatible
+	}
 }
 
 func (s Slice) subtract(other Value) (Value, error) {
-	return nil, ErrUnsupported
+	switch sc := other.score(); sc {
+	case scoreInt, scoreDouble:
+		return s.apply(func(curr Value) (Value, error) {
+			return curr.subtract(other)
+		})
+	case scoreSlice:
+		return s.combine(other, func(fst, snd Value) (Value, error) {
+			return fst.subtract(snd)
+		})
+	default:
+		return nil, ErrIncompatible
+	}
 }
 
 func (s Slice) multiply(other Value) (Value, error) {
-	return nil, ErrUnsupported
+	switch sc := other.score(); sc {
+	case scoreInt, scoreDouble:
+		return s.apply(func(curr Value) (Value, error) {
+			return curr.multiply(other)
+		})
+	case scoreSlice:
+		return s.combine(other, func(fst, snd Value) (Value, error) {
+			return fst.multiply(snd)
+		})
+	default:
+		return nil, ErrIncompatible
+	}
 }
 
 func (s Slice) divide(other Value) (Value, error) {
-	return nil, ErrUnsupported
+	switch sc := other.score(); sc {
+	case scoreInt, scoreDouble:
+		return s.apply(func(curr Value) (Value, error) {
+			return curr.divide(other)
+		})
+	case scoreSlice:
+		return s.combine(other, func(fst, snd Value) (Value, error) {
+			return fst.divide(snd)
+		})
+	default:
+		return nil, ErrIncompatible
+	}
 }
 
 func (s Slice) modulo(other Value) (Value, error) {
-	return nil, ErrUnsupported
+	switch sc := other.score(); sc {
+	case scoreInt, scoreDouble:
+		return s.apply(func(curr Value) (Value, error) {
+			return curr.modulo(other)
+		})
+	case scoreSlice:
+		return s.combine(other, func(fst, snd Value) (Value, error) {
+			return fst.modulo(snd)
+		})
+	default:
+		return nil, ErrIncompatible
+	}
 }
 
 func (s Slice) power(other Value) (Value, error) {
-	return nil, ErrUnsupported
+	switch sc := other.score(); sc {
+	case scoreInt, scoreDouble:
+		return s.apply(func(curr Value) (Value, error) {
+			return curr.power(other)
+		})
+	case scoreSlice:
+		return s.combine(other, func(fst, snd Value) (Value, error) {
+			return fst.power(snd)
+		})
+	default:
+		return nil, ErrIncompatible
+	}
 }
 
 func (s Slice) isTrue() bool {
@@ -911,6 +977,25 @@ func (s Slice) at(ix Value) (Value, error) {
 		return nil, ErrIndex
 	}
 	return s.inner[x], nil
+}
+
+func (s Slice) combine(other Value, fn func(fst, snd Value) (Value, error)) (Value, error) {
+	recv, ok := other.(Slice)
+	if !ok {
+		return nil, ErrIncompatible
+	}
+	if len(s.inner) != len(recv.inner) {
+		return nil, ErrIncompatible
+	}
+	vs := make([]Value, len(s.inner))
+	for i := range s.inner {
+		x, err := fn(s.inner[i], recv.inner[i])
+		if err != nil {
+			return nil, err
+		}
+		vs[i] = x
+	}
+	return makeSlice(vs), nil
 }
 
 func (s Slice) apply(fn func(curr Value) (Value, error)) (Value, error) {

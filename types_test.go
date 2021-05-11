@@ -282,6 +282,21 @@ func TestValueSubtract(t *testing.T) {
 			want:  makeSlice([]Value{makeDouble(0), makeDouble(-100.5)}),
 		},
 		{
+			left:  makeSlice([]Value{makeInt(100), makeDouble(200.5)}),
+			right: makeDouble(100.0),
+			want:  makeSlice([]Value{makeDouble(0), makeDouble(100.5)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(100), makeDouble(200.5)}),
+			right: makeInt(100),
+			want:  makeSlice([]Value{makeInt(0), makeDouble(100.5)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(100), makeDouble(200.5)}),
+			right: makeSlice([]Value{makeInt(100), makeDouble(100.5)}),
+			want:  makeSlice([]Value{makeInt(0), makeDouble(100.0)}),
+		},
+		{
 			left:  makeInt(0),
 			right: makeText(""),
 			err:   ErrIncompatible,
@@ -344,6 +359,26 @@ func TestValueAdd(t *testing.T) {
 			left:  makeDouble(100.0),
 			right: makeSlice([]Value{makeInt(100), makeDouble(200.5)}),
 			want:  makeSlice([]Value{makeDouble(200), makeDouble(300.5)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(10), makeDouble(10.5)}),
+			right: makeSlice([]Value{makeInt(10), makeDouble(10.5)}),
+			want:  makeSlice([]Value{makeInt(20), makeDouble(21.0)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(10), makeDouble(10.5)}),
+			right: makeInt(10),
+			want:  makeSlice([]Value{makeInt(20), makeDouble(20.5)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(10), makeDouble(10.5)}),
+			right: makeDouble(10),
+			want:  makeSlice([]Value{makeDouble(20), makeDouble(20.5)}),
+		},
+		{
+			left:  makeSlice([]Value{makeInt(10), makeDouble(10.5)}),
+			right: makeSlice([]Value{makeInt(10)}),
+			err:   ErrIncompatible,
 		},
 		{
 			left:  makeInt(0),
