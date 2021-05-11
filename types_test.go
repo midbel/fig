@@ -104,6 +104,11 @@ func TestValueModulo(t *testing.T) {
 			want:  makeInt(0),
 		},
 		{
+			left:  makeDouble(10),
+			right: makeDouble(2),
+			want:  makeDouble(0),
+		},
+		{
 			left:  makeInt(10),
 			right: makeInt(3),
 			want:  makeInt(1),
@@ -114,7 +119,17 @@ func TestValueModulo(t *testing.T) {
 			err:   ErrZeroDiv,
 		},
 		{
+			left:  makeDouble(10),
+			right: makeInt(0),
+			err:   ErrZeroDiv,
+		},
+		{
 			left:  makeInt(2),
+			right: makeDouble(2.0),
+			want:  makeDouble(0.0),
+		},
+		{
+			left:  makeDouble(2.0),
 			right: makeDouble(2.0),
 			want:  makeDouble(0.0),
 		},
@@ -124,12 +139,27 @@ func TestValueModulo(t *testing.T) {
 			err:   ErrIncompatible,
 		},
 		{
+			left:  makeDouble(30),
+			right: makeMoment(time.Date(2021, 5, 11, 19, 5, 41, 0, time.UTC)),
+			err:   ErrIncompatible,
+		},
+		{
 			left:  makeInt(10),
 			right: makeSlice([]Value{makeInt(2), makeInt(3), makeDouble(3.0)}),
 			want:  makeSlice([]Value{makeInt(0), makeInt(1), makeDouble(1.0)}),
 		},
 		{
+			left:  makeDouble(10),
+			right: makeSlice([]Value{makeInt(2), makeDouble(3), makeDouble(3.0)}),
+			want:  makeSlice([]Value{makeDouble(0), makeDouble(1), makeDouble(1.0)}),
+		},
+		{
 			left:  makeInt(2),
+			right: makeText("hello"),
+			err:   ErrIncompatible,
+		},
+		{
+			left:  makeDouble(2),
 			right: makeText("hello"),
 			err:   ErrIncompatible,
 		},
@@ -158,7 +188,22 @@ func TestValueMultiply(t *testing.T) {
 			want:  makeDouble(5.0),
 		},
 		{
+			left:  makeDouble(2.5),
+			right: makeInt(2),
+			want:  makeDouble(5.0),
+		},
+		{
+			left:  makeDouble(2),
+			right: makeDouble(2.5),
+			want:  makeDouble(5.0),
+		},
+		{
 			left:  makeInt(30),
+			right: makeMoment(time.Date(2021, 5, 11, 19, 5, 41, 0, time.UTC)),
+			err:   ErrIncompatible,
+		},
+		{
+			left:  makeDouble(30),
 			right: makeMoment(time.Date(2021, 5, 11, 19, 5, 41, 0, time.UTC)),
 			err:   ErrIncompatible,
 		},
@@ -168,9 +213,19 @@ func TestValueMultiply(t *testing.T) {
 			want:  makeSlice([]Value{makeInt(25), makeDouble(1002.5)}),
 		},
 		{
+			left:  makeDouble(5),
+			right: makeSlice([]Value{makeInt(5), makeDouble(200.5)}),
+			want:  makeSlice([]Value{makeDouble(25), makeDouble(1002.5)}),
+		},
+		{
 			left:  makeInt(2),
 			right: makeText("hello"),
 			want:  makeText("hellohello"),
+		},
+		{
+			left:  makeDouble(2),
+			right: makeText("hello"),
+			err:   ErrIncompatible,
 		},
 		{
 			left:  makeInt(0),
@@ -192,8 +247,18 @@ func TestValueSubtract(t *testing.T) {
 			want:  makeInt(0),
 		},
 		{
+			left:  makeDouble(100.0),
+			right: makeDouble(100.0),
+			want:  makeDouble(0),
+		},
+		{
 			left:  makeInt(100),
 			right: makeDouble(99.5),
+			want:  makeDouble(0.5),
+		},
+		{
+			left:  makeDouble(100.5),
+			right: makeInt(100),
 			want:  makeDouble(0.5),
 		},
 		{
@@ -202,9 +267,19 @@ func TestValueSubtract(t *testing.T) {
 			want:  makeMoment(time.Date(2021, 5, 11, 19, 5, 11, 0, time.UTC)),
 		},
 		{
+			left:  makeDouble(30),
+			right: makeMoment(time.Date(2021, 5, 11, 19, 5, 41, 0, time.UTC)),
+			err:   ErrIncompatible,
+		},
+		{
 			left:  makeInt(100),
 			right: makeSlice([]Value{makeInt(100), makeDouble(200.5)}),
 			want:  makeSlice([]Value{makeInt(0), makeDouble(-100.5)}),
+		},
+		{
+			left:  makeDouble(100.0),
+			right: makeSlice([]Value{makeInt(100), makeDouble(200.5)}),
+			want:  makeSlice([]Value{makeDouble(0), makeDouble(-100.5)}),
 		},
 		{
 			left:  makeInt(0),
@@ -231,8 +306,18 @@ func TestValueAdd(t *testing.T) {
 			want:  makeInt(200),
 		},
 		{
+			left:  makeDouble(100.5),
+			right: makeDouble(100.5),
+			want:  makeDouble(201.0),
+		},
+		{
 			left:  makeInt(100),
 			right: makeDouble(100.5),
+			want:  makeDouble(200.5),
+		},
+		{
+			left:  makeDouble(100.5),
+			right: makeInt(100),
 			want:  makeDouble(200.5),
 		},
 		{
@@ -246,9 +331,19 @@ func TestValueAdd(t *testing.T) {
 			want:  makeMoment(time.Date(2021, 5, 11, 19, 5, 41, 0, time.UTC)),
 		},
 		{
+			left:  makeDouble(30),
+			right: makeMoment(time.Date(2021, 5, 11, 19, 5, 11, 0, time.UTC)),
+			err:   ErrIncompatible,
+		},
+		{
 			left:  makeInt(100),
 			right: makeSlice([]Value{makeInt(100), makeDouble(200.5)}),
 			want:  makeSlice([]Value{makeInt(200), makeDouble(300.5)}),
+		},
+		{
+			left:  makeDouble(100.0),
+			right: makeSlice([]Value{makeInt(100), makeDouble(200.5)}),
+			want:  makeSlice([]Value{makeDouble(200), makeDouble(300.5)}),
 		},
 		{
 			left:  makeInt(0),
