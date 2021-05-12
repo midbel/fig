@@ -127,6 +127,7 @@ func checkString(t *testing.T, doc *Document) {
 		Key  []string
 		Want string
 	}{
+		{Key: []string{"index"}, Want: "string"},
 		{Key: []string{"str1"}, Want: "literal"},
 		{Key: []string{"str2"}, Want: "quoted"},
 		{Key: []string{"functions", "upper"}, Want: "LITERAL"},

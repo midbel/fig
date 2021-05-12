@@ -35,6 +35,11 @@ func (o *Object) Decode(v interface{}) error {
 	return nil
 }
 
+func (o *Object) MarshalJSON() ([]byte, error) {
+	// TODO
+	return nil, nil
+}
+
 func (o *Object) String() string {
 	return fmt.Sprintf("object(%s)", o.name.Input)
 }
@@ -99,9 +104,9 @@ func (o *Object) insert(tok Token) (*Object, error) {
 	var obj *Object
 	switch x := n.(type) {
 	case *Object:
-		if !x.isLeaf() {
-			return x, nil
-		}
+		// if !x.isLeaf() {
+		// 	return x, nil
+		// }
 		obj = createObjectWithToken(tok)
 		i := List{
 			name:  tok,
@@ -203,6 +208,11 @@ func (i List) String() string {
 	return fmt.Sprintf("list(%s)", i.name)
 }
 
+func (i List) MarshalJSON() ([]byte, error) {
+	// TODO
+	return nil, nil
+}
+
 type Option struct {
 	name Token
 	expr Expr
@@ -212,4 +222,8 @@ type Option struct {
 
 func (o Option) String() string {
 	return fmt.Sprintf("option(%s, %s)", o.name.Input, o.expr)
+}
+
+func (o Option) MarshalJSON() ([]byte, error) {
+	return nil, nil
 }

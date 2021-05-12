@@ -6,15 +6,15 @@ import (
 	"strings"
 )
 
-func Debug(r io.Reader) error {
+func Debug(w io.Writer, r io.Reader) error {
 	obj, err := Parse(r)
 	if err != nil {
 		return err
 	}
-	return debugObject(obj, -2, true)
+	return debugObject(w, obj, -2, true)
 }
 
-func debugObject(obj *Object, level int, label bool) error {
+func debugObject(w io.Writer, obj *Object, level int, label bool) error {
 	name := obj.name.Input
 	if name == "" {
 		name = "document"
@@ -22,51 +22,51 @@ func debugObject(obj *Object, level int, label bool) error {
 	level += 2
 	fmt.Print(strings.Repeat(" ", level))
 	if label {
-		fmt.Printf("object(%s) {", name)
+		fmt.Fprintf(w, "object(%s) {", name)
 	} else {
-		fmt.Print("{")
+		fmt.Fprint(w, "{")
 	}
-	fmt.Println()
+	fmt.Fprintln(w)
 	for _, n := range obj.nodes {
 		switch n := n.(type) {
 		case Option:
-			debugOption(n, level)
+			debugOption(w, n, level)
 		case List:
-			debugList(n, level)
+			debugList(w, n, level)
 		case *Object:
-			debugObject(n, level, true)
+			debugObject(w, n, level, true)
 		default:
 			return fmt.Errorf("unexpected node type %T", n)
 		}
 	}
-	fmt.Print(strings.Repeat(" ", level))
-	fmt.Println("}")
+	fmt.Fprint(w, strings.Repeat(" ", level))
+	fmt.Fprintln(w, "}")
 	return nil
 }
 
-func debugList(i List, level int) error {
+func debugList(w io.Writer, i List, level int) error {
 	level += 2
-	fmt.Print(strings.Repeat(" ", level))
-	fmt.Printf("list(%s) [", i.name.Input)
-	fmt.Println()
+	fmt.Fprint(w, strings.Repeat(" ", level))
+	fmt.Fprintf(w, "list(%s) [", i.name.Input)
+	fmt.Fprintln(w)
 	for _, n := range i.nodes {
 		switch n := n.(type) {
 		case Option:
-			debugOption(n, level)
+			debugOption(w, n, level)
 		case *Object:
-			debugObject(n, level, false)
+			debugObject(w, n, level, false)
 		default:
 			return fmt.Errorf("unexpected node type %T", n)
 		}
 	}
-	fmt.Print(strings.Repeat(" ", level))
-	fmt.Println("]")
+	fmt.Fprint(w, strings.Repeat(" ", level))
+	fmt.Fprintln(w, "]")
 	return nil
 }
 
-func debugOption(opt Option, level int) {
+func debugOption(w io.Writer, opt Option, level int) {
 	level += 2
-	fmt.Print(strings.Repeat(" ", level))
-	fmt.Printf("%s: %s", opt.name.Input, opt.expr)
-	fmt.Println()
+	fmt.Fprint(w, strings.Repeat(" ", level))
+	fmt.Fprintf(w, "%s: %s", opt.name.Input, opt.expr)
+	fmt.Fprintln(w)
 }

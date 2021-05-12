@@ -4,6 +4,15 @@ str2  = "quoted"
 int   = 100
 float = 1.2
 
+index = [
+  1,
+  true,
+  false,
+  1.2,
+  1 + 1,
+  "string"
+][5]
+
 expr {
   int = 100 + 1
   neg = -100

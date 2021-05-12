@@ -332,7 +332,7 @@ func (a Array) Eval(e Environment) (Value, error) {
 	}
 	var v Value
 	if err == nil {
-		v = Slice{inner: vs}
+		v = makeSlice(vs)
 	}
 	return v, err
 }
