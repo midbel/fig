@@ -36,6 +36,7 @@ resource doc {
   mode = $mode_doc
 }
 
+/*
 resource {
   binary {
     path = "$dir_exec/figfmt"
@@ -46,6 +47,32 @@ resource {
     mode = $mode_doc
   }
 }
+*/
+
+/*
+resource {
+  binary {
+    path = "$dir_exec/fig2json"
+    mode = $mode_exec
+  }
+  binary {
+    path = "$dir_exec/fig2toml"
+    mode = $mode_exec
+  }
+  binary {
+    path = "$dir_exec/json2fig"
+    mode = $mode_exec
+  }
+  binary {
+    path = "$dir_exec/toml2fig"
+    mode = $mode_exec
+  }
+  doc {
+    path = "$dir_doc/spec"
+    mode = $mode_doc
+  }
+}
+*/
 
 changelog {
   date    = 2021-05-07

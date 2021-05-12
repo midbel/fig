@@ -63,17 +63,6 @@ func (o *Object) mergeObject(other *Object) {
 	}
 }
 
-func (o *Object) isLeaf() bool {
-	for _, n := range o.nodes {
-		switch n.(type) {
-		case *Object, List:
-			return false
-		default:
-		}
-	}
-	return true
-}
-
 func (o *Object) get(tok Token) (*Object, error) {
 	n, ok := o.nodes[tok.Input]
 	if !ok {
@@ -104,9 +93,6 @@ func (o *Object) insert(tok Token) (*Object, error) {
 	var obj *Object
 	switch x := n.(type) {
 	case *Object:
-		// if !x.isLeaf() {
-		// 	return x, nil
-		// }
 		obj = createObjectWithToken(tok)
 		i := List{
 			name:  tok,

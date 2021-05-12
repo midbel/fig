@@ -101,7 +101,7 @@ func (s *Scanner) Scan() Token {
 		return tok
 	}
 	if k := s.peek(); s.char == pound || s.char == slash && k == star {
-		s.scanComment(&tok)
+		s.scanComment(&tok, s.char == slash && k == star)
 		s.skipBlank()
 		return tok
 	}
@@ -596,7 +596,11 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 	s.skipNewline()
 }
 
-func (s *Scanner) scanComment(tok *Token) {
+func (s *Scanner) scanComment(tok *Token, long bool) {
+	if long {
+		s.scanCommentMultiline(tok)
+		return
+	}
 	s.read()
 	if isBlank(s.char) {
 		s.skipBlank()
@@ -609,6 +613,35 @@ func (s *Scanner) scanComment(tok *Token) {
 	s.skipNewline()
 	tok.Type = Comment
 	tok.Input = s.str.String()
+}
+
+func (s *Scanner) scanCommentMultiline(tok *Token) {
+	s.read()
+	s.read()
+	if isBlank(s.char) {
+		s.skipBlank()
+	}
+	nested := 1
+	for !isEOF(s.char) {
+		if peek := s.peek(); s.char == star && peek == slash {
+			nested--
+			if nested == 0 {
+				s.read()
+				s.read()
+				break
+			}
+		} else if s.char == slash && peek == star {
+			nested++
+		}
+		s.str.WriteRune(s.char)
+		s.read()
+	}
+	tok.Type = Comment
+	tok.Input = strings.TrimSpace(s.str.String())
+	if isEOF(s.char) && nested > 0 {
+		tok.Type = Invalid
+	}
+	s.skipNewline()
 }
 
 func (s *Scanner) peek() rune {

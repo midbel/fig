@@ -30,9 +30,12 @@ func TestScan(t *testing.T) {
     19:16:45, 19:16:45.123
 		# scan macros
 		.include
+		/* long comment */
+		/* very long /*nested long comment*/ and more */
+		/* invalid comment
   `
-
-	sc, err := Scan(strings.NewReader(strings.TrimSpace(str)))
+	input := strings.ReplaceAll(str, "\r\n", "\n")
+	sc, err := Scan(strings.NewReader(strings.TrimSpace(input)))
 	if err != nil {
 		t.Errorf("unexpected error: %s", err)
 		return
@@ -96,6 +99,10 @@ func TestScan(t *testing.T) {
 		makeToken("", EOL),
 		makeToken("scan macros", Comment),
 		makeToken("include", Macro),
+		makeToken("", EOL),
+		makeToken("long comment", Comment),
+		makeToken("very long /*nested long comment*/ and more", Comment),
+		makeToken("invalid comment", Invalid),
 	}
 	for i := 0; ; i++ {
 		tok := sc.Scan()
@@ -106,7 +113,7 @@ func TestScan(t *testing.T) {
 			t.Errorf("too many tokens! want %d, got %d", len(tokens), i)
 			return
 		}
-		if tok.Type == Invalid {
+		if tok.Type == Invalid && tokens[i].Type != Invalid {
 			t.Errorf("%s: invalid token! expected %s", tok, tokens[i])
 			return
 		}
