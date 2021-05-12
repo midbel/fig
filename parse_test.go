@@ -6,6 +6,25 @@ import (
 )
 
 func TestParse(t *testing.T) {
+	t.Run("mix", testParseMix)
+	t.Run("package", testParseSimple)
+}
+
+func testParseMix(t *testing.T) {
+	r, err := os.Open("testdata/main.fig")
+	if err != nil {
+		t.Fatalf("fail to open sample file")
+		return
+	}
+	defer r.Close()
+
+	if _, err = Parse(r); err != nil {
+		t.Errorf("invalid document %s", err)
+		return
+	}
+}
+
+func testParseSimple(t *testing.T) {
 	r, err := os.Open("testdata/package.fig")
 	if err != nil {
 		t.Fatalf("fail to open sample file")
