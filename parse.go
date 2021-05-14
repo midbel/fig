@@ -236,6 +236,10 @@ func (p *Parser) parse(obj *Object) error {
 func (p *Parser) parseObject(obj *Object) error {
 	p.next()
 	for !p.done() && p.curr.Type != EndObj {
+		if p.curr.Type == EOL {
+			p.next()
+			continue
+		}
 		if err := p.parse(obj); err != nil {
 			return err
 		}
@@ -364,6 +368,8 @@ func (p *Parser) parseBody() (Expr, error) {
 		case EOL, Comment:
 			p.next()
 			continue
+		case BegObj:
+			expr, err = p.parseBody()
 		default:
 			return nil, p.unexpectedToken()
 		}
