@@ -500,6 +500,15 @@ func (p *Parser) parseForeach() (Expr, error) {
 	)
 	foreach.ident = p.curr
 	p.next()
+	if p.curr.Type == Comma {
+		p.next()
+		if p.curr.Type != Ident {
+			return nil, p.unexpectedToken()
+		}
+		foreach.loop = foreach.ident
+		foreach.ident = p.curr
+		p.next()
+	}
 	if p.curr.Type != Keyword && p.curr.Input != kwIn {
 		return nil, p.unexpectedToken()
 	}

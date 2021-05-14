@@ -21,6 +21,7 @@ type Expr interface {
 
 type ForeachLoop struct {
 	ident Token
+	loop  Token
 	expr  Expr
 	body  Expr
 	alt   Expr
@@ -46,6 +47,9 @@ func (f ForeachLoop) Eval(e Environment) (Value, error) {
 	for loop, last = range vs.inner {
 		env := EnclosedEnv(e)
 		env.Define(f.ident.Input, last)
+		if !f.loop.isZero() {
+			env.Define(f.loop.Input, makeInt(int64(loop)))
+		}
 
 		if last, err = f.body.Eval(env); err != nil {
 			if errors.Is(err, errReturn) {
