@@ -47,28 +47,37 @@ const (
 )
 
 var powers = map[rune]int{
-	Lshift:   bindShift,
-	Rshift:   bindShift,
-	Band:     bindBin,
-	Bor:      bindBin,
-	And:      bindRel,
-	Or:       bindRel,
-	Lt:       bindCmp,
-	Le:       bindCmp,
-	Gt:       bindCmp,
-	Ge:       bindCmp,
-	Equal:    bindCmp,
-	NotEqual: bindCmp,
-	Add:      bindAdd,
-	Sub:      bindAdd,
-	Mul:      bindMul,
-	Div:      bindMul,
-	Mod:      bindMul,
-	Pow:      bindPow,
-	BegGrp:   bindCall,
-	BegArr:   bindIndex,
-	Assign:   bindAssign,
-	Question: bindCdt,
+	Lshift:       bindShift,
+	Rshift:       bindShift,
+	Band:         bindBin,
+	Bor:          bindBin,
+	And:          bindRel,
+	Or:           bindRel,
+	Lt:           bindCmp,
+	Le:           bindCmp,
+	Gt:           bindCmp,
+	Ge:           bindCmp,
+	Equal:        bindCmp,
+	NotEqual:     bindCmp,
+	Add:          bindAdd,
+	Sub:          bindAdd,
+	Mul:          bindMul,
+	Div:          bindMul,
+	Mod:          bindMul,
+	Pow:          bindPow,
+	BegGrp:       bindCall,
+	BegArr:       bindIndex,
+	Assign:       bindAssign,
+	AddAssign:    bindAssign,
+	SubAssign:    bindAssign,
+	MulAssign:    bindAssign,
+	DivAssign:    bindAssign,
+	ModAssign:    bindAssign,
+	LshiftAssign: bindAssign,
+	RshiftAssign: bindAssign,
+	BandAssign:   bindAssign,
+	BorAssign:    bindAssign,
+	Question:     bindCdt,
 }
 
 type Parser struct {
@@ -80,8 +89,8 @@ type Parser struct {
 	prefix map[rune]func() (Expr, error)
 	macros map[string]func(map[string]Expr) (Node, error)
 
-	loop   int
-	userfn int
+	loop  int
+	block int
 }
 
 func NewParser(r io.Reader) (*Parser, error) {
@@ -115,29 +124,38 @@ func NewParser(r io.Reader) (*Parser, error) {
 		BegArr:   p.parseArray,
 	}
 	p.infix = map[rune]func(Expr) (Expr, error){
-		Add:      p.parseInfix,
-		Sub:      p.parseInfix,
-		Div:      p.parseInfix,
-		Mul:      p.parseInfix,
-		Mod:      p.parseInfix,
-		Pow:      p.parseInfix,
-		And:      p.parseInfix,
-		Or:       p.parseInfix,
-		Gt:       p.parseInfix,
-		Lt:       p.parseInfix,
-		Ge:       p.parseInfix,
-		Le:       p.parseInfix,
-		Equal:    p.parseInfix,
-		NotEqual: p.parseInfix,
-		Lshift:   p.parseInfix,
-		Rshift:   p.parseInfix,
-		Band:     p.parseInfix,
-		Bor:      p.parseInfix,
-		Bnot:     p.parseInfix,
-		BegGrp:   p.parseCall,
-		BegArr:   p.parseIndex,
-		Question: p.parseTernary,
-		Assign:   p.parseAssignment,
+		Add:          p.parseInfix,
+		Sub:          p.parseInfix,
+		Div:          p.parseInfix,
+		Mul:          p.parseInfix,
+		Mod:          p.parseInfix,
+		Pow:          p.parseInfix,
+		And:          p.parseInfix,
+		Or:           p.parseInfix,
+		Gt:           p.parseInfix,
+		Lt:           p.parseInfix,
+		Ge:           p.parseInfix,
+		Le:           p.parseInfix,
+		Equal:        p.parseInfix,
+		NotEqual:     p.parseInfix,
+		Lshift:       p.parseInfix,
+		Rshift:       p.parseInfix,
+		Band:         p.parseInfix,
+		Bor:          p.parseInfix,
+		Bnot:         p.parseInfix,
+		BegGrp:       p.parseCall,
+		BegArr:       p.parseIndex,
+		Question:     p.parseTernary,
+		Assign:       p.parseAssignment,
+		AddAssign:    p.parseAssignment,
+		SubAssign:    p.parseAssignment,
+		MulAssign:    p.parseAssignment,
+		DivAssign:    p.parseAssignment,
+		ModAssign:    p.parseAssignment,
+		BandAssign:   p.parseAssignment,
+		BorAssign:    p.parseAssignment,
+		LshiftAssign: p.parseAssignment,
+		RshiftAssign: p.parseAssignment,
 	}
 	p.next()
 	p.next()
@@ -259,7 +277,8 @@ func (p *Parser) parseValue() (Expr, error) {
 	if p.curr.Type == EOL {
 		return nil, p.syntaxError()
 	}
-	expr, err := p.parseExpr(bindLowest)
+	// expr, err := p.parseExpr(bindLowest)
+	expr, err := p.parseExpression()
 	if err != nil {
 		return nil, fmt.Errorf("parsing expression: %w", err)
 	}
@@ -270,8 +289,8 @@ func (p *Parser) parseValue() (Expr, error) {
 }
 
 func (p *Parser) parseFunction() (Func, error) {
-	p.enterFunction()
-	defer p.leaveFunction()
+	p.enterBlock()
+	defer p.leaveBlock()
 
 	var (
 		fn  Func
@@ -315,66 +334,74 @@ func (p *Parser) parseFunction() (Func, error) {
 	return fn, nil
 }
 
+func (p *Parser) parseExpression() (Expr, error) {
+	var (
+		expr Expr
+		err  error
+	)
+	switch p.curr.Type {
+	case Let:
+		expr, err = p.parseLet()
+	case Ret:
+		expr, err = p.parseReturn()
+	case If:
+		expr, err = p.parseIf()
+	case For:
+		expr, err = p.parseFor()
+	case While:
+		expr, err = p.parseWhile()
+	case Foreach:
+		expr, err = p.parseForeach()
+	case Break:
+		if !p.inLoop() {
+			return nil, p.syntaxError()
+		}
+		expr = BreakLoop{}
+		p.next()
+		if p.curr.Type != EOL {
+			return nil, p.unexpectedToken()
+		}
+		p.next()
+	case Continue:
+		if !p.inLoop() {
+			return nil, p.syntaxError()
+		}
+		expr = ContinueLoop{}
+		p.next()
+		if p.curr.Type != EOL {
+			return nil, p.unexpectedToken()
+		}
+		p.next()
+	case EOL, Comment:
+		p.next()
+	case BegObj:
+		expr, err = p.parseBody()
+	default:
+		expr, err = p.parseExpr(bindLowest)
+		// if p.curr.Type != EOL {
+		// 	fmt.Println("oups")
+		// 	return nil, p.unexpectedToken()
+		// }
+		// p.next()
+	}
+	return expr, err
+}
+
 func (p *Parser) parseBody() (Expr, error) {
 	if p.curr.Type != BegObj {
 		return nil, p.unexpectedToken()
 	}
+	p.enterBlock()
+	defer p.leaveBlock()
 	p.next()
 	var b Block
 	for p.curr.Type != EndObj {
-		var (
-			expr Expr
-			err  error
-		)
-		switch p.curr.Type {
-		case Let:
-			expr, err = p.parseLet()
-		case Ret:
-			expr, err = p.parseReturn()
-		case If:
-			expr, err = p.parseIf()
-		case For:
-			expr, err = p.parseFor()
-		case While:
-			expr, err = p.parseWhile()
-		case Foreach:
-			expr, err = p.parseForeach()
-		case Break:
-			if !p.inLoop() {
-				return nil, p.syntaxError()
-			}
-			expr = BreakLoop{}
-			p.next()
-			if p.curr.Type != EOL {
-				return nil, p.unexpectedToken()
-			}
-			p.next()
-		case Continue:
-			if !p.inLoop() {
-				return nil, p.syntaxError()
-			}
-			expr = ContinueLoop{}
-			p.next()
-			if p.curr.Type != EOL {
-				return nil, p.unexpectedToken()
-			}
-			p.next()
-		case Ident:
-			expr, err = p.parseExpr(bindLowest)
-			if p.curr.Type != EOL {
-				return nil, p.unexpectedToken()
-			}
-			p.next()
-		case EOL, Comment:
-			p.next()
-			continue
-		case BegObj:
-			expr, err = p.parseBody()
-		default:
-			return nil, p.unexpectedToken()
-		}
+		expr, err := p.parseExpression()
 		if err != nil {
 			return nil, err
+		}
+		if expr == nil {
+			continue
 		}
 		b.expr = append(b.expr, expr)
 	}
@@ -434,7 +461,8 @@ func (p *Parser) parseWhile() (Expr, error) {
 		while WhileLoop
 		err   error
 	)
-	if while.cdt, err = p.parseExpr(bindLowest); err != nil {
+	// if while.cdt, err = p.parseExpr(bindLowest); err != nil {
+	if while.cdt, err = p.parseExpression(); err != nil {
 		return nil, err
 	}
 	if p.curr.Type != EndGrp {
@@ -454,9 +482,45 @@ func (p *Parser) parseWhile() (Expr, error) {
 }
 
 func (p *Parser) parseForeach() (Expr, error) {
+	p.next()
+	if p.curr.Type != BegGrp {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	if p.curr.Type != Ident {
+		return nil, p.unexpectedToken()
+	}
+
 	p.enterLoop()
 	defer p.leaveLoop()
-	return nil, nil
+
+	var (
+		foreach ForeachLoop
+		err     error
+	)
+	foreach.ident = p.curr
+	p.next()
+	if p.curr.Type != Keyword && p.curr.Input != kwIn {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	if foreach.expr, err = p.parseExpression(); err != nil {
+		return nil, err
+	}
+	if p.curr.Type != EndGrp {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	if foreach.body, err = p.parseBody(); err != nil {
+		return nil, err
+	}
+	if p.curr.Type == Else {
+		p.next()
+		if foreach.alt, err = p.parseBody(); err != nil {
+			return nil, err
+		}
+	}
+	return foreach, nil
 }
 
 func (p *Parser) parseFor() (Expr, error) {
@@ -467,6 +531,9 @@ func (p *Parser) parseFor() (Expr, error) {
 
 func (p *Parser) parseLet() (Expr, error) {
 	p.next()
+	if !p.inBlock() {
+		return nil, p.syntaxError()
+	}
 	if p.curr.Type != Ident {
 		return nil, p.unexpectedToken()
 	}
@@ -492,6 +559,9 @@ func (p *Parser) parseLet() (Expr, error) {
 }
 
 func (p *Parser) parseReturn() (Expr, error) {
+	if !p.inBlock() {
+		return nil, p.syntaxError()
+	}
 	p.next()
 	expr, err := p.parseExpr(bindLowest)
 	if err != nil {
@@ -612,7 +682,7 @@ func (p *Parser) parseLiteral() (Expr, error) {
 	if !p.curr.IsLiteral() {
 		return nil, p.unexpectedToken()
 	}
-	if p.inFunction() && p.curr.Type == Ident {
+	if p.inBlock() && p.curr.Type == Ident {
 		curr := p.curr
 		curr.Type = EnvVar
 		p.next()
@@ -684,12 +754,44 @@ func (p *Parser) parseInfix(left Expr) (Expr, error) {
 func (p *Parser) parseAssignment(left Expr) (Expr, error) {
 	lit, ok := left.(Variable)
 	if !ok {
-		return nil, fmt.Errorf("")
+		return nil, p.syntaxError()
+	}
+	var op rune
+	switch p.curr.Type {
+	case Assign:
+		op = p.curr.Type
+	case AddAssign:
+		op = Add
+	case SubAssign:
+		op = Sub
+	case MulAssign:
+		op = Mul
+	case DivAssign:
+		op = Div
+	case ModAssign:
+		op = Mod
+	case BandAssign:
+		op = Band
+	case BorAssign:
+		op = Bor
+	case LshiftAssign:
+		op = Lshift
+	case RshiftAssign:
+		op = Rshift
+	default:
+		return nil, p.unexpectedToken()
 	}
 	p.next()
 	expr, err := p.parseExpr(bindLowest)
 	if err != nil {
 		return nil, err
+	}
+	if op != Assign {
+		expr = Binary{
+			left:  left,
+			right: expr,
+			op:    op,
+		}
 	}
 	a := Assignment{
 		ident: lit.tok,
@@ -751,7 +853,7 @@ func (p *Parser) parseTernary(left Expr) (Expr, error) {
 func (p *Parser) parseCall(left Expr) (Expr, error) {
 	p.next()
 	var tok Token
-	if p.inFunction() {
+	if p.inBlock() {
 		name, ok := left.(Variable)
 		if !ok || name.tok.Type != EnvVar {
 			return nil, p.syntaxError()
@@ -862,16 +964,16 @@ func (p *Parser) inLoop() bool {
 	return p.loop > 0
 }
 
-func (p *Parser) enterFunction() {
-	p.userfn++
+func (p *Parser) enterBlock() {
+	p.block++
 }
 
-func (p *Parser) leaveFunction() {
-	p.userfn--
+func (p *Parser) leaveBlock() {
+	p.block--
 }
 
-func (p *Parser) inFunction() bool {
-	return p.userfn > 0
+func (p *Parser) inBlock() bool {
+	return p.block > 0
 }
 
 func (p *Parser) unexpectedToken() error {

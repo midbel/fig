@@ -67,6 +67,9 @@ func checkInt(t *testing.T, doc *Document) {
 		Key  []string
 		Want int64
 	}{
+		{Key: []string{"blocks", "size"}, Want: 0},
+		{Key: []string{"user_defined", "each"}, Want: 6},
+		{Key: []string{"user_defined", "ctrl"}, Want: 52},
 		{Key: []string{"user_defined", "until"}, Want: 10},
 		{Key: []string{"user_defined", "add"}, Want: 30},
 		{Key: []string{"int"}, Want: 100},
@@ -132,6 +135,7 @@ func checkString(t *testing.T, doc *Document) {
 		Key  []string
 		Want string
 	}{
+		{Key: []string{"blocks", "hello"}, Want: "hello world"},
 		{Key: []string{"user_defined", "hello"}, Want: "hello world"},
 		{Key: []string{"index"}, Want: "string"},
 		{Key: []string{"str1"}, Want: "literal"},

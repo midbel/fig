@@ -189,32 +189,50 @@ func (t Token) String() string {
 		return "<ge>"
 	case Le:
 		return "<le>"
-	case Add, AddAssign:
+	case Add:
 		return "<add>"
-	case Sub, SubAssign:
+	case AddAssign:
+		return "<add-assign>"
+	case Sub:
 		return "<subtract>"
-	case Div, DivAssign:
+	case SubAssign:
+		return "<subtract-assign>"
+	case Div:
 		return "<divide>"
-	case Mul, MulAssign:
+	case DivAssign:
+		return "<divide-assign>"
+	case Mul:
 		return "<multiply>"
-	case Mod, ModAssign:
+	case MulAssign:
+		return "<multiply-assign>"
+	case Mod:
 		return "<modulo>"
+	case ModAssign:
+		return "<modulo-assign>"
 	case Pow:
 		return "<power>"
 	case And:
 		return "<and>"
 	case Or:
 		return "<or>"
-	case Band, BandAssign:
+	case Band:
 		return "<bin-and>"
-	case Bor, BorAssign:
+	case BandAssign:
+		return "<bin-and-assign>"
+	case Bor:
 		return "<bin-or>"
+	case BorAssign:
+		return "<bin-or-assign>"
 	case Bnot:
 		return "<bin-not>"
-	case Lshift, LshiftAssign:
+	case Lshift:
 		return "<left-shift>"
-	case Rshift, RshiftAssign:
+	case LshiftAssign:
+		return "<left-shift-assign>"
+	case Rshift:
 		return "<right-shift>"
+	case RshiftAssign:
+		return "<right-shift-assign>"
 	case LocalVar:
 		prefix = "local"
 	case EnvVar:

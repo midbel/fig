@@ -20,3 +20,15 @@ variables mix {
 	expr = $int - @int
 	mod  = $int % $int
 }
+
+blocks {
+	hello = {
+		let str = "hello world"
+		str
+	}
+	size = if (len($hello) != 0) {
+		0
+	} else {
+		len($hello)
+	}
+}

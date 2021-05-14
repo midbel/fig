@@ -31,7 +31,37 @@ func (f ForeachLoop) String() string {
 }
 
 func (f ForeachLoop) Eval(e Environment) (Value, error) {
-	return nil, nil
+	v, err := f.expr.Eval(e)
+	if err != nil {
+		return nil, err
+	}
+	vs, ok := v.(Slice)
+	if !ok {
+		return nil, ErrUnsupported
+	}
+	var (
+		loop int
+		last Value
+	)
+	for loop, last = range vs.inner {
+		env := EnclosedEnv(e)
+		env.Define(f.ident.Input, last)
+
+		if last, err = f.body.Eval(env); err != nil {
+			if errors.Is(err, errReturn) {
+				return last, err
+			} else if errors.Is(err, errBreak) {
+				break
+			} else if errors.Is(err, errContinue) {
+				continue
+			}
+			return nil, err
+		}
+	}
+	if loop == 0 && f.alt != nil {
+		return f.alt.Eval(e)
+	}
+	return last, nil
 }
 
 type ForLoop struct {
@@ -93,20 +123,24 @@ func (w WhileLoop) String() string {
 }
 
 func (w WhileLoop) Eval(e Environment) (Value, error) {
-	var i int
-	ec := EnclosedEnv(e)
+	var (
+		loop int
+		err  error
+		last Value
+		env  = EnclosedEnv(e)
+	)
 	for {
-		v, err := w.cdt.Eval(ec)
+		last, err = w.cdt.Eval(env)
 		if err != nil {
 			return nil, err
 		}
-		i++
-		if !v.isTrue() {
+		loop++
+		if !last.isTrue() {
 			break
 		}
-		if v, err = w.csq.Eval(ec); err != nil {
+		if last, err = w.csq.Eval(env); err != nil {
 			if errors.Is(err, errReturn) {
-				return v, err
+				return last, err
 			} else if errors.Is(err, errBreak) {
 				break
 			} else if errors.Is(err, errContinue) {
@@ -115,10 +149,10 @@ func (w WhileLoop) Eval(e Environment) (Value, error) {
 			return nil, err
 		}
 	}
-	if i == 0 {
+	if loop == 0 && w.alt != nil {
 		return w.alt.Eval(e)
 	}
-	return nil, nil
+	return last, nil
 }
 
 type BreakLoop struct{}
@@ -146,17 +180,18 @@ type Block struct {
 }
 
 func (b Block) Eval(e Environment) (Value, error) {
-	ec := EnclosedEnv(e)
+	var (
+		env  = EnclosedEnv(e)
+		err  error
+		last Value
+	)
 	for _, ex := range b.expr {
-		v, err := ex.Eval(ec)
-		if errors.Is(err, errReturn) {
-			return v, err
-		}
+		last, err = ex.Eval(env)
 		if err != nil {
-			return v, err
+			return last, err
 		}
 	}
-	return nil, nil
+	return last, nil
 }
 
 func (b Block) String() string {
@@ -166,7 +201,6 @@ func (b Block) String() string {
 type Assignment struct {
 	ident Token
 	expr  Expr
-	op    rune
 	let   bool
 }
 
