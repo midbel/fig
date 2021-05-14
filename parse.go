@@ -79,6 +79,9 @@ type Parser struct {
 	infix  map[rune]func(Expr) (Expr, error)
 	prefix map[rune]func() (Expr, error)
 	macros map[string]func(map[string]Expr) (Node, error)
+
+	loop   int
+	userfn int
 }
 
 func NewParser(r io.Reader) (*Parser, error) {
@@ -134,6 +137,7 @@ func NewParser(r io.Reader) (*Parser, error) {
 		BegGrp:   p.parseCall,
 		BegArr:   p.parseIndex,
 		Question: p.parseTernary,
+		Assign:   p.parseAssignment,
 	}
 	p.next()
 	p.next()
@@ -179,7 +183,10 @@ func (p *Parser) parse(obj *Object) error {
 		return nil
 	}
 	if p.curr.Type == Ident && p.peek.Type == BegGrp {
-		_, err := p.parseFunction()
+		fn, err := p.parseFunction()
+		if err == nil {
+			err = obj.registerFunc(fn)
+		}
 		return err
 	}
 	if p.curr.IsIdent() && p.peek.Type == Assign {
@@ -258,34 +265,236 @@ func (p *Parser) parseValue() (Expr, error) {
 	return expr, err
 }
 
-func (p *Parser) parseFunction() (Expr, error) {
-	name := p.curr
+func (p *Parser) parseFunction() (Func, error) {
+	p.enterFunction()
+	defer p.leaveFunction()
+
+	var (
+		fn  Func
+		err error
+	)
+	fn.name = p.curr
+	p.next()
+	if p.curr.Type != BegGrp {
+		return fn, p.unexpectedToken()
+	}
+	p.next()
+	for p.curr.Type != EndGrp {
+		if p.curr.Type != Ident {
+			return fn, p.unexpectedToken()
+		}
+		fn.args = append(fn.args, p.curr)
+		p.next()
+		switch p.curr.Type {
+		case EndGrp:
+		case Comma:
+			p.next()
+			if p.curr.Type == EOL {
+				p.next()
+			}
+		case EOL:
+			if p.peek.Type != EndGrp {
+				return fn, p.unexpectedToken()
+			}
+			p.next()
+		default:
+			return fn, p.unexpectedToken()
+		}
+	}
+	if p.curr.Type != EndGrp {
+		return fn, p.unexpectedToken()
+	}
+	p.next()
+	if fn.body, err = p.parseBody(); err != nil {
+		return fn, err
+	}
+	return fn, nil
+}
+
+func (p *Parser) parseBody() (Expr, error) {
+	if p.curr.Type != BegObj {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	var b Block
+	for p.curr.Type != EndObj {
+		var (
+			expr Expr
+			err  error
+		)
+		switch p.curr.Type {
+		case Let:
+			expr, err = p.parseLet()
+		case Ret:
+			expr, err = p.parseReturn()
+		case If:
+			expr, err = p.parseIf()
+		case For:
+			expr, err = p.parseFor()
+		case While:
+			expr, err = p.parseWhile()
+		case Foreach:
+			expr, err = p.parseForeach()
+		case Break:
+			if !p.inLoop() {
+				return nil, p.syntaxError()
+			}
+			expr = BreakLoop{}
+			p.next()
+			if p.curr.Type != EOL {
+				return nil, p.unexpectedToken()
+			}
+			p.next()
+		case Continue:
+			if !p.inLoop() {
+				return nil, p.syntaxError()
+			}
+			expr = ContinueLoop{}
+			p.next()
+			if p.curr.Type != EOL {
+				return nil, p.unexpectedToken()
+			}
+			p.next()
+		case Ident:
+			expr, err = p.parseExpr(bindLowest)
+			if p.curr.Type != EOL {
+				return nil, p.unexpectedToken()
+			}
+			p.next()
+		case EOL, Comment:
+			p.next()
+			continue
+		default:
+			return nil, p.unexpectedToken()
+		}
+		if err != nil {
+			return nil, err
+		}
+		b.expr = append(b.expr, expr)
+	}
+	if p.curr.Type != EndObj {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	return b, nil
+}
+
+func (p *Parser) parseIf() (Expr, error) {
 	p.next()
 	if p.curr.Type != BegGrp {
 		return nil, p.unexpectedToken()
 	}
 	p.next()
-	args, err := p.parseArgs()
-	if err != nil {
+	var (
+		ter Ternary
+		err error
+	)
+	if ter.cdt, err = p.parseExpr(bindLowest); err != nil {
 		return nil, err
 	}
-	if _, err = p.parseFunctionBody(); err != nil {
+	if p.curr.Type != EndGrp {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	if ter.csq, err = p.parseBody(); err != nil {
 		return nil, err
 	}
-	_, _ = name, args
+	if p.curr.Type == Else {
+		p.next()
+		if p.curr.Type == If {
+			ter.alt, err = p.parseIf()
+		} else {
+			ter.alt, err = p.parseBody()
+		}
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		ter.alt = Block{}
+	}
+	return ter, nil
+}
+
+func (p *Parser) parseWhile() (Expr, error) {
+	p.enterLoop()
+	defer p.leaveLoop()
+
+	p.next()
+	if p.curr.Type != BegGrp {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	var (
+		while WhileLoop
+		err   error
+	)
+	if while.cdt, err = p.parseExpr(bindLowest); err != nil {
+		return nil, err
+	}
+	if p.curr.Type != EndGrp {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	if while.csq, err = p.parseBody(); err != nil {
+		return nil, err
+	}
+	if p.curr.Type == Else {
+		p.next()
+		if while.alt, err = p.parseBody(); err != nil {
+			return nil, err
+		}
+	}
+	return while, nil
+}
+
+func (p *Parser) parseForeach() (Expr, error) {
+	p.enterLoop()
+	defer p.leaveLoop()
 	return nil, nil
 }
 
-func (p *Parser) parseFunctionBody() (Expr, error) {
-	if p.curr.Type != BegObj {
-		return nil, p.unexpectedToken()
-	}
-	p.next()
-	if p.curr.Type != EndObj {
-		return nil, p.unexpectedToken()
-	}
-	p.next()
+func (p *Parser) parseFor() (Expr, error) {
+	p.enterLoop()
+	defer p.leaveLoop()
 	return nil, nil
+}
+
+func (p *Parser) parseLet() (Expr, error) {
+	p.next()
+	if p.curr.Type != Ident {
+		return nil, p.unexpectedToken()
+	}
+	let := Assignment{
+		ident: p.curr,
+	}
+	p.next()
+	if p.curr.Type != Assign {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	expr, err := p.parseExpr(bindLowest)
+	if err != nil {
+		return nil, err
+	}
+	let.expr = expr
+	if p.curr.Type != EOL {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	return let, nil
+}
+
+func (p *Parser) parseReturn() (Expr, error) {
+	p.next()
+	expr, err := p.parseExpr(bindLowest)
+	if err != nil {
+		return nil, err
+	}
+	if p.curr.Type != EOL {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	return Return{expr: expr}, nil
 }
 
 func (p *Parser) parseMacro(obj *Object) error {
@@ -396,6 +605,12 @@ func (p *Parser) parseLiteral() (Expr, error) {
 	if !p.curr.IsLiteral() {
 		return nil, p.unexpectedToken()
 	}
+	if p.inFunction() && p.curr.Type == Ident {
+		curr := p.curr
+		curr.Type = EnvVar
+		p.next()
+		return makeVariable(curr), nil
+	}
 	expr := makeLiteral(p.curr)
 	p.next()
 	if p.curr.Type == Ident {
@@ -459,6 +674,23 @@ func (p *Parser) parseInfix(left Expr) (Expr, error) {
 	return expr, nil
 }
 
+func (p *Parser) parseAssignment(left Expr) (Expr, error) {
+	lit, ok := left.(Variable)
+	if !ok {
+		return nil, fmt.Errorf("")
+	}
+	p.next()
+	expr, err := p.parseExpr(bindLowest)
+	if err != nil {
+		return nil, err
+	}
+	a := Assignment{
+		ident: lit.tok,
+		expr:  expr,
+	}
+	return a, nil
+}
+
 func (p *Parser) parseIndex(left Expr) (Expr, error) {
 	p.next()
 	ix := Index{
@@ -491,7 +723,7 @@ func (p *Parser) parseGroup() (Expr, error) {
 
 func (p *Parser) parseTernary(left Expr) (Expr, error) {
 	t := Ternary{
-		cond: left,
+		cdt: left,
 	}
 
 	p.next()
@@ -515,15 +747,15 @@ func (p *Parser) parseCall(left Expr) (Expr, error) {
 	if !ok || name.tok.Type != Ident {
 		return nil, p.syntaxError()
 	}
-	fn := Func{
+	call := Call{
 		name: name.tok,
 	}
 	args, err := p.parseArgs()
 	if err != nil {
 		return nil, err
 	}
-	fn.args = args
-	return fn, nil
+	call.args = args
+	return call, nil
 }
 
 func (p *Parser) parseArgs() ([]Expr, error) {
@@ -599,6 +831,30 @@ func (p *Parser) bindCurrent() int {
 
 func (p *Parser) bindPeek() int {
 	return powers[p.peek.Type]
+}
+
+func (p *Parser) enterLoop() {
+	p.loop++
+}
+
+func (p *Parser) leaveLoop() {
+	p.loop--
+}
+
+func (p *Parser) inLoop() bool {
+	return p.loop > 0
+}
+
+func (p *Parser) enterFunction() {
+	p.userfn++
+}
+
+func (p *Parser) leaveFunction() {
+	p.userfn--
+}
+
+func (p *Parser) inFunction() bool {
+	return p.userfn > 0
 }
 
 func (p *Parser) unexpectedToken() error {

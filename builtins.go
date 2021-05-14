@@ -40,6 +40,7 @@ var builtins = map[string]func(...Value) (Value, error){
 	"base":             basename,
 	"isdir":            isDir,
 	"isfile":           isFile,
+	"read":             read,
 	"base64_encode":    base64EncodeStd,
 	"base64_decode":    base64DecodeStd,
 	"base64_urlencode": base64EncodeUrl,
@@ -310,6 +311,21 @@ func isFile(vs ...Value) (Value, error) {
 		return nil, err
 	}
 	return makeBool(i.Mode().IsRegular()), nil
+}
+
+func read(vs ...Value) (Value, error) {
+	if len(vs) != 1 {
+		return nil, invalidArgument("read")
+	}
+	value, err := toText(vs[0])
+	if err != nil {
+		return nil, err
+	}
+	bs, err := os.ReadFile(value)
+	if err != nil {
+		return nil, err
+	}
+	return makeText(string(bs)), nil
 }
 
 func dirname(vs ...Value) (Value, error) {

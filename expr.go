@@ -1,15 +1,198 @@
 package fig
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 )
 
+var (
+	errReturn   = errors.New(kwReturn)
+	errBreak    = errors.New(kwBreak)
+	errContinue = errors.New(kwContinue)
+)
+
 type Expr interface {
 	Eval(Environment) (Value, error)
 	fmt.Stringer
+}
+
+type ForeachLoop struct {
+	ident Token
+	expr  Expr
+	body  Expr
+	alt   Expr
+}
+
+func (f ForeachLoop) String() string {
+	return fmt.Sprintf("foreach(%s)", f.expr)
+}
+
+func (f ForeachLoop) Eval(e Environment) (Value, error) {
+	return nil, nil
+}
+
+type ForLoop struct {
+	init Expr
+	next Expr
+	cdt  Expr
+	body Expr
+	alt  Expr
+}
+
+func (f ForLoop) String() string {
+	return fmt.Sprintf("for(%s)", f.cdt)
+}
+
+func (f ForLoop) Eval(e Environment) (Value, error) {
+	_, err := f.init.Eval(e)
+	if err != nil {
+		return nil, err
+	}
+	var i int
+	for {
+		v, err := f.cdt.Eval(e)
+		if err != nil {
+			return nil, err
+		}
+		if !v.isTrue() {
+			break
+		}
+		i++
+		if v, err = f.body.Eval(e); err != nil {
+			if errors.Is(err, errReturn) {
+				return v, err
+			} else if errors.Is(err, errBreak) {
+				break
+			} else if errors.Is(err, errContinue) {
+				// do nothing
+			} else {
+				return nil, err
+			}
+		}
+		if _, err = f.next.Eval(e); err != nil {
+			return nil, err
+		}
+	}
+	if i == 0 {
+		return f.alt.Eval(e)
+	}
+	return nil, nil
+}
+
+type WhileLoop struct {
+	cdt Expr
+	csq Expr
+	alt Expr
+}
+
+func (w WhileLoop) String() string {
+	return fmt.Sprintf("while(%s)", w.cdt)
+}
+
+func (w WhileLoop) Eval(e Environment) (Value, error) {
+	var i int
+	for {
+		v, err := w.cdt.Eval(e)
+		if err != nil {
+			return nil, err
+		}
+		i++
+		if !v.isTrue() {
+			break
+		}
+		if v, err = w.csq.Eval(e); err != nil {
+			if errors.Is(err, errReturn) {
+				return v, err
+			} else if errors.Is(err, errBreak) {
+				break
+			} else if errors.Is(err, errContinue) {
+				continue
+			}
+			return nil, err
+		}
+	}
+	if i == 0 {
+		return w.alt.Eval(e)
+	}
+	return nil, nil
+}
+
+type BreakLoop struct{}
+
+func (_ BreakLoop) String() string {
+	return "break"
+}
+
+func (_ BreakLoop) Eval(_ Environment) (Value, error) {
+	return nil, errBreak
+}
+
+type ContinueLoop struct{}
+
+func (_ ContinueLoop) String() string {
+	return "continue"
+}
+
+func (_ ContinueLoop) Eval(_ Environment) (Value, error) {
+	return nil, errContinue
+}
+
+type Block struct {
+	expr []Expr
+}
+
+func (b Block) Eval(e Environment) (Value, error) {
+	for _, ex := range b.expr {
+		v, err := ex.Eval(e)
+		if errors.Is(err, errReturn) {
+			return v, err
+		}
+		if err != nil {
+			return v, err
+		}
+	}
+	return nil, nil
+}
+
+func (b Block) String() string {
+	return "block()"
+}
+
+type Assignment struct {
+	ident Token
+	expr  Expr
+}
+
+func (a Assignment) Eval(e Environment) (Value, error) {
+	v, err := a.expr.Eval(e)
+	if err != nil {
+		return nil, err
+	}
+	e.Define(a.ident.Input, v)
+	return nil, nil
+}
+
+func (a Assignment) String() string {
+	return fmt.Sprintf("assign(%s, expr: %s)", a.ident.Input, a.expr)
+}
+
+type Return struct {
+	expr Expr
+}
+
+func (r Return) Eval(e Environment) (Value, error) {
+	value, err := r.expr.Eval(e)
+	if err == nil {
+		err = errReturn
+	}
+	return value, err
+}
+
+func (r Return) String() string {
+	return fmt.Sprintf("return(%s)", r.expr)
 }
 
 type Unary struct {
@@ -162,24 +345,28 @@ func (b Binary) Eval(e Environment) (Value, error) {
 }
 
 type Ternary struct {
-	cond Expr
-	csq  Expr
-	alt  Expr
+	cdt Expr
+	csq Expr
+	alt Expr
 }
 
 func (t Ternary) Eval(e Environment) (Value, error) {
-	v, err := t.cond.Eval(e)
+	v, err := t.cdt.Eval(e)
 	if err != nil {
 		return nil, err
 	}
 	if v.isTrue() {
-		return t.csq.Eval(e)
+		v, err :=  t.csq.Eval(e)
+		return v, err
 	}
-	return t.alt.Eval(e)
+	if t.alt != nil {
+		return t.alt.Eval(e)
+	}
+	return nil, nil
 }
 
 func (t Ternary) String() string {
-	return fmt.Sprintf("ternary(cdt: %s, csq: %s, alt: %s)", t.cond, t.csq, t.alt)
+	return fmt.Sprintf("ternary(%s, csq: %s, alt: %s)", t.cdt, t.csq, t.alt)
 }
 
 type Literal struct {
@@ -267,29 +454,60 @@ func (v Variable) Eval(e Environment) (Value, error) {
 	return e.Resolve(v.tok.Input)
 }
 
-type Func struct {
+type Call struct {
 	name Token
 	args []Expr
 }
 
-func (f Func) String() string {
-	return fmt.Sprintf("function(%s)", f.name.Input)
+func (c Call) String() string {
+	return fmt.Sprintf("call(%s)", c.name.Input)
 }
 
-func (f Func) Eval(e Environment) (Value, error) {
-	call, ok := builtins[f.name.Input]
-	if !ok {
-		return nil, undefinedFunction(f.name.Input)
+func (c Call) Eval(e Environment) (Value, error) {
+	args, err := c.arguments(e)
+	if err != nil {
+		return nil, err
 	}
-	args := make([]Value, len(f.args))
-	for i := range f.args {
-		a, err := f.args[i].Eval(e)
+	v, err := c.executeUserFunc(e, args)
+	if err != nil && errors.Is(err, ErrUndefined) {
+		return c.executeBuiltin(e, args)
+	}
+	return v, err
+}
+
+func (c Call) executeUserFunc(e Environment, args []Value) (Value, error) {
+	fn, err := e.resolveFunc(c.name.Input)
+	if err != nil {
+		return nil, err
+	}
+	if len(fn.args) != len(args) {
+		return nil, invalidArgument(fn.name.Input)
+	}
+	ee := EnclosedEnv(e)
+	for i, a := range fn.args {
+		ee.Define(a.Input, args[i])
+	}
+	return fn.Eval(ee)
+}
+
+func (c Call) executeBuiltin(e Environment, args []Value) (Value, error) {
+	call, ok := builtins[c.name.Input]
+	if !ok {
+		return nil, undefinedFunction(c.name.Input)
+	}
+	return call(args...)
+}
+
+func (c Call) arguments(e Environment) ([]Value, error) {
+	args := make([]Value, len(c.args))
+	for i := range c.args {
+		a, err := c.args[i].Eval(e)
 		if err != nil {
 			return nil, err
 		}
 		args[i] = a
 	}
-	return call(args...)
+	return args, nil
 }
 
 type value struct {

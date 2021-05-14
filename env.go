@@ -13,7 +13,9 @@ var (
 
 type Environment interface {
 	Resolve(string) (Value, error)
+	Define(string, Value)
 	resolveLocal(string) (Value, error)
+	resolveFunc(string) (Func, error)
 }
 
 type Env struct {
@@ -63,6 +65,10 @@ func (e *Env) resolveLocal(str string) (Value, error) {
 	return e.Resolve(str)
 }
 
+func (e *Env) resolveFunc(_ string) (Func, error) {
+	return Func{}, fmt.Errorf("no function registered")
+}
+
 type env struct {
 	parent Environment
 	list   []*Object
@@ -75,6 +81,8 @@ func createEnv(list []*Object, other Environment) Environment {
 	}
 	return &e
 }
+
+func (_ *env) Define(_ string, _ Value) {}
 
 func (e *env) Resolve(str string) (Value, error) {
 	if e.parent == nil {
@@ -100,6 +108,20 @@ func (e *env) resolveLocal(str string) (Value, error) {
 		return v, err
 	}
 	return nil, undefinedVariable(str)
+}
+
+func (e *env) resolveFunc(str string) (Func, error) {
+	for _, obj := range e.list {
+		fn, err := obj.getFunction(str)
+		if err != nil {
+			if errors.Is(err, ErrUndefined) {
+				continue
+			}
+			return fn, err
+		}
+		return fn, nil
+	}
+	return Func{}, undefinedFunction(str)
 }
 
 func undefinedVariable(str string) error {

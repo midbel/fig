@@ -1,7 +1,9 @@
 package fig
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 )
 
 type Node interface{}
@@ -9,6 +11,28 @@ type Node interface{}
 type Note struct {
 	pre  []string
 	post string
+}
+
+type Func struct {
+	name Token
+	args []Token
+	body Expr
+}
+
+func (f Func) String() string {
+	args := make([]string, len(f.args))
+	for i := range f.args {
+		args[i] = f.args[i].Input
+	}
+	return fmt.Sprintf("func(%s, args: %s)", f.name.Input, strings.Join(args, ", "))
+}
+
+func (f Func) Eval(e Environment) (Value, error) {
+	v, err := f.body.Eval(e)
+	if errors.Is(err, errReturn) {
+		err = nil
+	}
+	return v, err
 }
 
 type Object struct {
@@ -137,10 +161,35 @@ func (o *Object) register(opt Option) error {
 	return nil
 }
 
+func (o *Object) registerFunc(fn Func) error {
+	n, ok := o.nodes[fn.name.Input]
+	if !ok {
+		o.nodes[fn.name.Input] = fn
+		return nil
+	}
+	if _, ok := n.(Func); !ok {
+		return fmt.Errorf("%s: try to replace option by function", fn.name.Input)
+	}
+	o.nodes[fn.name.Input] = fn
+	return nil
+}
+
 func (o *Object) replace(opt Option, expr Value) error {
 	opt.expr = value{expr}
 	o.nodes[opt.name.Input] = opt
 	return nil
+}
+
+func (o *Object) getFunction(str string) (Func, error) {
+	n, ok := o.nodes[str]
+	if !ok {
+		return Func{}, fmt.Errorf("%s: %w function", str, ErrUndefined)
+	}
+	fn, ok := n.(Func)
+	if !ok {
+		return Func{}, fmt.Errorf("%s: not a function (%T)", str, n)
+	}
+	return fn, nil
 }
 
 func (o *Object) getObject(str string) (*Object, error) {
@@ -170,8 +219,10 @@ func (o *Object) getOption(str string) (Option, error) {
 func (o *Object) copy() *Object {
 	list := make(map[string]Node)
 	for k, n := range o.nodes {
-		if opt, ok := n.(Option); ok {
-			list[k] = opt
+		switch n.(type) {
+		case Option, Func:
+			list[k] = n
+		default:
 		}
 	}
 	obj := Object{

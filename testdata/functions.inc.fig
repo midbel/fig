@@ -6,3 +6,35 @@ functions {
 	min   = min(1, 1, 0, -1)
 	replace = $lower != $upper ? replace("foobar", "oo", "OO") : ""
 }
+
+user_defined {
+	sayHello() {
+		return "hello world"
+	}
+
+	addInt(x, y) {
+		return x + y
+	}
+
+	cond(bool) {
+		if (bool) {
+			return bool
+		} else {
+			return bool
+		}
+	}
+
+	loop(until) {
+		let i = 0
+		while (i < until) {
+			i = i + 1
+		}
+		return i
+	}
+
+	hello = sayHello()
+	add   = addInt(10, 20)
+	bool1 = cond(yes)
+	bool2 = cond(no)
+	until = loop(10)
+}

@@ -67,6 +67,8 @@ func checkInt(t *testing.T, doc *Document) {
 		Key  []string
 		Want int64
 	}{
+		{Key: []string{"user_defined", "until"}, Want: 10},
+		{Key: []string{"user_defined", "add"}, Want: 30},
 		{Key: []string{"int"}, Want: 100},
 		{Key: []string{"expr", "int"}, Want: 101},
 		{Key: []string{"expr", "neg"}, Want: -100},
@@ -100,6 +102,8 @@ func checkBool(t *testing.T, doc *Document) {
 		Key  []string
 		Want bool
 	}{
+		{Key: []string{"user_defined", "bool1"}, Want: true},
+		{Key: []string{"user_defined", "bool2"}, Want: false},
 		{Key: []string{"bool"}, Want: true},
 		{Key: []string{"compare", "lt"}, Want: true},
 		{Key: []string{"compare", "gt"}, Want: false},
@@ -127,6 +131,7 @@ func checkString(t *testing.T, doc *Document) {
 		Key  []string
 		Want string
 	}{
+		{Key: []string{"user_defined", "hello"}, Want: "hello world"},
 		{Key: []string{"index"}, Want: "string"},
 		{Key: []string{"str1"}, Want: "literal"},
 		{Key: []string{"str2"}, Want: "quoted"},

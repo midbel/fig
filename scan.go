@@ -3,20 +3,53 @@ package fig
 import (
 	"bytes"
 	"io"
+	"sort"
 	"strings"
 	"unicode/utf8"
 )
 
 const (
-	kwTrue  = "true"
-	kwFalse = "false"
-	kwOn    = "on"
-	kwOff   = "off"
-	kwYes   = "yes"
-	kwNo    = "no"
-	kwInf   = "inf"
-	kwNan   = "nan"
+	kwTrue     = "true"
+	kwFalse    = "false"
+	kwOn       = "on"
+	kwOff      = "off"
+	kwYes      = "yes"
+	kwNo       = "no"
+	kwInf      = "inf"
+	kwNan      = "nan"
+	kwIf       = "if"
+	kwElse     = "else"
+	kwFor      = "for"
+	kwWhile    = "while"
+	kwLet      = "let"
+	kwReturn   = "return"
+	kwForeach  = "foreach"
+	kwIn       = "in"
+	kwBreak    = "break"
+	kwContinue = "continue"
 )
+
+var keywords = []string{
+	kwIf,
+	kwElse,
+	kwFor,
+	kwWhile,
+	kwLet,
+	kwReturn,
+	kwForeach,
+	kwIn,
+	kwBreak,
+	kwContinue,
+}
+
+func init() {
+	sort.Strings(keywords)
+}
+
+func isKeyword(str string) bool {
+	i := sort.SearchStrings(keywords, str)
+	return i < len(keywords) && keywords[i] == str
+}
 
 const (
 	zero       = 0
@@ -199,8 +232,29 @@ func (s *Scanner) scanIdent(tok *Token) {
 		tok.Type = Boolean
 	case kwInf, kwNan:
 		tok.Type = Float
+	case kwIf:
+		tok.Type = If
+	case kwFor:
+		tok.Type = For
+	case kwWhile:
+		tok.Type = While
+	case kwReturn:
+		tok.Type = Ret
+	case kwLet:
+		tok.Type = Let
+	case kwElse:
+		tok.Type = Else
+	case kwForeach:
+		tok.Type = Foreach
+	case kwBreak:
+		tok.Type = Break
+	case kwContinue:
+		tok.Type = Continue
 	default:
 		tok.Type = Ident
+		if isKeyword(tok.Input) {
+			tok.Type = Keyword
+		}
 	}
 }
 
@@ -508,8 +562,16 @@ func (s *Scanner) scanOperator(tok *Token) {
 		}
 	case plus:
 		tok.Type = Add
+		if peek := s.peek(); peek == plus {
+			tok.Type = Increment
+			s.read()
+		}
 	case minus:
 		tok.Type = Sub
+		if peek := s.peek(); peek == minus {
+			tok.Type = Decrement
+			s.read()
+		}
 	case slash:
 		tok.Type = Div
 	case question:

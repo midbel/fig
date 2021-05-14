@@ -15,6 +15,7 @@ func (p Position) String() string {
 
 const (
 	EOF = -(iota + 1)
+	Keyword
 	Ident
 	Comment
 	Macro
@@ -59,6 +60,17 @@ const (
 	LocalVar
 	EnvVar
 	Invalid
+	Let
+	Ret
+	If
+	For
+	While
+	Else
+	Foreach
+	Break
+	Continue
+	Increment
+	Decrement
 )
 
 type Token struct {
@@ -98,7 +110,7 @@ func (t Token) isZero() bool {
 
 func (t Token) exprDone() bool {
 	switch t.Type {
-	case Comma, Comment, EOL, EOF, EndArr, Assign:
+	case Comma, Comment, EOL, EOF, EndArr:
 		return true
 	default:
 		return false
@@ -198,6 +210,24 @@ func (t Token) String() string {
 		prefix = "local"
 	case EnvVar:
 		prefix = "env"
+	case Keyword:
+		prefix = "keyword"
+	case Ret:
+		return "<return>"
+	case Let:
+		return "<let>"
+	case If:
+		return "<if>"
+	case For, While, Foreach:
+		prefix = "loop"
+	case Break:
+		return "<break>"
+	case Continue:
+		return "<continue>"
+	case Increment:
+		return "<increment>"
+	case Decrement:
+		return "<decrement>"
 	default:
 		prefix = "unknown"
 	}

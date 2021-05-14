@@ -32,6 +32,7 @@ func TestScan(t *testing.T) {
 		.include
 		/* long comment */
 		/* very long /*nested long comment*/ and more */
+		let return if for while else
 		/* invalid comment
   `
 	input := strings.ReplaceAll(str, "\r\n", "\n")
@@ -102,6 +103,13 @@ func TestScan(t *testing.T) {
 		makeToken("", EOL),
 		makeToken("long comment", Comment),
 		makeToken("very long /*nested long comment*/ and more", Comment),
+		makeToken("let", Let),
+		makeToken("return", Ret),
+		makeToken("if", If),
+		makeToken("for", For),
+		makeToken("while", While),
+		makeToken("else", Else),
+		makeToken("", EOL),
 		makeToken("invalid comment", Invalid),
 	}
 	for i := 0; ; i++ {
