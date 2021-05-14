@@ -356,7 +356,7 @@ func (t Ternary) Eval(e Environment) (Value, error) {
 		return nil, err
 	}
 	if v.isTrue() {
-		v, err :=  t.csq.Eval(e)
+		v, err := t.csq.Eval(e)
 		return v, err
 	}
 	if t.alt != nil {
