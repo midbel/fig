@@ -1154,7 +1154,13 @@ func and(left, right Value) Value {
 }
 
 func or(left, right Value) Value {
-	return makeBool(left.isTrue() || right.isTrue())
+	if left.isTrue() {
+		return left
+	}
+	if right.isTrue() {
+		return right
+	}
+	return makeBool(false)
 }
 
 func not(left Value) Value {

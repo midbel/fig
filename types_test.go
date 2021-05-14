@@ -13,6 +13,60 @@ type ValueTestCase struct {
 	err   error
 }
 
+func TestOr(t *testing.T) {
+	data := []ValueTestCase{
+		{
+			left:  makeBool(true),
+			right: makeBool(false),
+			want:  makeBool(true),
+		},
+		{
+			left:  makeBool(false),
+			right: makeBool(true),
+			want:  makeBool(true),
+		},
+		{
+			left:  makeInt(10),
+			right: makeBool(true),
+			want:  makeInt(10),
+		},
+		{
+			left:  makeInt(0),
+			right: makeBool(false),
+			want:  makeBool(false),
+		},
+		{
+			left:  makeDouble(1),
+			right: makeInt(0),
+			want:  makeDouble(1),
+		},
+		{
+			left:  makeText("hello"),
+			right: makeText("world"),
+			want:  makeText("hello"),
+		},
+		{
+			left:  makeText(""),
+			right: makeText("world"),
+			want:  makeText("world"),
+		},
+		{
+			left:  makeInt(100),
+			right: makeText("world"),
+			want:  makeInt(100),
+		},
+		{
+			left:  makeText(""),
+			right: makeInt(100),
+			want:  makeInt(100),
+		},
+	}
+	for _, d := range data {
+		got := or(d.left, d.right)
+		checkValueTestCase(t, d, got, nil)
+	}
+}
+
 func TestValueLeftShift(t *testing.T) {
 	data := []ValueTestCase{
 		{
@@ -875,6 +929,8 @@ func testResultValue(t *testing.T, want, got Value) {
 		testMomentResult(t, w.inner, got)
 	case Slice:
 		testSliceResult(t, w.inner, got)
+	case Bool:
+		testBoolResult(t, w.inner, got)
 	default:
 		t.Errorf("unexpected type: %T", w)
 	}
