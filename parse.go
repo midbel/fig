@@ -13,25 +13,6 @@ var (
 )
 
 const (
-	iecKilo = 1024
-	iecMega = iecKilo * iecKilo
-	iecGiga = iecMega * iecKilo
-	iecTera = iecGiga * iecKilo
-
-	siKilo = 1000
-	siMega = siKilo * siKilo
-	siGiga = siMega * siKilo
-	siTera = siGiga * siKilo
-)
-
-const (
-	millis     = 1 / 1000
-	secPerMin  = 60
-	secPerHour = secPerMin * 60
-	secPerDay  = secPerHour * 24
-)
-
-const (
 	bindLowest = iota
 	bindAssign
 	bindCdt
@@ -85,9 +66,10 @@ type Parser struct {
 	curr Token
 	peek Token
 
-	infix  map[rune]func(Expr) (Expr, error)
-	prefix map[rune]func() (Expr, error)
-	macros map[string]func(map[string]Expr) (Node, error)
+	infix    map[rune]func(Expr) (Expr, error)
+	prefix   map[rune]func() (Expr, error)
+	keywords map[rune]func() (Expr, error)
+	macros   map[string]func(map[string]Expr) (Node, error)
 
 	loop  int
 	block int
@@ -104,12 +86,22 @@ func NewParser(r io.Reader) (*Parser, error) {
 	p.macros = map[string]func(map[string]Expr) (Node, error){
 		"include": include,
 	}
+	p.keywords = map[rune]func() (Expr, error){
+		Let:      p.parseLet,
+		Ret:      p.parseReturn,
+		If:       p.parseIf,
+		For:      p.parseFor,
+		While:    p.parseWhile,
+		Foreach:  p.parseForeach,
+		Break:    p.parseBreak,
+		Continue: p.parseContinue,
+	}
 	p.prefix = map[rune]func() (Expr, error){
 		Add:      p.parseUnary,
 		Sub:      p.parseUnary,
 		Not:      p.parseUnary,
 		Bnot:     p.parseUnary,
-		Ident:    p.parseLiteral,
+		Ident:    p.parseIdentifier,
 		Integer:  p.parseLiteral,
 		Float:    p.parseLiteral,
 		String:   p.parseLiteral,
@@ -277,7 +269,6 @@ func (p *Parser) parseValue() (Expr, error) {
 	if p.curr.Type == EOL {
 		return nil, p.syntaxError()
 	}
-	// expr, err := p.parseExpr(bindLowest)
 	expr, err := p.parseExpression()
 	if err != nil {
 		return nil, fmt.Errorf("parsing expression: %w", err)
@@ -335,56 +326,43 @@ func (p *Parser) parseFunction() (Func, error) {
 }
 
 func (p *Parser) parseExpression() (Expr, error) {
-	var (
-		expr Expr
-		err  error
-	)
+	parse, ok := p.keywords[p.curr.Type]
+	if ok {
+		return parse()
+	}
 	switch p.curr.Type {
-	case Let:
-		expr, err = p.parseLet()
-	case Ret:
-		expr, err = p.parseReturn()
-	case If:
-		expr, err = p.parseIf()
-	case For:
-		expr, err = p.parseFor()
-	case While:
-		expr, err = p.parseWhile()
-	case Foreach:
-		expr, err = p.parseForeach()
-	case Break:
-		if !p.inLoop() {
-			return nil, p.syntaxError()
-		}
-		expr = BreakLoop{}
-		p.next()
-		if p.curr.Type != EOL {
-			return nil, p.unexpectedToken()
-		}
-		p.next()
-	case Continue:
-		if !p.inLoop() {
-			return nil, p.syntaxError()
-		}
-		expr = ContinueLoop{}
-		p.next()
-		if p.curr.Type != EOL {
-			return nil, p.unexpectedToken()
-		}
-		p.next()
 	case EOL, Comment:
 		p.next()
 	case BegObj:
-		expr, err = p.parseBody()
+		return p.parseBody()
 	default:
-		expr, err = p.parseExpr(bindLowest)
-		// if p.curr.Type != EOL {
-		// 	fmt.Println("oups")
-		// 	return nil, p.unexpectedToken()
-		// }
-		// p.next()
+		return p.parseExpr(bindLowest)
 	}
-	return expr, err
+	return nil, nil
+}
+
+func (p *Parser) parseBreak() (Expr, error) {
+	if !p.inLoop() {
+		return nil, p.syntaxError()
+	}
+	p.next()
+	if p.curr.Type != EOL {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	return BreakLoop{}, nil
+}
+
+func (p *Parser) parseContinue() (Expr, error) {
+	if !p.inLoop() {
+		return nil, p.syntaxError()
+	}
+	p.next()
+	if p.curr.Type != EOL {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	return ContinueLoop{}, nil
 }
 
 func (p *Parser) parseBody() (Expr, error) {
@@ -687,51 +665,27 @@ func (p *Parser) parseUnary() (Expr, error) {
 	return expr, err
 }
 
+func (p *Parser) parseIdentifier() (Expr, error) {
+	if p.inBlock() {
+		expr := makeIdentifier(p.curr)
+		p.next()
+		return expr, nil
+	}
+	expr := makeLiteral(p.curr)
+	p.next()
+	return expr, nil
+}
+
 func (p *Parser) parseLiteral() (Expr, error) {
 	if !p.curr.IsLiteral() {
 		return nil, p.unexpectedToken()
 	}
-	if p.inBlock() && p.curr.Type == Ident {
-		curr := p.curr
-		curr.Type = EnvVar
-		p.next()
-		return makeVariable(curr), nil
-	}
 	expr := makeLiteral(p.curr)
-	p.next()
-	if p.curr.Type == Ident {
-		switch p.curr.Input {
-		case "ms":
-			expr.mul = millis
-		case "s", "sec":
-		case "min":
-			expr.mul = secPerMin
-		case "h", "hour":
-			expr.mul = secPerHour
-		case "d", "day":
-			expr.mul = secPerDay
-		case "b", "B":
-		case "k":
-			expr.mul = iecKilo
-		case "K":
-			expr.mul = siKilo
-		case "m":
-			expr.mul = iecMega
-		case "M":
-			expr.mul = siMega
-		case "g":
-			expr.mul = iecGiga
-		case "G":
-			expr.mul = siGiga
-		case "t":
-			expr.mul = iecTera
-		case "T":
-			expr.mul = siTera
-		default:
-			return nil, p.unexpectedToken()
-		}
+	if mul, ok := multipliers[p.peek.Input]; ok {
+		expr.mul = mul
 		p.next()
 	}
+	p.next()
 	return expr, nil
 }
 
@@ -761,33 +715,12 @@ func (p *Parser) parseInfix(left Expr) (Expr, error) {
 }
 
 func (p *Parser) parseAssignment(left Expr) (Expr, error) {
-	lit, ok := left.(Variable)
+	lit, ok := left.(Identifier)
 	if !ok {
 		return nil, p.syntaxError()
 	}
-	var op rune
-	switch p.curr.Type {
-	case Assign:
-		op = p.curr.Type
-	case AddAssign:
-		op = Add
-	case SubAssign:
-		op = Sub
-	case MulAssign:
-		op = Mul
-	case DivAssign:
-		op = Div
-	case ModAssign:
-		op = Mod
-	case BandAssign:
-		op = Band
-	case BorAssign:
-		op = Bor
-	case LshiftAssign:
-		op = Lshift
-	case RshiftAssign:
-		op = Rshift
-	default:
+	op, ok := assignments[p.curr.Type]
+	if !ok {
 		return nil, p.unexpectedToken()
 	}
 	p.next()
@@ -861,29 +794,27 @@ func (p *Parser) parseTernary(left Expr) (Expr, error) {
 
 func (p *Parser) parseCall(left Expr) (Expr, error) {
 	p.next()
-	var tok Token
-	if p.inBlock() {
-		name, ok := left.(Variable)
-		if !ok || name.tok.Type != EnvVar {
+
+	var (
+		call Call
+		err  error
+	)
+	switch left := left.(type) {
+	case Identifier:
+		if !p.inBlock() {
 			return nil, p.syntaxError()
 		}
-		tok = name.tok
-	} else {
-		name, ok := left.(Literal)
-		if !ok || name.tok.Type != Ident {
+		call.name = left.tok
+	case Literal:
+		if left.tok.Type != Ident {
 			return nil, p.syntaxError()
 		}
-		tok = name.tok
+		call.name = left.tok
+	default:
+		return nil, p.syntaxError()
 	}
-	call := Call{
-		name: tok,
-	}
-	args, err := p.parseArgs()
-	if err != nil {
-		return nil, err
-	}
-	call.args = args
-	return call, nil
+	call.args, err = p.parseArgs()
+	return call, err
 }
 
 func (p *Parser) parseArgs() ([]Expr, error) {

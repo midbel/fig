@@ -82,6 +82,19 @@ const (
 	Decrement
 )
 
+var assignments = map[rune]rune{
+	Assign:       Assign,
+	AddAssign:    Add,
+	SubAssign:    Sub,
+	MulAssign:    Mul,
+	DivAssign:    Div,
+	ModAssign:    Mod,
+	BandAssign:   Band,
+	BorAssign:    Bor,
+	LshiftAssign: Lshift,
+	RshiftAssign: Rshift,
+}
+
 type Token struct {
 	Input string
 	Type  rune
@@ -102,7 +115,7 @@ func (t Token) IsIdent() bool {
 
 func (t Token) IsLiteral() bool {
 	switch t.Type {
-	case Ident, Integer, Float, String, Date, Time, DateTime, Boolean, Heredoc:
+	case Integer, Float, String, Date, Time, DateTime, Boolean, Heredoc:
 		return true
 	default:
 		return false

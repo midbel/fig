@@ -14,6 +14,46 @@ var (
 	errContinue = errors.New(kwContinue)
 )
 
+const (
+	iecKilo = 1024
+	iecMega = iecKilo * iecKilo
+	iecGiga = iecMega * iecKilo
+	iecTera = iecGiga * iecKilo
+
+	siKilo = 1000
+	siMega = siKilo * siKilo
+	siGiga = siMega * siKilo
+	siTera = siGiga * siKilo
+)
+
+const (
+	millis     = 1 / 1000
+	secPerMin  = 60
+	secPerHour = secPerMin * 60
+	secPerDay  = secPerHour * 24
+)
+
+var multipliers = map[string]float64{
+	"ms":   millis,
+	"s":    0,
+	"sec":  0,
+	"min":  secPerMin,
+	"h":    secPerHour,
+	"hour": secPerHour,
+	"d":    secPerDay,
+	"day":  secPerDay,
+	"b":    0,
+	"B":    0,
+	"k":    iecKilo,
+	"K":    siKilo,
+	"m":    iecMega,
+	"M":    siMega,
+	"g":    iecGiga,
+	"G":    siGiga,
+	"t":    iecTera,
+	"T":    siTera,
+}
+
 type Expr interface {
 	Eval(Environment) (Value, error)
 	fmt.Stringer
@@ -472,6 +512,22 @@ func (i Literal) Eval(_ Environment) (Value, error) {
 		val, err = val.multiply(makeDouble(i.mul))
 	}
 	return val, err
+}
+
+type Identifier struct {
+	tok Token
+}
+
+func makeIdentifier(tok Token) Identifier {
+	return Identifier{tok: tok}
+}
+
+func (i Identifier) String() string {
+	return fmt.Sprintf("identifier(%s)", i.tok)
+}
+
+func (i Identifier) Eval(e Environment) (Value, error) {
+	return e.Resolve(i.tok.Input)
 }
 
 type Variable struct {
