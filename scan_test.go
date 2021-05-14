@@ -7,6 +7,8 @@ import (
 
 func TestScan(t *testing.T) {
 	const str = `
+		+= -= *= /= %= <<= >>= &= |= ++ -- **
+		&& || == != >= > <= < ! ~
     key = value
     object {}
     array []
@@ -42,6 +44,30 @@ func TestScan(t *testing.T) {
 		return
 	}
 	tokens := []Token{
+		makeToken("", AddAssign),
+		makeToken("", SubAssign),
+		makeToken("", MulAssign),
+		makeToken("", DivAssign),
+		makeToken("", ModAssign),
+		makeToken("", LshiftAssign),
+		makeToken("", RshiftAssign),
+		makeToken("", BandAssign),
+		makeToken("", BorAssign),
+		makeToken("", Increment),
+		makeToken("", Decrement),
+		makeToken("", Pow),
+		makeToken("", EOL),
+		makeToken("", And),
+		makeToken("", Or),
+		makeToken("", Equal),
+		makeToken("", NotEqual),
+		makeToken("", Ge),
+		makeToken("", Gt),
+		makeToken("", Le),
+		makeToken("", Lt),
+		makeToken("", Not),
+		makeToken("", Bnot),
+		makeToken("", EOL),
 		makeToken("key", Ident),
 		makeToken("", Assign),
 		makeToken("value", Ident),

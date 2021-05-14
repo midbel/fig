@@ -37,19 +37,28 @@ const (
 	Not
 	Assign
 	Add
+	AddAssign
 	Sub
+	SubAssign
 	Mul
+	MulAssign
 	Div
+	DivAssign
 	Mod
+	ModAssign
 	Pow
 	Gt
 	Lt
 	Ge
 	Le
 	Lshift
+	LshiftAssign
 	Rshift
+	RshiftAssign
 	Band
+	BandAssign
 	Bor
+	BorAssign
 	Bnot
 	And
 	Or
@@ -180,15 +189,15 @@ func (t Token) String() string {
 		return "<ge>"
 	case Le:
 		return "<le>"
-	case Add:
+	case Add, AddAssign:
 		return "<add>"
-	case Sub:
+	case Sub, SubAssign:
 		return "<subtract>"
-	case Div:
+	case Div, DivAssign:
 		return "<divide>"
-	case Mul:
+	case Mul, MulAssign:
 		return "<multiply>"
-	case Mod:
+	case Mod, ModAssign:
 		return "<modulo>"
 	case Pow:
 		return "<power>"
@@ -196,15 +205,15 @@ func (t Token) String() string {
 		return "<and>"
 	case Or:
 		return "<or>"
-	case Band:
+	case Band, BandAssign:
 		return "<bin-and>"
-	case Bor:
+	case Bor, BorAssign:
 		return "<bin-or>"
 	case Bnot:
 		return "<bin-not>"
-	case Lshift:
+	case Lshift, LshiftAssign:
 		return "<left-shift>"
-	case Rshift:
+	case Rshift, RshiftAssign:
 		return "<right-shift>"
 	case LocalVar:
 		prefix = "local"

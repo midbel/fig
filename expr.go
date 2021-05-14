@@ -166,6 +166,7 @@ func (b Block) String() string {
 type Assignment struct {
 	ident Token
 	expr  Expr
+	op    rune
 	let   bool
 }
 

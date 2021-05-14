@@ -565,15 +565,25 @@ func (s *Scanner) scanOperator(tok *Token) {
 		if peek := s.peek(); peek == plus {
 			tok.Type = Increment
 			s.read()
+		} else if peek == equal {
+			tok.Type = AddAssign
+			s.read()
 		}
 	case minus:
 		tok.Type = Sub
 		if peek := s.peek(); peek == minus {
 			tok.Type = Decrement
 			s.read()
+		} else if peek == equal {
+			tok.Type = SubAssign
+			s.read()
 		}
 	case slash:
 		tok.Type = Div
+		if peek := s.peek(); peek == equal {
+			tok.Type = DivAssign
+			s.read()
+		}
 	case question:
 		tok.Type = Question
 	case star:
@@ -581,9 +591,16 @@ func (s *Scanner) scanOperator(tok *Token) {
 		if peek := s.peek(); peek == star {
 			tok.Type = Pow
 			s.read()
+		} else if peek == equal {
+			tok.Type = MulAssign
+			s.read()
 		}
 	case percent:
 		tok.Type = Mod
+		if peek := s.peek(); peek == equal {
+			tok.Type = ModAssign
+			s.read()
+		}
 	case langle:
 		tok.Type = Lt
 		if peek := s.peek(); peek == equal {
@@ -592,8 +609,11 @@ func (s *Scanner) scanOperator(tok *Token) {
 		} else if peek == langle {
 			tok.Type = Lshift
 			s.read()
-			if isUpper(s.peek()) {
+			if peek := s.peek(); isUpper(peek) {
 				tok.Type = Heredoc
+			} else if peek == equal {
+				tok.Type = LshiftAssign
+				s.read()
 			}
 		}
 	case rangle:
@@ -601,9 +621,13 @@ func (s *Scanner) scanOperator(tok *Token) {
 		if peek := s.peek(); peek == equal {
 			tok.Type = Ge
 			s.read()
-		} else if s.peek(); peek == rangle {
+		} else if peek == rangle {
 			tok.Type = Rshift
 			s.read()
+			if peek := s.peek(); peek == equal {
+				tok.Type = RshiftAssign
+				s.read()
+			}
 		}
 	case lparen:
 		tok.Type = BegGrp
@@ -614,11 +638,17 @@ func (s *Scanner) scanOperator(tok *Token) {
 		if peek := s.peek(); peek == ampersand {
 			tok.Type = And
 			s.read()
+		} else if peek == equal {
+			tok.Type = BandAssign
+			s.read()
 		}
 	case pipe:
 		tok.Type = Bor
 		if peek := s.peek(); peek == pipe {
 			tok.Type = Or
+			s.read()
+		} else if peek == equal {
+			tok.Type = BorAssign
 			s.read()
 		}
 	case tilde:
