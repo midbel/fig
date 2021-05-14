@@ -104,6 +104,7 @@ func checkBool(t *testing.T, doc *Document) {
 	}{
 		{Key: []string{"user_defined", "bool1"}, Want: true},
 		{Key: []string{"user_defined", "bool2"}, Want: false},
+		{Key: []string{"user_defined", "exists"}, Want: true},
 		{Key: []string{"bool"}, Want: true},
 		{Key: []string{"compare", "lt"}, Want: true},
 		{Key: []string{"compare", "gt"}, Want: false},

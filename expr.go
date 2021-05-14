@@ -94,8 +94,9 @@ func (w WhileLoop) String() string {
 
 func (w WhileLoop) Eval(e Environment) (Value, error) {
 	var i int
+	ec := EnclosedEnv(e)
 	for {
-		v, err := w.cdt.Eval(e)
+		v, err := w.cdt.Eval(ec)
 		if err != nil {
 			return nil, err
 		}
@@ -103,7 +104,7 @@ func (w WhileLoop) Eval(e Environment) (Value, error) {
 		if !v.isTrue() {
 			break
 		}
-		if v, err = w.csq.Eval(e); err != nil {
+		if v, err = w.csq.Eval(ec); err != nil {
 			if errors.Is(err, errReturn) {
 				return v, err
 			} else if errors.Is(err, errBreak) {
@@ -145,8 +146,9 @@ type Block struct {
 }
 
 func (b Block) Eval(e Environment) (Value, error) {
+	ec := EnclosedEnv(e)
 	for _, ex := range b.expr {
-		v, err := ex.Eval(e)
+		v, err := ex.Eval(ec)
 		if errors.Is(err, errReturn) {
 			return v, err
 		}
@@ -164,6 +166,7 @@ func (b Block) String() string {
 type Assignment struct {
 	ident Token
 	expr  Expr
+	let   bool
 }
 
 func (a Assignment) Eval(e Environment) (Value, error) {
@@ -171,8 +174,11 @@ func (a Assignment) Eval(e Environment) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	e.Define(a.ident.Input, v)
-	return nil, nil
+	if a.let {
+		e.Define(a.ident.Input, v)
+		return nil, nil
+	}
+	return nil, e.assign(a.ident.Input, v)
 }
 
 func (a Assignment) String() string {

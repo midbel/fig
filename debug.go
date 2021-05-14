@@ -33,6 +33,8 @@ func debugObject(w io.Writer, obj *Object, level int, label bool) error {
 			debugOption(w, n, level)
 		case List:
 			debugList(w, n, level)
+		case Func:
+			debugFunc(w, n, level)
 		case *Object:
 			debugObject(w, n, level, true)
 		default:
@@ -62,6 +64,13 @@ func debugList(w io.Writer, i List, level int) error {
 	fmt.Fprint(w, strings.Repeat(" ", level))
 	fmt.Fprintln(w, "]")
 	return nil
+}
+
+func debugFunc(w io.Writer, fn Func, level int) {
+	level += 2
+	fmt.Fprint(w, strings.Repeat(" ", level))
+	fmt.Fprint(w, fn)
+	fmt.Fprintln(w)
 }
 
 func debugOption(w io.Writer, opt Option, level int) {

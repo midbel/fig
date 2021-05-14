@@ -32,9 +32,14 @@ user_defined {
 		return i
 	}
 
+	check_file(file) {
+		return isfile(file)
+	}
+
 	hello = sayHello()
 	add   = addInt(10, 20)
 	bool1 = cond(yes)
 	bool2 = cond(no)
 	until = loop(10)
+	exists = check_file("testdata/main.fig")
 }

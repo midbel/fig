@@ -14,6 +14,7 @@ var (
 type Environment interface {
 	Resolve(string) (Value, error)
 	Define(string, Value)
+	assign(string, Value) error
 	resolveLocal(string) (Value, error)
 	resolveFunc(string) (Func, error)
 }
@@ -61,12 +62,24 @@ func (e *Env) Resolve(str string) (Value, error) {
 	return nil, undefinedVariable(str)
 }
 
+func (e *Env) assign(str string, value Value) error {
+	_, ok := e.values[str]
+	if !ok {
+		if e.parent != nil {
+			return e.parent.assign(str, value)
+		}
+		return undefinedVariable(str)
+	}
+	e.values[str] = value
+	return nil
+}
+
 func (e *Env) resolveLocal(str string) (Value, error) {
 	return e.Resolve(str)
 }
 
-func (e *Env) resolveFunc(_ string) (Func, error) {
-	return Func{}, fmt.Errorf("no function registered")
+func (e *Env) resolveFunc(str string) (Func, error) {
+	return Func{}, undefinedFunction(str)
 }
 
 type env struct {
@@ -82,7 +95,14 @@ func createEnv(list []*Object, other Environment) Environment {
 	return &e
 }
 
-func (_ *env) Define(_ string, _ Value) {}
+func (e *env) Define(str string, v Value) {
+	// nothing to do - immutable env
+}
+
+func (e *env) assign(str string, v Value) error {
+	// nothing to do - immutable env
+	return undefinedVariable(str)
+}
 
 func (e *env) Resolve(str string) (Value, error) {
 	if e.parent == nil {

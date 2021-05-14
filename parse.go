@@ -466,6 +466,7 @@ func (p *Parser) parseLet() (Expr, error) {
 	}
 	let := Assignment{
 		ident: p.curr,
+		let:   true,
 	}
 	p.next()
 	if p.curr.Type != Assign {
@@ -743,12 +744,22 @@ func (p *Parser) parseTernary(left Expr) (Expr, error) {
 
 func (p *Parser) parseCall(left Expr) (Expr, error) {
 	p.next()
-	name, ok := left.(Literal)
-	if !ok || name.tok.Type != Ident {
-		return nil, p.syntaxError()
+	var tok Token
+	if p.inFunction() {
+		name, ok := left.(Variable)
+		if !ok || name.tok.Type != EnvVar {
+			return nil, p.syntaxError()
+		}
+		tok = name.tok
+	} else {
+		name, ok := left.(Literal)
+		if !ok || name.tok.Type != Ident {
+			return nil, p.syntaxError()
+		}
+		tok = name.tok
 	}
 	call := Call{
-		name: name.tok,
+		name: tok,
 	}
 	args, err := p.parseArgs()
 	if err != nil {
