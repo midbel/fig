@@ -18,6 +18,8 @@ var (
 var builtins = map[string]func(...Value) (Value, error){
 	"typeof":           typeof,
 	"len":              length,
+	"first":            first,
+	"last":             last,
 	"rand":             rand,
 	"sqrt":             sqrt,
 	"abs":              abs,
@@ -48,6 +50,16 @@ var builtins = map[string]func(...Value) (Value, error){
 	"base64_urldecode": base64DecodeUrl,
 }
 
+// type Builtin struct {
+// 	name string
+// 	args []Argument
+// 	exec func(Environment) (Value, error)
+// }
+//
+// func (b Builtin) Eval(e Environment) (Value, error) {
+// 	return b.exec(e)
+// }
+
 func typeof(vs ...Value) (Value, error) {
 	if len(vs) != 1 {
 		return nil, invalidArgument("typeof")
@@ -72,6 +84,34 @@ func length(vs ...Value) (Value, error) {
 
 func rand(vs ...Value) (Value, error) {
 	return nil, nil
+}
+
+func first(vs ...Value) (Value, error) {
+	if len(vs) != 1 {
+		return nil, invalidArgument("first")
+	}
+	xs, ok := vs[0].(Slice)
+	if !ok {
+		return nil, fmt.Errorf("arg should be array")
+	}
+	if len(vs) == 0 {
+		return nil, fmt.Errorf("empty array")
+	}
+	return xs.inner[0], nil
+}
+
+func last(vs ...Value) (Value, error) {
+	if len(vs) != 1 {
+		return nil, invalidArgument("last")
+	}
+	xs, ok := vs[0].(Slice)
+	if !ok {
+		return nil, fmt.Errorf("arg should be array")
+	}
+	if len(xs.inner) == 0 {
+		return nil, fmt.Errorf("empty array")
+	}
+	return xs.inner[len(xs.inner)-1], nil
 }
 
 func sequence(vs ...Value) (Value, error) {
