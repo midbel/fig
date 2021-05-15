@@ -13,16 +13,33 @@ type Note struct {
 	post string
 }
 
+type Argument struct {
+	name Token
+	expr Expr
+	pos  int
+}
+
+func (a Argument) String() string {
+	if a.expr == nil {
+		return fmt.Sprintf("arg(%s)", a.name.Input)
+	}
+	return fmt.Sprintf("arg(%s, expr: %s)", a.name.Input, a.expr)
+}
+
+func (a Argument) isMandatory() bool {
+	return a.expr == nil
+}
+
 type Func struct {
 	name Token
-	args []Token
+	args []Argument
 	body Expr
 }
 
 func (f Func) String() string {
 	args := make([]string, len(f.args))
 	for i := range f.args {
-		args[i] = f.args[i].Input
+		args[i] = f.args[i].String()
 	}
 	return fmt.Sprintf("func(%s, args: %s)", f.name.Input, strings.Join(args, ", "))
 }

@@ -585,8 +585,18 @@ func (c Call) executeUserFunc(e Environment, args []Value) (Value, error) {
 		return nil, invalidArgument(fn.name.Input)
 	}
 	ee := EnclosedEnv(e)
+	for _, a := range fn.args {
+		if a.isMandatory() {
+			continue
+		}
+		v, err := a.expr.Eval(e)
+		if err != nil {
+			return nil, err
+		}
+		ee.Define(a.name.Input, v)
+	}
 	for i, a := range fn.args {
-		ee.Define(a.Input, args[i])
+		ee.Define(a.name.Input, args[i])
 	}
 	return fn.Eval(ee)
 }

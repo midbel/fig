@@ -280,49 +280,69 @@ func (p *Parser) parseValue() (Expr, error) {
 }
 
 func (p *Parser) parseFunction() (Func, error) {
-	p.enterBlock()
-	defer p.leaveBlock()
-
 	var (
 		fn  Func
 		err error
 	)
 	fn.name = p.curr
-	p.next()
-	if p.curr.Type != BegGrp {
-		return fn, p.unexpectedToken()
+	if fn.args, err = p.parseArguments(); err != nil {
+		return fn, err
 	}
-	p.next()
-	for p.curr.Type != EndGrp {
-		if p.curr.Type != Ident {
-			return fn, p.unexpectedToken()
-		}
-		fn.args = append(fn.args, p.curr)
-		p.next()
-		switch p.curr.Type {
-		case EndGrp:
-		case Comma:
-			p.next()
-			if p.curr.Type == EOL {
-				p.next()
-			}
-		case EOL:
-			if p.peek.Type != EndGrp {
-				return fn, p.unexpectedToken()
-			}
-			p.next()
-		default:
-			return fn, p.unexpectedToken()
-		}
-	}
-	if p.curr.Type != EndGrp {
-		return fn, p.unexpectedToken()
-	}
-	p.next()
+	fmt.Println(fn.args)
 	if fn.body, err = p.parseBody(); err != nil {
 		return fn, err
 	}
 	return fn, nil
+}
+
+func (p *Parser) parseArguments() ([]Argument, error) {
+	p.next()
+	if p.curr.Type != BegGrp {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	var (
+		args   []Argument
+		err    error
+		onlykw bool
+	)
+	for i := 0; !p.done() && p.curr.Type != EndGrp; i++ {
+		if p.curr.Type != Ident {
+			return nil, p.unexpectedToken()
+		}
+		a := Argument{
+			name: p.curr,
+			pos:  i,
+		}
+		p.next()
+		if onlykw && p.curr.Type != Assign {
+			return nil, p.syntaxError()
+		}
+		if p.curr.Type == Assign {
+			p.next()
+			if a.expr, err = p.parseExpr(bindLowest); err != nil {
+				return nil, err
+			}
+		}
+		switch p.curr.Type {
+		case Comma:
+			p.next()
+		case EndGrp:
+		case EOL:
+			if p.peek.Type != EndGrp {
+				return nil, p.syntaxError()
+			}
+			p.next()
+		default:
+			return nil, p.unexpectedToken()
+		}
+		args = append(args, a)
+	}
+	if p.curr.Type != EndGrp {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	return args, nil
 }
 
 func (p *Parser) parseExpression() (Expr, error) {
