@@ -23,6 +23,7 @@ var builtins = map[string]func(...Value) (Value, error){
 	"abs":              abs,
 	"max":              max,
 	"min":              min,
+	"seq":              sequence,
 	"all":              all,
 	"any":              any,
 	"avg":              avg,
@@ -71,6 +72,48 @@ func length(vs ...Value) (Value, error) {
 
 func rand(vs ...Value) (Value, error) {
 	return nil, nil
+}
+
+func sequence(vs ...Value) (Value, error) {
+	var (
+		fst  int64
+		lst  int64
+		step int64 = 1
+	)
+	switch len(vs) {
+	case 1:
+		i, err := toInt(vs[0])
+		if err != nil {
+			return nil, err
+		}
+		if i < 0 {
+			lst, fst = 0, i
+		} else {
+			lst = i
+		}
+		// 0-to
+	case 2:
+		// from-to
+		i, err := toInt(vs[0])
+		if err != nil {
+			return nil, err
+		}
+		j, err := toInt(vs[1])
+		if err != nil {
+			return nil, err
+		}
+		fst, lst = i, j
+	case 3:
+		// from-to-step
+	default:
+		return nil, invalidArgument("seq")
+	}
+	var xs []Value
+	for fst < lst {
+		xs = append(xs, makeInt(fst))
+		fst += step
+	}
+	return makeSlice(xs), nil
 }
 
 func sqrt(vs ...Value) (Value, error) {
