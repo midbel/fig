@@ -288,7 +288,6 @@ func (p *Parser) parseFunction() (Func, error) {
 	if fn.args, err = p.parseArguments(); err != nil {
 		return fn, err
 	}
-	fmt.Println(fn.args)
 	if fn.body, err = p.parseBody(); err != nil {
 		return fn, err
 	}
@@ -574,7 +573,7 @@ func (p *Parser) parseReturn() (Expr, error) {
 	if err != nil {
 		return nil, err
 	}
-	if p.curr.Type != EOL {
+	if p.curr.Type != EOL && p.curr.Type != Comment {
 		return nil, p.unexpectedToken()
 	}
 	p.next()
@@ -837,14 +836,34 @@ func (p *Parser) parseCall(left Expr) (Expr, error) {
 	return call, err
 }
 
-func (p *Parser) parseArgs() ([]Expr, error) {
-	var args []Expr
-	for !p.done() && p.curr.Type != EndGrp {
-		expr, err := p.parseExpr(bindLowest)
-		if err != nil {
+func (p *Parser) parseArgs() ([]Argument, error) {
+	var (
+		args   []Argument
+		err    error
+		onlykw bool
+		seen   = make(map[string]struct{})
+	)
+	for i := 0; !p.done() && p.curr.Type != EndGrp; i++ {
+		a := Argument{
+			pos: i,
+		}
+		if p.curr.Type == Ident && p.peek.Type == Assign {
+			if _, ok := seen[p.curr.Input]; ok {
+				return nil, fmt.Errorf("%s: duplicate argument", p.curr.Input)
+			}
+			seen[p.curr.Input] = struct{}{}
+			a.name = p.curr
+			onlykw = true
+			p.next()
+			p.next()
+		}
+		if onlykw && a.name.isZero() {
+			return nil, p.syntaxError()
+		}
+		if a.expr, err = p.parseExpr(bindLowest); err != nil {
 			return nil, err
 		}
-		args = append(args, expr)
+		args = append(args, a)
 		switch p.curr.Type {
 		case EndGrp:
 		case Comma:

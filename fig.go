@@ -122,6 +122,18 @@ func (d *Document) Text(paths ...string) (string, error) {
 	return toText(t)
 }
 
+func (d *Document) Value(paths ...string) (Value, error) {
+	return d.eval(paths...)
+}
+
+func (d *Document) Slice(paths ...string) ([]interface{}, error) {
+	_, err := d.eval(paths...)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
 func (d *Document) Document(paths ...string) (*Document, error) {
 	var n = d.root
 	for i := 0; i < len(paths); i++ {

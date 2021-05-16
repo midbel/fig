@@ -21,13 +21,27 @@ type Argument struct {
 
 func (a Argument) String() string {
 	if a.expr == nil {
-		return fmt.Sprintf("arg(%s)", a.name.Input)
+		return fmt.Sprintf("arg(%s, pos: %d)", a.name.Input, a.pos)
 	}
-	return fmt.Sprintf("arg(%s, expr: %s)", a.name.Input, a.expr)
+	return fmt.Sprintf("arg(%s, pos: %d, expr: %s)", a.name.Input, a.pos, a.expr)
 }
 
-func (a Argument) isMandatory() bool {
-	return a.expr == nil
+func (a Argument) isPositional() bool {
+	return a.expr == nil || a.name.isZero()
+}
+
+func (a Argument) isKeyword() bool {
+	return a.expr != nil && !a.name.isZero()
+}
+
+func replaceArg(a Argument, args []Argument) error {
+	for i := range args {
+		if a.name.Input == args[i].name.Input {
+			args[i].expr = a.expr
+			return nil
+		}
+	}
+	return fmt.Errorf("%s: not found", a.name.Input)
 }
 
 type Func struct {
@@ -50,6 +64,12 @@ func (f Func) Eval(e Environment) (Value, error) {
 		err = nil
 	}
 	return v, err
+}
+
+func (f Func) copyArgs() []Argument {
+	as := make([]Argument, len(f.args))
+	copy(as, f.args)
+	return as
 }
 
 type Object struct {
@@ -192,7 +212,7 @@ func (o *Object) registerFunc(fn Func) error {
 }
 
 func (o *Object) replace(opt Option, expr Value) error {
-	opt.expr = value{expr}
+	opt.expr = value{inner: expr}
 	o.nodes[opt.name.Input] = opt
 	return nil
 }

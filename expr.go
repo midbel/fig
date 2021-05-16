@@ -3,6 +3,7 @@ package fig
 import (
 	"errors"
 	"fmt"
+	// "sort"
 	"strconv"
 	"strings"
 	"time"
@@ -65,6 +66,8 @@ type ForeachLoop struct {
 	expr  Expr
 	body  Expr
 	alt   Expr
+
+	Note
 }
 
 func (f ForeachLoop) String() string {
@@ -114,6 +117,8 @@ type ForLoop struct {
 	cdt  Expr
 	body Expr
 	alt  Expr
+
+	Note
 }
 
 func (f ForLoop) String() string {
@@ -160,6 +165,8 @@ type WhileLoop struct {
 	cdt Expr
 	csq Expr
 	alt Expr
+
+	Note
 }
 
 func (w WhileLoop) String() string {
@@ -199,7 +206,9 @@ func (w WhileLoop) Eval(e Environment) (Value, error) {
 	return last, nil
 }
 
-type BreakLoop struct{}
+type BreakLoop struct {
+	Note
+}
 
 func (_ BreakLoop) String() string {
 	return "break"
@@ -209,7 +218,9 @@ func (_ BreakLoop) Eval(_ Environment) (Value, error) {
 	return nil, errBreak
 }
 
-type ContinueLoop struct{}
+type ContinueLoop struct {
+	Note
+}
 
 func (_ ContinueLoop) String() string {
 	return "continue"
@@ -221,6 +232,7 @@ func (_ ContinueLoop) Eval(_ Environment) (Value, error) {
 
 type Block struct {
 	expr []Expr
+	Note
 }
 
 func (b Block) Eval(e Environment) (Value, error) {
@@ -246,6 +258,8 @@ type Assignment struct {
 	ident Token
 	expr  Expr
 	let   bool
+
+	Note
 }
 
 func (a Assignment) Eval(e Environment) (Value, error) {
@@ -266,6 +280,8 @@ func (a Assignment) String() string {
 
 type Return struct {
 	expr Expr
+
+	Note
 }
 
 func (r Return) Eval(e Environment) (Value, error) {
@@ -283,6 +299,8 @@ func (r Return) String() string {
 type Unary struct {
 	right Expr
 	op    rune
+
+	Note
 }
 
 func (u Unary) String() string {
@@ -312,6 +330,8 @@ type Binary struct {
 	left  Expr
 	right Expr
 	op    rune
+
+	Note
 }
 
 func (b Binary) String() string {
@@ -433,6 +453,8 @@ type Ternary struct {
 	cdt Expr
 	csq Expr
 	alt Expr
+
+	Note
 }
 
 func (t Ternary) Eval(e Environment) (Value, error) {
@@ -457,6 +479,8 @@ func (t Ternary) String() string {
 type Literal struct {
 	tok Token
 	mul float64
+
+	Note
 }
 
 func makeLiteral(tok Token) Literal {
@@ -516,6 +540,8 @@ func (i Literal) Eval(_ Environment) (Value, error) {
 
 type Identifier struct {
 	tok Token
+
+	Note
 }
 
 func makeIdentifier(tok Token) Identifier {
@@ -532,6 +558,8 @@ func (i Identifier) Eval(e Environment) (Value, error) {
 
 type Variable struct {
 	tok Token
+
+	Note
 }
 
 func makeVariable(tok Token) Variable {
@@ -557,7 +585,9 @@ func (v Variable) Eval(e Environment) (Value, error) {
 
 type Call struct {
 	name Token
-	args []Expr
+	args []Argument
+
+	Note
 }
 
 func (c Call) String() string {
@@ -565,29 +595,50 @@ func (c Call) String() string {
 }
 
 func (c Call) Eval(e Environment) (Value, error) {
-	args, err := c.arguments(e)
-	if err != nil {
-		return nil, err
-	}
-	v, err := c.executeUserFunc(e, args)
+	v, err := c.executeUserFunc(e)
 	if err != nil && errors.Is(err, ErrUndefined) {
+		args, err := c.arguments(e)
+		if err != nil {
+			return nil, err
+		}
 		return c.executeBuiltin(e, args)
 	}
 	return v, err
 }
 
-func (c Call) executeUserFunc(e Environment, args []Value) (Value, error) {
+func (c Call) executeUserFunc(e Environment) (Value, error) {
 	fn, err := e.resolveFunc(c.name.Input)
 	if err != nil {
 		return nil, err
 	}
-	if len(fn.args) != len(args) {
-		return nil, invalidArgument(fn.name.Input)
+	ee, err := c.applyArguments(fn.copyArgs(), e)
+	if err != nil {
+		return nil, err
+	}
+	v, err := fn.Eval(ee)
+	if err != nil {
+		return nil, fmt.Errorf("error while executing %s: %s", fn.name.Input, err)
+	}
+	return v, err
+}
+
+func (c Call) applyArguments(args []Argument, e Environment) (Environment, error) {
+	for i := range c.args {
+		if i >= len(args) {
+			return nil, fmt.Errorf("%w (%d instead of %d)", invalidArgument(c.name.Input), len(c.args), len(args))
+		}
+		if c.args[i].isPositional() && c.args[i].pos == args[i].pos {
+			args[i].expr = c.args[i].expr
+			continue
+		}
+		if err := replaceArg(c.args[i], args); err != nil {
+			return nil, err
+		}
 	}
 	ee := EnclosedEnv(e)
-	for _, a := range fn.args {
-		if a.isMandatory() {
-			continue
+	for _, a := range args {
+		if a.expr == nil {
+			return nil, fmt.Errorf("%s: no value", a.name.Input)
 		}
 		v, err := a.expr.Eval(e)
 		if err != nil {
@@ -595,10 +646,7 @@ func (c Call) executeUserFunc(e Environment, args []Value) (Value, error) {
 		}
 		ee.Define(a.name.Input, v)
 	}
-	for i, a := range fn.args {
-		ee.Define(a.name.Input, args[i])
-	}
-	return fn.Eval(ee)
+	return ee, nil
 }
 
 func (c Call) executeBuiltin(e Environment, args []Value) (Value, error) {
@@ -612,7 +660,7 @@ func (c Call) executeBuiltin(e Environment, args []Value) (Value, error) {
 func (c Call) arguments(e Environment) ([]Value, error) {
 	args := make([]Value, len(c.args))
 	for i := range c.args {
-		a, err := c.args[i].Eval(e)
+		a, err := c.args[i].expr.Eval(e)
 		if err != nil {
 			return nil, err
 		}
@@ -623,6 +671,8 @@ func (c Call) arguments(e Environment) ([]Value, error) {
 
 type value struct {
 	inner Value
+
+	Note
 }
 
 func (v value) Eval(_ Environment) (Value, error) {
@@ -635,6 +685,8 @@ func (v value) String() string {
 
 type Array struct {
 	expr []Expr
+
+	Note
 }
 
 func (a Array) String() string {
@@ -669,6 +721,8 @@ func (a Array) Eval(e Environment) (Value, error) {
 type Index struct {
 	arr Expr
 	ptr Expr
+
+	Note
 }
 
 func (i Index) String() string {

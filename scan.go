@@ -685,7 +685,9 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 	tok.Type = kind
 	s.read()
 	s.skipBlank()
-	s.skipNewline()
+	if tok.Type != EndArr {
+		s.skipNewline()
+	}
 }
 
 func (s *Scanner) scanComment(tok *Token, long bool) {

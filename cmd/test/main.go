@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/midbel/fig"
 )
 
 func main() {
-	scan := flag.Bool("s", false, "scan file")
+	var (
+		scan  = flag.Bool("s", false, "scan file")
+		parse = flag.Bool("p", false, "parse file")
+	)
 	flag.Parse()
 	r, err := os.Open(flag.Arg(0))
 	if err != nil {
@@ -21,13 +25,32 @@ func main() {
 
 	if *scan {
 		err = scanFile(r)
-	} else {
+	} else if *parse {
 		err = parseFile(r)
+	} else {
+		err = queryFile(r, flag.Args())
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func queryFile(r io.Reader, key []string) error {
+	doc, err := fig.ParseDocument(r)
+	if err != nil {
+		return err
+	}
+	for _, k := range key[1:] {
+		ks := strings.Split(k, "/")
+		str, err := doc.Value(ks...)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%s: %#v", k, str)
+		fmt.Println()
+	}
+	return nil
 }
 
 func scanFile(r io.Reader) error {
