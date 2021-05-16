@@ -86,6 +86,7 @@ const (
 	pipe       = '|'
 	tilde      = '~'
 	question   = '?'
+	semicolon  = ';'
 )
 
 var escapes = map[rune]rune{
@@ -680,6 +681,8 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 		kind = EndObj
 	case comma:
 		kind = Comma
+	case semicolon:
+		kind = Semicolon
 	default:
 	}
 	tok.Type = kind
@@ -846,7 +849,7 @@ func isUpper(b rune) bool {
 }
 
 func isDelim(b rune) bool {
-	return b == lsquare || b == rsquare || b == lcurly || b == rcurly || b == comma
+	return b == lsquare || b == rsquare || b == lcurly || b == rcurly || b == comma || b == semicolon
 }
 
 func isHex(b rune) bool {
