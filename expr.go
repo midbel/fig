@@ -126,23 +126,29 @@ func (f ForLoop) String() string {
 }
 
 func (f ForLoop) Eval(e Environment) (Value, error) {
-	_, err := f.init.Eval(e)
-	if err != nil {
-		return nil, err
-	}
-	var i int
-	for {
-		v, err := f.cdt.Eval(e)
-		if err != nil {
+	if f.init != nil {
+		if _, err := f.init.Eval(e); err != nil {
 			return nil, err
 		}
-		if !v.isTrue() {
-			break
+	}
+	var (
+		loop int
+		last Value
+		err  error
+	)
+	for {
+		if f.cdt != nil {
+			if last, err = f.cdt.Eval(e); err != nil {
+				return nil, err
+			}
+			if !last.isTrue() {
+				break
+			}
 		}
-		i++
-		if v, err = f.body.Eval(e); err != nil {
+		loop++
+		if last, err = f.body.Eval(e); err != nil {
 			if errors.Is(err, errReturn) {
-				return v, err
+				return last, err
 			} else if errors.Is(err, errBreak) {
 				break
 			} else if errors.Is(err, errContinue) {
@@ -151,14 +157,16 @@ func (f ForLoop) Eval(e Environment) (Value, error) {
 				return nil, err
 			}
 		}
-		if _, err = f.next.Eval(e); err != nil {
-			return nil, err
+		if f.next != nil {
+			if _, err = f.next.Eval(e); err != nil {
+				return nil, err
+			}
 		}
 	}
-	if i == 0 {
+	if loop == 0 {
 		return f.alt.Eval(e)
 	}
-	return nil, nil
+	return last, nil
 }
 
 type WhileLoop struct {
