@@ -78,6 +78,7 @@ func TestScan(t *testing.T) {
 		makeToken("array", Ident),
 		makeToken("", BegArr),
 		makeToken("", EndArr),
+		makeToken("", EOL),
 		makeToken("group", Ident),
 		makeToken("", BegGrp),
 		makeToken("", EndGrp),

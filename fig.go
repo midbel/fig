@@ -122,8 +122,12 @@ func (d *Document) Text(paths ...string) (string, error) {
 	return toText(t)
 }
 
-func (d *Document) Value(paths ...string) (Value, error) {
-	return d.eval(paths...)
+func (d *Document) Value(paths ...string) (interface{}, error) {
+	v, err := d.eval(paths...)
+	if err != nil {
+		return nil, err
+	}
+	return toInterface(v), nil
 }
 
 func (d *Document) Slice(paths ...string) ([]interface{}, error) {

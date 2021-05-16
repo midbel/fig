@@ -1214,3 +1214,26 @@ func toTime(v Value) (time.Time, error) {
 		return time.Time{}, ErrIncompatible
 	}
 }
+
+func toInterface(v Value) interface{} {
+	var i interface{}
+	switch v := v.(type) {
+	case Int:
+		i = v.inner
+	case Double:
+		i = v.inner
+	case Bool:
+		i = v.inner
+	case Text:
+		i = v.inner
+	case Moment:
+		i = v.inner
+	case Slice:
+		vs := make([]interface{}, len(v.inner))
+		for i := range v.inner {
+			vs[i] = toInterface(v.inner[i])
+		}
+		i = vs
+	}
+	return i
+}

@@ -45,9 +45,9 @@ func queryFile(r io.Reader, key []string) error {
 		ks := strings.Split(k, "/")
 		str, err := doc.Value(ks...)
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: %s", k, err)
 		}
-		fmt.Printf("%s: %#v", k, str)
+		fmt.Printf("%s: %v", k, str)
 		fmt.Println()
 	}
 	return nil
