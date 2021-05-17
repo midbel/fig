@@ -30,10 +30,6 @@ func (a Argument) isPositional() bool {
 	return a.expr == nil || a.name.isZero()
 }
 
-func (a Argument) isKeyword() bool {
-	return a.expr != nil && !a.name.isZero()
-}
-
 func replaceArg(a Argument, args []Argument) error {
 	for i := range args {
 		if a.name.Input == args[i].name.Input {

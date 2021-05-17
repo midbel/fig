@@ -147,10 +147,10 @@ func (_ Bool) binand(_ Value) (Value, error)     { return nil, ErrUnsupported }
 func (_ Bool) binor(_ Value) (Value, error)      { return nil, ErrUnsupported }
 func (_ Bool) binnot() (Value, error)            { return nil, ErrUnsupported }
 func (_ Bool) binxor(_ Value) (Value, error)     { return nil, ErrUnsupported }
-func (_ Bool) toInt() (Value, error)             { return nil, ErrIncompatible }
-func (_ Bool) toDouble() (Value, error)          { return nil, ErrIncompatible }
-func (_ Bool) toText() (Value, error)            { return nil, ErrIncompatible }
-func (_ Bool) toMoment() (Value, error)          { return nil, ErrIncompatible }
+func (_ Bool) toInt() (Value, error)             { return nil, ErrUnsupported }
+func (_ Bool) toDouble() (Value, error)          { return nil, ErrUnsupported }
+func (_ Bool) toText() (Value, error)            { return nil, ErrUnsupported }
+func (_ Bool) toMoment() (Value, error)          { return nil, ErrUnsupported }
 
 type Int struct {
 	inner int64
@@ -176,7 +176,7 @@ func (i Int) add(other Value) (Value, error) {
 		if !ok {
 			return nil, ErrIncompatible
 		}
-		return m.addDuration(time.Duration(i.inner) * time.Second)
+		return m.add(i)
 	case scoreSlice:
 		s, ok := other.(Slice)
 		if !ok {
@@ -203,7 +203,7 @@ func (i Int) subtract(other Value) (Value, error) {
 		if !ok {
 			return nil, ErrIncompatible
 		}
-		return m.addDuration(time.Duration(-i.inner) * time.Second)
+		return m.subtract(i)
 	case scoreSlice:
 		s, ok := other.(Slice)
 		if !ok {
@@ -334,14 +334,14 @@ func (i Int) or(other Value) (Value, error) {
 }
 
 func (i Int) compare(other Value) (int, error) {
-	x, err := toInt(other)
-	if err != nil {
-		return -1, err
+	x, ok := other.(Int)
+	if !ok {
+		return -1, ErrIncompatible
 	}
-	if i.inner == x {
+	if i.inner == x.inner {
 		return 0, nil
 	}
-	if i.inner > x {
+	if i.inner > x.inner {
 		return 1, nil
 	}
 	return -1, nil
@@ -628,14 +628,14 @@ func (d Double) or(other Value) (Value, error) {
 }
 
 func (d Double) compare(other Value) (int, error) {
-	x, err := toFloat(other)
-	if err != nil {
-		return -1, err
+	x, ok := other.(Double)
+	if !ok {
+		return -1, ErrIncompatible
 	}
-	if math.Abs(d.inner-x) < epsilon {
+	if math.Abs(d.inner-x.inner) < epsilon {
 		return 0, nil
 	}
-	if d.inner > x {
+	if d.inner > x.inner {
 		return 1, nil
 	}
 	return -1, nil
@@ -667,8 +667,8 @@ func (_ Double) binand(other Value) (Value, error)     { return nil, ErrUnsuppor
 func (_ Double) binor(other Value) (Value, error)      { return nil, ErrUnsupported }
 func (_ Double) binxor(other Value) (Value, error)     { return nil, ErrUnsupported }
 func (_ Double) binnot() (Value, error)                { return nil, ErrUnsupported }
-func (_ Double) toText() (Value, error)                { return nil, ErrIncompatible }
-func (_ Double) toMoment() (Value, error)              { return nil, ErrIncompatible }
+func (_ Double) toText() (Value, error)                { return nil, ErrUnsupported }
+func (_ Double) toMoment() (Value, error)              { return nil, ErrUnsupported }
 func (_ Double) at(_ Value) (Value, error)             { return nil, ErrUnsupported }
 
 type Text struct {
@@ -680,11 +680,16 @@ func makeText(str string) Value {
 }
 
 func (t Text) add(other Value) (Value, error) {
-	x, ok := other.(Text)
-	if !ok {
+	switch s := other.score(); s {
+	case scoreText:
+		z, _ := toText(other)
+		return makeText(t.inner + z), nil
+	case scoreInt:
+		z, _ := other.toText()
+		return t.add(z)
+	default:
 		return nil, ErrIncompatible
 	}
-	return makeText(t.inner + x.inner), nil
 }
 
 func (t Text) multiply(other Value) (Value, error) {
@@ -693,6 +698,34 @@ func (t Text) multiply(other Value) (Value, error) {
 		return nil, ErrIncompatible
 	}
 	return makeText(strings.Repeat(t.inner, int(x.inner))), nil
+}
+
+func (t Text) leftshift(other Value) (Value, error) {
+	x, ok := other.(Int)
+	if !ok {
+		return nil, ErrIncompatible
+	}
+	if int(x.inner) >= len(t.inner) {
+		return makeText(""), nil
+	}
+	if x.inner < 0 {
+
+	}
+	return makeText(t.inner[x.inner:]), nil
+}
+
+func (t Text) rightshift(other Value) (Value, error) {
+	x, ok := other.(Int)
+	if !ok {
+		return nil, ErrIncompatible
+	}
+	if int(x.inner) >= len(t.inner) {
+		return makeText(""), nil
+	}
+	if x.inner < 0 {
+
+	}
+	return makeText(t.inner[:len(t.inner)-int(x.inner)]), nil
 }
 
 func (t Text) and(other Value) (Value, error) {
@@ -760,19 +793,17 @@ func (t Text) toMoment() (Value, error) {
 	return makeMoment(when), nil
 }
 
-func (_ Text) at(_ Value) (Value, error)         { return nil, ErrUnsupported }
-func (_ Text) subtract(_ Value) (Value, error)   { return nil, ErrUnsupported }
-func (_ Text) divide(_ Value) (Value, error)     { return nil, ErrUnsupported }
-func (_ Text) modulo(_ Value) (Value, error)     { return nil, ErrUnsupported }
-func (_ Text) power(_ Value) (Value, error)      { return nil, ErrUnsupported }
-func (_ Text) reverse() (Value, error)           { return nil, ErrUnsupported }
-func (_ Text) not() (Value, error)               { return nil, ErrUnsupported }
-func (_ Text) leftshift(_ Value) (Value, error)  { return nil, ErrUnsupported }
-func (_ Text) rightshift(_ Value) (Value, error) { return nil, ErrUnsupported }
-func (_ Text) binand(_ Value) (Value, error)     { return nil, ErrUnsupported }
-func (_ Text) binor(_ Value) (Value, error)      { return nil, ErrUnsupported }
-func (_ Text) binxor(_ Value) (Value, error)     { return nil, ErrUnsupported }
-func (_ Text) binnot() (Value, error)            { return nil, ErrUnsupported }
+func (_ Text) at(_ Value) (Value, error)       { return nil, ErrUnsupported }
+func (_ Text) subtract(_ Value) (Value, error) { return nil, ErrUnsupported }
+func (_ Text) divide(_ Value) (Value, error)   { return nil, ErrUnsupported }
+func (_ Text) modulo(_ Value) (Value, error)   { return nil, ErrUnsupported }
+func (_ Text) power(_ Value) (Value, error)    { return nil, ErrUnsupported }
+func (_ Text) reverse() (Value, error)         { return nil, ErrUnsupported }
+func (_ Text) not() (Value, error)             { return nil, ErrUnsupported }
+func (_ Text) binand(_ Value) (Value, error)   { return nil, ErrUnsupported }
+func (_ Text) binor(_ Value) (Value, error)    { return nil, ErrUnsupported }
+func (_ Text) binxor(_ Value) (Value, error)   { return nil, ErrUnsupported }
+func (_ Text) binnot() (Value, error)          { return nil, ErrUnsupported }
 
 type Moment struct {
 	inner time.Time
@@ -785,28 +816,29 @@ func makeMoment(mmt time.Time) Value {
 }
 
 func (m Moment) add(other Value) (Value, error) {
-	x, err := toInt(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreTime:
+		return m, nil
+	case scoreInt, scoreDouble:
+		i, _ := toInt(other)
+		when := m.inner.Add(time.Duration(i) * time.Second)
+		return makeMoment(when), nil
+	default:
+		return nil, ErrIncompatible
 	}
-	y := m.adjust().(Moment)
-	when := y.inner.Add(time.Duration(x) * time.Second)
-	return makeMoment(when), nil
-}
-
-func (m Moment) addDuration(d time.Duration) (Value, error) {
-	w := m.inner.Add(d)
-	return makeMoment(w), nil
 }
 
 func (m Moment) subtract(other Value) (Value, error) {
-	x, err := toInt(other)
-	if err != nil {
-		return nil, err
+	switch s := other.score(); s {
+	case scoreTime:
+		return m, nil
+	case scoreInt, scoreDouble:
+		i, _ := toInt(other)
+		when := m.inner.Add(-time.Duration(i) * time.Second)
+		return makeMoment(when), nil
+	default:
+		return nil, ErrIncompatible
 	}
-	y := m.adjust().(Moment)
-	when := y.inner.Add(time.Duration(-x) * time.Second)
-	return makeMoment(when), nil
 }
 
 func (m Moment) compare(other Value) (int, error) {
@@ -814,11 +846,10 @@ func (m Moment) compare(other Value) (int, error) {
 	if !ok {
 		return -1, ErrIncompatible
 	}
-	y := m.adjust().(Moment)
-	if y.inner.Equal(x.inner) {
+	if m.inner.Equal(x.inner) {
 		return 0, nil
 	}
-	if y.inner.After(x.inner) {
+	if m.inner.After(x.inner) {
 		return 1, nil
 	}
 	return -1, nil
@@ -842,15 +873,6 @@ func (m Moment) isTrue() bool {
 
 func (_ Moment) score() int {
 	return scoreTime
-}
-
-func (m Moment) adjust() Value {
-	if m.inner.Year() > 0 {
-		return m
-	}
-	n := time.Now()
-	n = m.inner.AddDate(n.Year(), int(n.Month()), n.Day()+1)
-	return makeMoment(n)
 }
 
 func (m Moment) toInt() (Value, error) {

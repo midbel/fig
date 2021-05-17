@@ -13,6 +13,110 @@ type ValueTestCase struct {
 	err   error
 }
 
+func TestValueCompare(t *testing.T) {
+	data := []struct {
+		left  Value
+		right Value
+		want  int
+		err   error
+	}{
+		{
+			left:  makeInt(0),
+			right: makeInt(0),
+			want:  0,
+		},
+		{
+			left:  makeInt(0),
+			right: makeInt(1),
+			want:  -1,
+		},
+		{
+			left:  makeInt(0),
+			right: makeInt(-1),
+			want:  1,
+		},
+		{
+			left:  makeInt(0),
+			right: makeText("hello"),
+			err:   ErrIncompatible,
+		},
+		{
+			left:  makeDouble(0),
+			right: makeDouble(0),
+			want:  0,
+		},
+		{
+			left:  makeDouble(0),
+			right: makeDouble(10),
+			want:  -1,
+		},
+		{
+			left:  makeDouble(0),
+			right: makeDouble(-10),
+			want:  1,
+		},
+		{
+			left:  makeDouble(0),
+			right: makeInt(0),
+			err:   ErrIncompatible,
+		},
+		{
+			left:  makeText("hello"),
+			right: makeText("hello"),
+			want:  0,
+		},
+		{
+			left:  makeText("abc"),
+			right: makeText("def"),
+			want:  -1,
+		},
+		{
+			left:  makeText("def"),
+			right: makeText("abc"),
+			want:  1,
+		},
+		{
+			left:  makeText("def"),
+			right: makeInt(0),
+			err:   ErrIncompatible,
+		},
+		{
+			left:  makeBool(true),
+			right: makeBool(true),
+			want:  0,
+		},
+		{
+			left:  makeBool(true),
+			right: makeBool(false),
+			want:  1,
+		},
+		{
+			left:  makeBool(false),
+			right: makeBool(true),
+			want:  -1,
+		},
+		{
+			left:  makeBool(false),
+			right: makeInt(0),
+			err:   ErrIncompatible,
+		},
+	}
+	for _, d := range data {
+		got, err := d.left.compare(d.right)
+		if d.err != nil {
+			if err == nil {
+				t.Errorf("values: expected error %s but operation succeed", d.err)
+			} else if !errors.Is(err, d.err) {
+				t.Errorf("values: errors mismatched! want %v, got %v", d.err, err)
+			}
+			continue
+		}
+		if d.want != got {
+			t.Errorf("compare values mismatched! want %d, got %d", d.want, got)
+		}
+	}
+}
+
 func TestOr(t *testing.T) {
 	data := []ValueTestCase{
 		{
@@ -101,8 +205,13 @@ func TestValueLeftShift(t *testing.T) {
 		},
 		{
 			left:  makeText("hello"),
-			right: makeDouble(2),
-			err:   ErrUnsupported,
+			right: makeInt(2),
+			want:  makeText("llo"),
+		},
+		{
+			left:  makeText("hello"),
+			right: makeInt(10),
+			want:  makeText(""),
 		},
 	}
 	for _, d := range data {
@@ -145,8 +254,13 @@ func TestValueRightShift(t *testing.T) {
 		},
 		{
 			left:  makeText("hello"),
-			right: makeDouble(2),
-			err:   ErrUnsupported,
+			right: makeInt(2),
+			want:  makeText("hel"),
+		},
+		{
+			left:  makeText("hello"),
+			right: makeInt(10),
+			want:  makeText(""),
 		},
 	}
 	for _, d := range data {
@@ -639,6 +753,11 @@ func TestValueAdd(t *testing.T) {
 			left:  makeInt(100),
 			right: makeText("+200"),
 			want:  makeText("100+200"),
+		},
+		{
+			left: makeText("200+"),
+			right:  makeInt(100),
+			want:  makeText("200+100"),
 		},
 		{
 			left:  makeInt(30),
