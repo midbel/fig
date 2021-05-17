@@ -755,8 +755,8 @@ func TestValueAdd(t *testing.T) {
 			want:  makeText("100+200"),
 		},
 		{
-			left: makeText("200+"),
-			right:  makeInt(100),
+			left:  makeText("200+"),
+			right: makeInt(100),
 			want:  makeText("200+100"),
 		},
 		{

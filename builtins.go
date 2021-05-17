@@ -16,55 +16,380 @@ var (
 )
 
 var builtins = map[string]func(...Value) (Value, error){
-	"typeof":           typeof,
-	"len":              length,
-	"first":            first,
-	"last":             last,
-	"rand":             rand,
-	"sqrt":             sqrt,
-	"abs":              abs,
-	"max":              max,
-	"min":              min,
-	"seq":              sequence,
-	"all":              all,
-	"any":              any,
-	"avg":              avg,
-	"upper":            upper,
-	"lower":            lower,
-	"split":            split,
-	"join":             join,
-	"contains":         contains,
-	"substr":           substring,
-	"trim":             trim,
-	"replace":          replace,
-	"dirname":          dirname,
-	"dir":              dirname,
-	"basename":         basename,
-	"base":             basename,
-	"isdir":            isDir,
-	"isfile":           isFile,
-	"read":             read,
-	"base64_encode":    base64EncodeStd,
-	"base64_decode":    base64DecodeStd,
-	"base64_urlencode": base64EncodeUrl,
-	"base64_urldecode": base64DecodeUrl,
+	"typeof":   typeof,
+	"len":      length,
+	"first":    first,
+	"last":     last,
+	"rand":     rand,
+	"sqrt":     sqrt,
+	"abs":      abs,
+	"max":      max,
+	"min":      min,
+	"seq":      sequence,
+	"all":      all,
+	"any":      any,
+	"avg":      avg,
+	"upper":    upper,
+	"lower":    lower,
+	"split":    split,
+	"join":     join,
+	"contains": contains,
+	"substr":   substring,
+	"trim":     trim,
+	"replace":  replace,
+	"dirname":  dirname,
+	"dir":      dirname,
+	"basename": basename,
+	"base":     basename,
+	"isdir":    isDir,
+	"isfile":   isFile,
+	"read":     read,
 }
 
-// type Builtin struct {
-// 	name string
-// 	args []Argument
-// 	exec func(Environment) (Value, error)
-// }
-//
-// func (b Builtin) Eval(e Environment) (Value, error) {
-// 	return b.exec(e)
-// }
+type Builtin struct {
+	name  string
+	alias []string
+	args  []Argument
+	exec  func(...Value) (Value, error)
+}
+
+var list = map[string]Builtin{
+	"typeof": {
+		name: "typeof",
+		args: []Argument{
+			{
+				name: makeToken("obj", Ident),
+				pos:  0,
+			},
+		},
+		exec: typeof,
+	},
+	"len": {
+		name: "len",
+		args: []Argument{
+			{
+				name: makeToken("obj", Ident),
+				pos:  0,
+			},
+		},
+		exec: length,
+	},
+	"first": {
+		name: "first",
+		args: []Argument{
+			{
+				name: makeToken("arr", Ident),
+				pos:  0,
+			},
+		},
+		exec: first,
+	},
+	"last": {
+		name: "last",
+		args: []Argument{
+			{
+				name: makeToken("arr", Ident),
+				pos:  0,
+			},
+		},
+		exec: last,
+	},
+	"rand": {
+		name: "rand",
+		args: []Argument{
+			{
+				name: makeToken("num", Ident),
+				pos:  0,
+			},
+		},
+		exec: rand,
+	},
+	"sqrt": {
+		name: "sqrt",
+		args: []Argument{
+			{
+				name: makeToken("num", Ident),
+				pos:  0,
+			},
+		},
+		exec: sqrt,
+	},
+	"min": {
+		name: "min",
+		args: []Argument{
+			{
+				name: makeToken("args", Ident),
+				pos:  0,
+			},
+		},
+		exec: min,
+	},
+	"max": {
+		name: "max",
+		args: []Argument{
+			{
+				name: makeToken("args", Ident),
+				pos:  0,
+			},
+		},
+		exec: sqrt,
+	},
+	"all": {
+		name: "all",
+		args: []Argument{
+			{
+				name: makeToken("args", Ident),
+				pos:  0,
+			},
+		},
+		exec: all,
+	},
+	"any": {
+		name: "any",
+		args: []Argument{
+			{
+				name: makeToken("args", Ident),
+				pos:  0,
+			},
+		},
+		exec: any,
+	},
+	"avg": {
+		name: "avg",
+		args: []Argument{
+			{
+				name: makeToken("args", Ident),
+				pos:  0,
+			},
+		},
+		exec: avg,
+	},
+	"upper": {
+		name: "upper",
+		args: []Argument{
+			{
+				name: makeToken("str", Ident),
+				pos:  0,
+			},
+		},
+		exec: upper,
+	},
+	"lower": {
+		name: "lower",
+		args: []Argument{
+			{
+				name: makeToken("str", Ident),
+				pos:  0,
+			},
+		},
+		exec: lower,
+	},
+	"split": {
+		name: "split",
+		args: []Argument{
+			{
+				name: makeToken("str", Ident),
+				pos:  0,
+			},
+			{
+				name: makeToken("sep", Ident),
+				pos:  1,
+				expr: makeLiteral(makeToken(" ", String)),
+			},
+		},
+		exec: split,
+	},
+	"join": {
+		name: "join",
+		args: []Argument{
+			{
+				name: makeToken("arr", Ident),
+				pos:  0,
+			},
+			{
+				name: makeToken("sep", Ident),
+				pos:  1,
+				expr: makeLiteral(makeToken(" ", String)),
+			},
+		},
+		exec: join,
+	},
+	"contains": {
+		name: "contains",
+		args: []Argument{
+			{
+				name: makeToken("str", Ident),
+				pos:  0,
+			},
+			{
+				name: makeToken("needle", Ident),
+				pos:  1,
+			},
+		},
+		exec: contains,
+	},
+	"substr": {
+		name: "substr",
+		args: []Argument{
+			{
+				name: makeToken("str", Ident),
+				pos:  0,
+			},
+			{
+				name: makeToken("pos", Ident),
+				pos:  1,
+				expr: makeLiteral(makeToken("0", Integer)),
+			},
+		},
+		exec: substring,
+	},
+	"trim": {
+		name: "trim",
+		args: []Argument{
+			{
+				name: makeToken("str", Ident),
+				pos:  0,
+			},
+			{
+				name: makeToken("char", Ident),
+				pos:  1,
+				expr: makeLiteral(makeToken(" ", Integer)),
+			},
+		},
+		exec: trim,
+	},
+	"replace": {
+		name: "replace",
+		args: []Argument{
+			{
+				name: makeToken("str", Ident),
+				pos:  0,
+			},
+			{
+				name: makeToken("from", Ident),
+				pos:  1,
+			},
+			{
+				name: makeToken("to", Ident),
+				pos:  2,
+			},
+			{
+				name: makeToken("count", Ident),
+				pos:  3,
+				expr: makeLiteral(makeToken("0", Integer)),
+			},
+		},
+		exec: replace,
+	},
+	"dirname": {
+		name:  "dirname",
+		alias: []string{"dir"},
+		args: []Argument{
+			{
+				name: makeToken("path", Ident),
+				pos:  0,
+			},
+		},
+		exec: dirname,
+	},
+	"basename": {
+		name:  "base",
+		alias: []string{"base"},
+		args: []Argument{
+			{
+				name: makeToken("path", Ident),
+				pos:  0,
+			},
+		},
+		exec: basename,
+	},
+	"isfile": {
+		name: "isfile",
+		args: []Argument{
+			{
+				name: makeToken("path", Ident),
+				pos:  0,
+			},
+		},
+		exec: isFile,
+	},
+	"isdir": {
+		name: "isdir",
+		args: []Argument{
+			{
+				name: makeToken("path", Ident),
+				pos:  0,
+			},
+		},
+		exec: isDir,
+	},
+	"read": {
+		name: "read",
+		args: []Argument{
+			{
+				name: makeToken("file", Ident),
+				pos:  0,
+			},
+		},
+		exec: read,
+	},
+	"b64encode": {
+		name: "b64encode",
+		args: []Argument{
+			{
+				name: makeToken("str", Ident),
+				pos:  0,
+			},
+			{
+				name: makeToken("url", Ident),
+				pos:  1,
+				expr: makeLiteral(makeToken("false", Boolean)),
+			},
+		},
+		exec: base64Encode,
+	},
+	"b64decode": {
+		name: "b64decode",
+		args: []Argument{
+			{
+				name: makeToken("str", Ident),
+				pos:  0,
+			},
+			{
+				name: makeToken("url", Ident),
+				pos:  1,
+				expr: makeLiteral(makeToken("false", Boolean)),
+			},
+		},
+		exec: base64Decode,
+	},
+}
+
+func (b Builtin) Eval(e Environment) (Value, error) {
+	// return b.exec(e)
+	return nil, nil
+}
 
 func typeof(vs ...Value) (Value, error) {
 	if len(vs) != 1 {
 		return nil, invalidArgument("typeof")
 	}
-	return nil, nil
+	var kind string
+	switch vs[0].score() {
+	case scoreInt:
+		kind = "integer"
+	case scoreDouble:
+		kind = "double"
+	case scoreTime:
+		kind = "moment"
+	case scoreBool:
+		kind = "boolean"
+	case scoreSlice:
+		kind = "array"
+	default:
+		return nil, fmt.Errorf("unsupported type")
+	}
+	return makeText(kind), nil
 }
 
 func length(vs ...Value) (Value, error) {
@@ -433,7 +758,7 @@ func basename(vs ...Value) (Value, error) {
 	return makeText(filepath.Base(value)), nil
 }
 
-func base64EncodeStd(vs ...Value) (Value, error) {
+func base64Encode(vs ...Value) (Value, error) {
 	if len(vs) != 1 {
 		return nil, invalidArgument("base64_encode")
 	}
@@ -445,31 +770,7 @@ func base64EncodeStd(vs ...Value) (Value, error) {
 	return makeText(value), nil
 }
 
-func base64DecodeStd(vs ...Value) (Value, error) {
-	if len(vs) != 1 {
-		return nil, invalidArgument("base64_decode")
-	}
-	value, err := toText(vs[0])
-	if err != nil {
-		return nil, err
-	}
-	str, err := base64.StdEncoding.DecodeString(value)
-	return makeText(string(str)), err
-}
-
-func base64EncodeUrl(vs ...Value) (Value, error) {
-	if len(vs) != 1 {
-		return nil, invalidArgument("base64_urlencode")
-	}
-	value, err := toText(vs[0])
-	if err != nil {
-		return nil, err
-	}
-	value = base64.URLEncoding.EncodeToString([]byte(value))
-	return makeText(value), nil
-}
-
-func base64DecodeUrl(vs ...Value) (Value, error) {
+func base64Decode(vs ...Value) (Value, error) {
 	if len(vs) != 1 {
 		return nil, invalidArgument("base64_urldecode")
 	}
@@ -477,7 +778,7 @@ func base64DecodeUrl(vs ...Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	str, err := base64.URLEncoding.DecodeString(value)
+	str, err := base64.StdEncoding.DecodeString(value)
 	return makeText(string(str)), err
 }
 
