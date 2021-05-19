@@ -8,8 +8,8 @@ functions {
 }
 
 user_defined {
-	sayHello() {
-		return "hello world"
+	sayHello(msg="") {
+		return msg ? msg : "hello world"
 	}
 
 	addInt(x, y) {
@@ -53,13 +53,41 @@ user_defined {
 
 	loop3(arr) {
 		let i = 0
-		foreach(item in arr) {
+		foreach(x, item in arr) {
 			i += item
 		}
 		return i
 	}
 
+	loop4() {
+		let i = 0
+		for (let j = 0; j < 100; j += 1) {
+			i += j
+		}
+		return i
+	}
+
+	loop5() {
+		let i = 0
+		for (; j < 100;) {
+			i += j
+			j += 1
+		}
+		return i
+	}
+
+	loop6() {
+		let i = 0
+		for (; ;) {
+			break
+		} else {
+			return 100
+		}
+		return i
+	}
+
 	hello = sayHello()
+	world = sayHello(msg="say world")
 	add   = addInt(10, 20)
 	bool1 = cond(yes)
 	bool2 = cond(no)

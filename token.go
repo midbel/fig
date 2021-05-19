@@ -102,6 +102,13 @@ type Token struct {
 	Position
 }
 
+func makeToken(str string, kind rune) Token {
+	return Token{
+		Input: str,
+		Type:  kind,
+	}
+}
+
 func (t Token) Equal(other Token) bool {
 	return t.Input == other.Input && t.Type == other.Type
 }

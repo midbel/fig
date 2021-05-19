@@ -158,10 +158,3 @@ func TestScan(t *testing.T) {
 		}
 	}
 }
-
-func makeToken(str string, kind rune) Token {
-	return Token{
-		Input: str,
-		Type:  kind,
-	}
-}

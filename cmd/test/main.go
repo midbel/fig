@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/midbel/fig"
 )
@@ -23,6 +24,7 @@ func main() {
 	}
 	defer r.Close()
 
+	now := time.Now()
 	if *scan {
 		err = scanFile(r)
 	} else if *parse {
@@ -30,6 +32,7 @@ func main() {
 	} else {
 		err = queryFile(r, flag.Args())
 	}
+	fmt.Println("elapsed:", time.Since(now))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
