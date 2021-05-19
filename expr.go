@@ -605,11 +605,7 @@ func (c Call) String() string {
 func (c Call) Eval(e Environment) (Value, error) {
 	v, err := c.executeUserFunc(e)
 	if err != nil && errors.Is(err, ErrUndefined) {
-		args, err := c.arguments(e)
-		if err != nil {
-			return nil, err
-		}
-		return c.executeBuiltin(e, args)
+		return c.executeBuiltin(e)
 	}
 	return v, err
 }
@@ -626,6 +622,22 @@ func (c Call) executeUserFunc(e Environment) (Value, error) {
 	v, err := fn.Eval(ee)
 	if err != nil {
 		return nil, fmt.Errorf("error while executing %s: %s", fn.name.Input, err)
+	}
+	return v, err
+}
+
+func (c Call) executeBuiltin(e Environment) (Value, error) {
+	fn, ok := builtins[c.name.Input]
+	if !ok {
+		return nil, undefinedFunction(c.name.Input)
+	}
+	ee, err := c.applyArguments(fn.copyArgs(), e)
+	if err != nil {
+		return nil, err
+	}
+	v, err := fn.Eval(ee)
+	if err != nil {
+		return nil, fmt.Errorf("error while executing %s: %s", fn.name, err)
 	}
 	return v, err
 }
@@ -655,26 +667,6 @@ func (c Call) applyArguments(args []Argument, e Environment) (Environment, error
 		ee.Define(a.name.Input, v)
 	}
 	return ee, nil
-}
-
-func (c Call) executeBuiltin(e Environment, args []Value) (Value, error) {
-	call, ok := builtins[c.name.Input]
-	if !ok {
-		return nil, undefinedFunction(c.name.Input)
-	}
-	return call(args...)
-}
-
-func (c Call) arguments(e Environment) ([]Value, error) {
-	args := make([]Value, len(c.args))
-	for i := range c.args {
-		a, err := c.args[i].expr.Eval(e)
-		if err != nil {
-			return nil, err
-		}
-		args[i] = a
-	}
-	return args, nil
 }
 
 type value struct {

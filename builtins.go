@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,45 +16,45 @@ var (
 	ErrMissing  = errors.New("missing argument")
 )
 
-var builtins = map[string]func(...Value) (Value, error){
-	"typeof":   typeof,
-	"len":      length,
-	"first":    first,
-	"last":     last,
-	"rand":     rand,
-	"sqrt":     sqrt,
-	"abs":      abs,
-	"max":      max,
-	"min":      min,
-	"seq":      sequence,
-	"all":      all,
-	"any":      any,
-	"avg":      avg,
-	"upper":    upper,
-	"lower":    lower,
-	"split":    split,
-	"join":     join,
-	"contains": contains,
-	"substr":   substring,
-	"trim":     trim,
-	"replace":  replace,
-	"dirname":  dirname,
-	"dir":      dirname,
-	"basename": basename,
-	"base":     basename,
-	"isdir":    isDir,
-	"isfile":   isFile,
-	"read":     read,
-}
+// var builtins = map[string]func(...Value) (Value, error){
+// 	"typeof":   typeof,
+// 	"len":      length,
+// 	"first":    first,
+// 	"last":     last,
+// 	"rand":     rand,
+// 	"sqrt":     sqrt,
+// 	"abs":      abs,
+// 	"max":      max,
+// 	"min":      min,
+// 	"seq":      sequence,
+// 	"all":      all,
+// 	"any":      any,
+// 	"avg":      avg,
+// 	"upper":    upper,
+// 	"lower":    lower,
+// 	"split":    split,
+// 	"join":     join,
+// 	"contains": contains,
+// 	"substr":   substring,
+// 	"trim":     trim,
+// 	"replace":  replace,
+// 	"dirname":  dirname,
+// 	"dir":      dirname,
+// 	"basename": basename,
+// 	"base":     basename,
+// 	"isdir":    isDir,
+// 	"isfile":   isFile,
+// 	"read":     read,
+// }
 
 type Builtin struct {
 	name  string
 	alias []string
 	args  []Argument
-	exec  func(...Value) (Value, error)
+	exec  func(Environment) (Value, error)
 }
 
-var list = map[string]Builtin{
+var builtins = map[string]Builtin{
 	"typeof": {
 		name: "typeof",
 		args: []Argument{
@@ -94,15 +95,44 @@ var list = map[string]Builtin{
 		},
 		exec: last,
 	},
-	"rand": {
-		name: "rand",
+	"seq": {
+		name: "seq",
+		args: []Argument{
+			{
+				name: makeToken("first", Ident),
+				pos:  0,
+			},
+			{
+				name: makeToken("last", Ident),
+				pos:  1,
+			},
+			{
+				name: makeToken("step", Ident),
+				pos:  2,
+				expr: makeLiteral(makeToken("1", Ident)),
+			},
+		},
+		exec: sequence,
+	},
+	"randn": {
+		name: "randn",
 		args: []Argument{
 			{
 				name: makeToken("num", Ident),
 				pos:  0,
 			},
 		},
-		exec: rand,
+		exec: randn,
+	},
+	"abs": {
+		name: "abs",
+		args: []Argument{
+			{
+				name: makeToken("num", Ident),
+				pos:  0,
+			},
+		},
+		exec: sqrt,
 	},
 	"sqrt": {
 		name: "sqrt",
@@ -118,8 +148,9 @@ var list = map[string]Builtin{
 		name: "min",
 		args: []Argument{
 			{
-				name: makeToken("args", Ident),
-				pos:  0,
+				name:     makeToken("args", Ident),
+				pos:      0,
+				variadic: true,
 			},
 		},
 		exec: min,
@@ -128,8 +159,9 @@ var list = map[string]Builtin{
 		name: "max",
 		args: []Argument{
 			{
-				name: makeToken("args", Ident),
-				pos:  0,
+				name:     makeToken("args", Ident),
+				pos:      0,
+				variadic: true,
 			},
 		},
 		exec: sqrt,
@@ -138,8 +170,9 @@ var list = map[string]Builtin{
 		name: "all",
 		args: []Argument{
 			{
-				name: makeToken("args", Ident),
-				pos:  0,
+				name:     makeToken("args", Ident),
+				pos:      0,
+				variadic: true,
 			},
 		},
 		exec: all,
@@ -148,8 +181,9 @@ var list = map[string]Builtin{
 		name: "any",
 		args: []Argument{
 			{
-				name: makeToken("args", Ident),
-				pos:  0,
+				name:     makeToken("args", Ident),
+				pos:      0,
+				variadic: true,
 			},
 		},
 		exec: any,
@@ -158,8 +192,9 @@ var list = map[string]Builtin{
 		name: "avg",
 		args: []Argument{
 			{
-				name: makeToken("args", Ident),
-				pos:  0,
+				name:     makeToken("args", Ident),
+				pos:      0,
+				variadic: true,
 			},
 		},
 		exec: avg,
@@ -222,7 +257,7 @@ var list = map[string]Builtin{
 				pos:  0,
 			},
 			{
-				name: makeToken("needle", Ident),
+				name: makeToken("substr", Ident),
 				pos:  1,
 			},
 		},
@@ -240,6 +275,11 @@ var list = map[string]Builtin{
 				pos:  1,
 				expr: makeLiteral(makeToken("0", Integer)),
 			},
+			{
+				name: makeToken("len", Ident),
+				pos:  2,
+				expr: makeLiteral(makeToken("0", Integer)),
+			},
 		},
 		exec: substring,
 	},
@@ -253,7 +293,7 @@ var list = map[string]Builtin{
 			{
 				name: makeToken("char", Ident),
 				pos:  1,
-				expr: makeLiteral(makeToken(" ", Integer)),
+				expr: makeLiteral(makeToken("", Integer)),
 			},
 		},
 		exec: trim,
@@ -266,11 +306,11 @@ var list = map[string]Builtin{
 				pos:  0,
 			},
 			{
-				name: makeToken("from", Ident),
+				name: makeToken("src", Ident),
 				pos:  1,
 			},
 			{
-				name: makeToken("to", Ident),
+				name: makeToken("dst", Ident),
 				pos:  2,
 			},
 			{
@@ -327,8 +367,9 @@ var list = map[string]Builtin{
 		name: "read",
 		args: []Argument{
 			{
-				name: makeToken("file", Ident),
-				pos:  0,
+				name:     makeToken("file", Ident),
+				pos:      0,
+				variadic: true,
 			},
 		},
 		exec: read,
@@ -366,16 +407,22 @@ var list = map[string]Builtin{
 }
 
 func (b Builtin) Eval(e Environment) (Value, error) {
-	// return b.exec(e)
-	return nil, nil
+	return b.exec(e)
 }
 
-func typeof(vs ...Value) (Value, error) {
-	if len(vs) != 1 {
-		return nil, invalidArgument("typeof")
+func (b Builtin) copyArgs() []Argument {
+	as := make([]Argument, len(b.args))
+	copy(as, b.args)
+	return as
+}
+
+func typeof(e Environment) (Value, error) {
+	obj, err := e.Resolve("obj")
+	if err != nil {
+		return nil, err
 	}
 	var kind string
-	switch vs[0].score() {
+	switch obj.score() {
 	case scoreInt:
 		kind = "integer"
 	case scoreDouble:
@@ -392,12 +439,13 @@ func typeof(vs ...Value) (Value, error) {
 	return makeText(kind), nil
 }
 
-func length(vs ...Value) (Value, error) {
-	if len(vs) != 1 {
-		return nil, invalidArgument("len")
+func length(e Environment) (Value, error) {
+	obj, err := e.Resolve("obj")
+	if err != nil {
+		return nil, err
 	}
 	size := -1
-	switch v := vs[0].(type) {
+	switch v := obj.(type) {
 	case Text:
 		size = len(v.inner)
 	case Slice:
@@ -407,71 +455,55 @@ func length(vs ...Value) (Value, error) {
 	return makeInt(int64(size)), nil
 }
 
-func rand(vs ...Value) (Value, error) {
-	return nil, nil
+func randn(e Environment) (Value, error) {
+	num, err := intFromEnv(e, "num")
+	if err != nil {
+		return nil, err
+	}
+	return makeInt(rand.Int63n(num)), nil
 }
 
-func first(vs ...Value) (Value, error) {
-	if len(vs) != 1 {
-		return nil, invalidArgument("first")
+func first(e Environment) (Value, error) {
+	xs, err := sliceFromEnv(e, "arr")
+	if err != nil {
+		return nil, err
 	}
-	xs, ok := vs[0].(Slice)
-	if !ok {
-		return nil, fmt.Errorf("arg should be array")
-	}
-	if len(vs) == 0 {
+	if len(xs) == 0 {
 		return nil, fmt.Errorf("empty array")
 	}
-	return xs.inner[0], nil
+	return xs[0], nil
 }
 
-func last(vs ...Value) (Value, error) {
-	if len(vs) != 1 {
-		return nil, invalidArgument("last")
+func last(e Environment) (Value, error) {
+	xs, err := sliceFromEnv(e, "arr")
+	if err != nil {
+		return nil, err
 	}
-	xs, ok := vs[0].(Slice)
-	if !ok {
-		return nil, fmt.Errorf("arg should be array")
-	}
-	if len(xs.inner) == 0 {
+	if len(xs) == 0 {
 		return nil, fmt.Errorf("empty array")
 	}
-	return xs.inner[len(xs.inner)-1], nil
+	return xs[len(xs)-1], nil
 }
 
-func sequence(vs ...Value) (Value, error) {
+func sequence(e Environment) (Value, error) {
 	var (
 		fst  int64
 		lst  int64
-		step int64 = 1
+		step int64
+		err  error
 	)
-	switch len(vs) {
-	case 1:
-		i, err := toInt(vs[0])
-		if err != nil {
-			return nil, err
-		}
-		if i < 0 {
-			lst, fst = 0, i
-		} else {
-			lst = i
-		}
-		// 0-to
-	case 2:
-		// from-to
-		i, err := toInt(vs[0])
-		if err != nil {
-			return nil, err
-		}
-		j, err := toInt(vs[1])
-		if err != nil {
-			return nil, err
-		}
-		fst, lst = i, j
-	case 3:
-		// from-to-step
-	default:
-		return nil, invalidArgument("seq")
+	if fst, err = intFromEnv(e, "first"); err != nil {
+		return nil, err
+	}
+	if lst, err = intFromEnv(e, "last"); err != nil {
+		return nil, err
+	}
+	if step, err = intFromEnv(e, "step"); err != nil && !errors.Is(err, ErrUndefined) {
+		return nil, err
+	}
+
+	if lst < fst {
+		step = -step
 	}
 	var xs []Value
 	for fst < lst {
@@ -481,31 +513,26 @@ func sequence(vs ...Value) (Value, error) {
 	return makeSlice(xs), nil
 }
 
-func sqrt(vs ...Value) (Value, error) {
-	if len(vs) != 1 {
-		return nil, invalidArgument("sqrt")
-	}
-	value, err := toFloat(vs[0])
+func sqrt(e Environment) (Value, error) {
+	value, err := doubleFromEnv(e, "num")
 	if err != nil {
 		return nil, err
 	}
 	return makeDouble(math.Sqrt(value)), nil
 }
 
-func abs(vs ...Value) (Value, error) {
-	if len(vs) != 1 {
-		return nil, invalidArgument("sqrt")
-	}
-	value, err := toFloat(vs[0])
+func abs(e Environment) (Value, error) {
+	value, err := doubleFromEnv(e, "num")
 	if err != nil {
 		return nil, err
 	}
 	return makeDouble(math.Abs(value)), nil
 }
 
-func max(vs ...Value) (Value, error) {
-	if len(vs) == 0 {
-		return nil, invalidArgument("max")
+func max(e Environment) (Value, error) {
+	vs, err := sliceFromEnv(e, "args")
+	if err != nil {
+		return nil, err
 	}
 	if len(vs) == 1 {
 		return vs[0], nil
@@ -523,9 +550,10 @@ func max(vs ...Value) (Value, error) {
 	return result, nil
 }
 
-func min(vs ...Value) (Value, error) {
-	if len(vs) == 0 {
-		return nil, invalidArgument("min")
+func min(e Environment) (Value, error) {
+	vs, err := sliceFromEnv(e, "args")
+	if err != nil {
+		return nil, err
 	}
 	if len(vs) == 1 {
 		return vs[0], nil
@@ -543,9 +571,13 @@ func min(vs ...Value) (Value, error) {
 	return result, nil
 }
 
-func all(vs ...Value) (Value, error) {
+func all(e Environment) (Value, error) {
+	vs, err := sliceFromEnv(e, "args")
+	if err != nil {
+		return nil, err
+	}
 	if len(vs) == 0 {
-		return makeBool(false), nil
+		return makeBool(true), nil
 	}
 	for _, v := range vs {
 		if !v.isTrue() {
@@ -555,7 +587,11 @@ func all(vs ...Value) (Value, error) {
 	return makeBool(true), nil
 }
 
-func any(vs ...Value) (Value, error) {
+func any(e Environment) (Value, error) {
+	vs, err := sliceFromEnv(e, "args")
+	if err != nil {
+		return nil, err
+	}
 	if len(vs) == 0 {
 		return makeBool(false), nil
 	}
@@ -567,7 +603,11 @@ func any(vs ...Value) (Value, error) {
 	return makeBool(false), nil
 }
 
-func avg(vs ...Value) (Value, error) {
+func avg(e Environment) (Value, error) {
+	vs, err := sliceFromEnv(e, "args")
+	if err != nil {
+		return nil, err
+	}
 	var value float64
 	for _, v := range vs {
 		v, err := toFloat(v)
@@ -579,123 +619,117 @@ func avg(vs ...Value) (Value, error) {
 	return makeDouble(value / float64(len(vs))), nil
 }
 
-func replace(vs ...Value) (Value, error) {
+func replace(e Environment) (Value, error) {
 	var (
 		value string
 		bef   string
 		aft   string
+		count int64
 		err   error
 	)
-	if value, err = toText(vs[0]); err != nil {
+	if value, err = stringFromEnv(e, "str"); err != nil {
 		return nil, err
 	}
-	if bef, err = toText(vs[1]); err != nil {
+	if bef, err = stringFromEnv(e, "src"); err != nil {
 		return nil, err
 	}
-	if aft, err = toText(vs[2]); err != nil {
+	if aft, err = stringFromEnv(e, "dst"); err != nil {
 		return nil, err
 	}
-	value = strings.ReplaceAll(value, bef, aft)
+	if count, err = intFromEnv(e, "count"); err != nil {
+		return nil, err
+	}
+	value = strings.Replace(value, bef, aft, int(count))
 	return makeText(value), nil
 }
 
-func trim(vs ...Value) (Value, error) {
-	if len(vs) == 0 || len(vs) > 2 {
-		return nil, invalidArgument("trim")
-	}
-	value, err := toText(vs[0])
+func trim(e Environment) (Value, error) {
+	value, err := stringFromEnv(e, "str")
 	if err != nil {
 		return nil, err
 	}
-	if len(vs) == 1 {
+	char, err := stringFromEnv(e, "char")
+	if err != nil && !errors.Is(err, ErrUndefined) {
+		return nil, err
+	}
+	if char == "" {
 		return makeText(strings.TrimSpace(value)), nil
 	}
-	str, err := toText(vs[1])
-	if err != nil {
-		return nil, err
-	}
-	return makeText(strings.Trim(value, str)), nil
+	return makeText(strings.Trim(value, char)), nil
 }
 
-func upper(vs ...Value) (Value, error) {
-	if len(vs) != 1 {
-		return nil, invalidArgument("upper")
-	}
-	str, err := toText(vs[0])
+func upper(e Environment) (Value, error) {
+	str, err := stringFromEnv(e, "str")
 	if err != nil {
 		return nil, err
 	}
 	return makeText(strings.ToUpper(str)), nil
 }
 
-func lower(vs ...Value) (Value, error) {
-	if len(vs) != 1 {
-		return nil, invalidArgument("lower")
-	}
-	str, err := toText(vs[0])
+func lower(e Environment) (Value, error) {
+	str, err := stringFromEnv(e, "str")
 	if err != nil {
 		return nil, err
 	}
 	return makeText(strings.ToLower(str)), nil
 }
 
-func contains(vs ...Value) (Value, error) {
-	if len(vs) <= 1 {
-		return nil, invalidArgument("contains")
-	}
-	value, err := toText(vs[0])
+func contains(e Environment) (Value, error) {
+	value, err := stringFromEnv(e, "str")
 	if err != nil {
 		return nil, err
 	}
-	for i := 1; i < len(vs); i++ {
-		str, err := toText(vs[i])
+	substr, err := stringFromEnv(e, "substr")
+	if err != nil {
+		return nil, err
+	}
+	return makeBool(strings.Contains(value, substr)), nil
+}
+
+func substring(e Environment) (Value, error) {
+	return nil, nil
+}
+
+func split(e Environment) (Value, error) {
+	value, err := stringFromEnv(e, "str")
+	if err != nil {
+		return nil, err
+	}
+	sep, err := stringFromEnv(e, "sep")
+	if err != nil {
+		return nil, err
+	}
+	var (
+		parts  = strings.Split(value, sep)
+		values = make([]Value, len(parts))
+	)
+	for i := range parts {
+		values[i] = makeText(parts[i])
+	}
+	return makeSlice(values), nil
+}
+
+func join(e Environment) (Value, error) {
+	sep, err := stringFromEnv(e, "sep")
+	if err != nil {
+		return nil, err
+	}
+	vs, err := sliceFromEnv(e, "arr")
+	if err != nil {
+		return nil, err
+	}
+	parts := make([]string, len(vs))
+	for i := range vs {
+		parts[i], err = toText(vs[i])
 		if err != nil {
 			return nil, err
 		}
-		if strings.Contains(value, str) {
-			return makeBool(true), nil
-		}
 	}
-	return makeBool(false), nil
+	return makeText(strings.Join(parts, sep)), nil
 }
 
-func substring(vs ...Value) (Value, error) {
-	return nil, nil
-}
-
-func split(vs ...Value) (Value, error) {
-	if len(vs) != 2 {
-		return nil, invalidArgument("split")
-	}
-	value, err := toText(vs[0])
-	if err != nil {
-		return nil, err
-	}
-	char, err := toText(vs[1])
-	if err != nil {
-		return nil, err
-	}
-	_ = strings.Split(value, char)
-	return nil, nil
-}
-
-func join(vs ...Value) (Value, error) {
-	if len(vs) != 2 {
-		return nil, invalidArgument("join")
-	}
-	var value []string
-	char, err := toText(vs[1])
-	if err != nil {
-		return nil, err
-	}
-	return makeText(strings.Join(value, char)), nil
-}
-
-func isDir(vs ...Value) (Value, error) {
-	if len(vs) != 1 {
-		return nil, invalidArgument("isdir")
-	}
-	value, err := toText(vs[0])
+func isDir(e Environment) (Value, error) {
+	value, err := stringFromEnv(e, "path")
 	if err != nil {
 		return nil, err
 	}
@@ -706,11 +740,8 @@ func isDir(vs ...Value) (Value, error) {
 	return makeBool(i.Mode().IsDir()), nil
 }
 
-func isFile(vs ...Value) (Value, error) {
-	if len(vs) != 1 {
-		return nil, invalidArgument("isfile")
-	}
-	value, err := toText(vs[0])
+func isFile(e Environment) (Value, error) {
+	value, err := stringFromEnv(e, "path")
 	if err != nil {
 		return nil, err
 	}
@@ -721,11 +752,8 @@ func isFile(vs ...Value) (Value, error) {
 	return makeBool(i.Mode().IsRegular()), nil
 }
 
-func read(vs ...Value) (Value, error) {
-	if len(vs) != 1 {
-		return nil, invalidArgument("read")
-	}
-	value, err := toText(vs[0])
+func read(e Environment) (Value, error) {
+	value, err := stringFromEnv(e, "file")
 	if err != nil {
 		return nil, err
 	}
@@ -736,33 +764,24 @@ func read(vs ...Value) (Value, error) {
 	return makeText(string(bs)), nil
 }
 
-func dirname(vs ...Value) (Value, error) {
-	if len(vs) != 1 {
-		return nil, invalidArgument("dirname")
-	}
-	value, err := toText(vs[0])
+func dirname(e Environment) (Value, error) {
+	value, err := stringFromEnv(e, "path")
 	if err != nil {
 		return nil, err
 	}
 	return makeText(filepath.Dir(value)), nil
 }
 
-func basename(vs ...Value) (Value, error) {
-	if len(vs) != 1 {
-		return nil, invalidArgument("basename")
-	}
-	value, err := toText(vs[0])
+func basename(e Environment) (Value, error) {
+	value, err := stringFromEnv(e, "path")
 	if err != nil {
 		return nil, err
 	}
 	return makeText(filepath.Base(value)), nil
 }
 
-func base64Encode(vs ...Value) (Value, error) {
-	if len(vs) != 1 {
-		return nil, invalidArgument("base64_encode")
-	}
-	value, err := toText(vs[0])
+func base64Encode(e Environment) (Value, error) {
+	value, err := stringFromEnv(e, "str")
 	if err != nil {
 		return nil, err
 	}
@@ -770,11 +789,8 @@ func base64Encode(vs ...Value) (Value, error) {
 	return makeText(value), nil
 }
 
-func base64Decode(vs ...Value) (Value, error) {
-	if len(vs) != 1 {
-		return nil, invalidArgument("base64_urldecode")
-	}
-	value, err := toText(vs[0])
+func base64Decode(e Environment) (Value, error) {
+	value, err := stringFromEnv(e, "str")
 	if err != nil {
 		return nil, err
 	}

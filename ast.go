@@ -14,9 +14,10 @@ type Note struct {
 }
 
 type Argument struct {
-	name Token
-	expr Expr
-	pos  int
+	name     Token
+	expr     Expr
+	pos      int
+	variadic bool
 }
 
 func (a Argument) String() string {

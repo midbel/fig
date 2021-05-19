@@ -144,6 +144,50 @@ func (e *env) resolveFunc(str string) (Func, error) {
 	return Func{}, undefinedFunction(str)
 }
 
+func stringFromEnv(e Environment, str string) (string, error) {
+	v, err := e.Resolve(str)
+	if err != nil {
+		return "", err
+	}
+	return toText(v)
+}
+
+func intFromEnv(e Environment, str string) (int64, error) {
+	v, err := e.Resolve(str)
+	if err != nil {
+		return 0, err
+	}
+	return toInt(v)
+}
+
+func doubleFromEnv(e Environment, str string) (float64, error) {
+	v, err := e.Resolve(str)
+	if err != nil {
+		return 0, err
+	}
+	return toFloat(v)
+}
+
+func boolFromEnv(e Environment, str string) (bool, error) {
+	v, err := e.Resolve(str)
+	if err != nil {
+		return false, err
+	}
+	return v.isTrue(), nil
+}
+
+func sliceFromEnv(e Environment, str string) ([]Value, error) {
+	v, err := e.Resolve(str)
+	if err != nil {
+		return nil, err
+	}
+	vs, ok := v.(Slice)
+	if !ok {
+		return nil, nil
+	}
+	return vs.inner, nil
+}
+
 func undefinedVariable(str string) error {
 	return fmt.Errorf("%s: %w variable", str, ErrUndefined)
 }
