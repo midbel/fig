@@ -648,8 +648,19 @@ func (c Call) applyArguments(args []Argument, e Environment) (Environment, error
 			return nil, fmt.Errorf("%w (%d instead of %d)", invalidArgument(c.name.Input), len(c.args), len(args))
 		}
 		if c.args[i].isPositional() && c.args[i].pos == args[i].pos {
-			args[i].expr = c.args[i].expr
-			continue
+			if !args[i].variadic {
+				args[i].expr = c.args[i].expr
+				continue
+			}
+			var arr Array
+			for j := i; j < len(c.args); j++ {
+				if !c.args[j].isPositional() {
+					return nil, fmt.Errorf("unexpected keyword argument")
+				}
+				arr.expr = append(arr.expr, c.args[j].expr)
+			}
+			args[i].expr = arr
+			break
 		}
 		if err := replaceArg(c.args[i], args); err != nil {
 			return nil, err

@@ -16,37 +16,6 @@ var (
 	ErrMissing  = errors.New("missing argument")
 )
 
-// var builtins = map[string]func(...Value) (Value, error){
-// 	"typeof":   typeof,
-// 	"len":      length,
-// 	"first":    first,
-// 	"last":     last,
-// 	"rand":     rand,
-// 	"sqrt":     sqrt,
-// 	"abs":      abs,
-// 	"max":      max,
-// 	"min":      min,
-// 	"seq":      sequence,
-// 	"all":      all,
-// 	"any":      any,
-// 	"avg":      avg,
-// 	"upper":    upper,
-// 	"lower":    lower,
-// 	"split":    split,
-// 	"join":     join,
-// 	"contains": contains,
-// 	"substr":   substring,
-// 	"trim":     trim,
-// 	"replace":  replace,
-// 	"dirname":  dirname,
-// 	"dir":      dirname,
-// 	"basename": basename,
-// 	"base":     basename,
-// 	"isdir":    isDir,
-// 	"isfile":   isFile,
-// 	"read":     read,
-// }
-
 type Builtin struct {
 	name  string
 	alias []string
@@ -164,7 +133,7 @@ var builtins = map[string]Builtin{
 				variadic: true,
 			},
 		},
-		exec: sqrt,
+		exec: max,
 	},
 	"all": {
 		name: "all",
@@ -316,7 +285,7 @@ var builtins = map[string]Builtin{
 			{
 				name: makeToken("count", Ident),
 				pos:  3,
-				expr: makeLiteral(makeToken("0", Integer)),
+				expr: makeLiteral(makeToken("-1", Integer)),
 			},
 		},
 		exec: replace,
@@ -639,6 +608,9 @@ func replace(e Environment) (Value, error) {
 	if count, err = intFromEnv(e, "count"); err != nil {
 		return nil, err
 	}
+	if count <= 0 {
+		return makeText(strings.ReplaceAll(value, bef, aft)), nil
+	}
 	value = strings.Replace(value, bef, aft, int(count))
 	return makeText(value), nil
 }
@@ -687,7 +659,25 @@ func contains(e Environment) (Value, error) {
 }
 
 func substring(e Environment) (Value, error) {
-	return nil, nil
+	str, err := stringFromEnv(e, "str")
+	if err != nil {
+		return nil, err
+	}
+	pos, err := intFromEnv(e, "pos")
+	if err != nil {
+		return nil, err
+	}
+	siz, err := intFromEnv(e, "len")
+	if err != nil {
+		return nil, err
+	}
+	if pos < 0 || siz <= 0 {
+		return nil, fmt.Errorf("invalid offset/length")
+	}
+	if int(pos) >= len(str) || int(pos + siz) > len(str) {
+		return makeText(""), nil
+	}
+	return makeText(str[pos:pos+siz]), nil
 }
 
 func split(e Environment) (Value, error) {
