@@ -1,12 +1,14 @@
 package fig
 
 import (
+	"bytes"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"math"
 	"math/rand"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -373,6 +375,21 @@ var builtins = map[string]Builtin{
 		},
 		exec: base64Decode,
 	},
+	"exec": {
+		name: "exec",
+		args: []Argument{
+			{
+				name: makeToken("cmd", Ident),
+				pos:  0,
+			},
+			{
+				name:     makeToken("args", Ident),
+				pos:      1,
+				variadic: true,
+			},
+		},
+		exec: execute,
+	},
 }
 
 func (b Builtin) Eval(e Environment) (Value, error) {
@@ -674,10 +691,10 @@ func substring(e Environment) (Value, error) {
 	if pos < 0 || siz <= 0 {
 		return nil, fmt.Errorf("invalid offset/length")
 	}
-	if int(pos) >= len(str) || int(pos + siz) > len(str) {
+	if int(pos) >= len(str) || int(pos+siz) > len(str) {
 		return makeText(""), nil
 	}
-	return makeText(str[pos:pos+siz]), nil
+	return makeText(str[pos : pos+siz]), nil
 }
 
 func split(e Environment) (Value, error) {
@@ -786,6 +803,45 @@ func base64Decode(e Environment) (Value, error) {
 	}
 	str, err := base64.StdEncoding.DecodeString(value)
 	return makeText(string(str)), err
+}
+
+func execute(e Environment) (Value, error) {
+	cmd, err := stringFromEnv(e, "cmd")
+	if err != nil {
+		return nil, err
+	}
+	arr, err := sliceFromEnv(e, "args")
+	if err != nil {
+		return nil, err
+	}
+	args := make([]string, len(arr))
+	for i := range arr {
+		str, err := toText(arr[i])
+		if err != nil {
+			return nil, err
+		}
+		args[i] = str
+	}
+	var (
+		code    int
+		stdout  bytes.Buffer
+		stderr  bytes.Buffer
+		command = exec.Command(cmd, args...)
+	)
+	command.Stdout = &stdout
+	command.Stderr = &stderr
+
+	err = command.Run()
+	if err, ok := err.(*exec.ExitError); ok {
+		code = err.ExitCode()
+	}
+
+	vs := []Value{
+		makeInt(int64(code)),
+		makeText(stdout.String()),
+		makeText(stderr.String()),
+	}
+	return makeSlice(vs), nil
 }
 
 func invalidArgument(fn string) error {
