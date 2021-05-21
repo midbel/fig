@@ -806,6 +806,11 @@ func parseTemplate(str string) (Expr, error) {
 	for rs.Len() > 0 {
 		r, _, _ := rs.ReadRune()
 		if isVariable(r) {
+			if n, _, _ := rs.ReadRune(); n == r {
+				ws.WriteRune(r)
+				continue
+			}
+			rs.UnreadRune()
 			createLiteral(&ws, &tpl)
 			marker := r
 			if r, _, _ := rs.ReadRune(); !isLetter(r) {
