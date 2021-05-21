@@ -814,7 +814,7 @@ func parseTemplate(str string) (Expr, error) {
 			createLiteral(&ws, &tpl)
 			marker := r
 			if r, _, _ := rs.ReadRune(); !isLetter(r) {
-				return nil, fmt.Errorf("invalid variable name")
+				return nil, ErrSyntax
 			}
 			rs.UnreadRune()
 			for rs.Len() > 0 {

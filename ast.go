@@ -225,6 +225,18 @@ func (o *Object) getNode(str string) (Node, error) {
 	return n, nil
 }
 
+func (o *Object) getExpr(str string) (Expr, error) {
+	node, ok := o.nodes[str]
+	if !ok {
+		return nil, fmt.Errorf("%s: %w option", str, ErrUndefined)
+	}
+	e, ok := node.(interface{ asExpr() (Expr, error) })
+	if !ok {
+		return nil, fmt.Errorf("%s: not an option", str)
+	}
+	return e.asExpr()
+}
+
 func (o *Object) getObject(str string) (*Object, error) {
 	n, ok := o.nodes[str]
 	if !ok {
@@ -242,18 +254,21 @@ func (o *Object) getOption(str string) (Option, error) {
 	if !ok {
 		return Option{}, fmt.Errorf("%s: %w option", str, ErrUndefined)
 	}
-	opt, ok := node.(Option)
-	if !ok {
+	switch n := node.(type) {
+	case Option:
+		return n, nil
+	case List:
+		return n.asOption()
+	default:
 		return Option{}, fmt.Errorf("%s: not an option", str)
 	}
-	return opt, nil
 }
 
 func (o *Object) copy() *Object {
 	list := make(map[string]Node)
 	for k, n := range o.nodes {
 		switch n.(type) {
-		case Option, Func:
+		case Option, Func, List:
 			list[k] = n
 		default:
 		}
@@ -278,6 +293,23 @@ func (i List) String() string {
 	return fmt.Sprintf("list(%s)", i.name)
 }
 
+func (i List) asOption() (Option, error) {
+	var (
+		es  []Expr
+		opt Option
+	)
+	opt.name = i.name
+	for _, n := range i.nodes {
+		o, ok := n.(Option)
+		if !ok {
+			return o, fmt.Errorf("%s: not an option", i.name.Input)
+		}
+		es = append(es, o.expr)
+	}
+	opt.expr = Array{expr: es}
+	return opt, nil
+}
+
 type Option struct {
 	name Token
 	expr Expr
@@ -287,4 +319,8 @@ type Option struct {
 
 func (o Option) String() string {
 	return fmt.Sprintf("option(%s, %s)", o.name.Input, o.expr)
+}
+
+func (o Option) asExpr() (Expr, error) {
+	return o.expr, nil
 }

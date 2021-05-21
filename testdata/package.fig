@@ -87,9 +87,11 @@ curr_ver = 2
 changelog {
   date    = 2021-05-07
   version = semver(minor=$curr_ver)
+  #topic   = [$topic[0], $topic[1]]
 }
 
 changelog {
   date    = 2021-05-07
   version = semver(minor=$curr_ver - 1)
+  #topic   = [$topic[0], $topic[1], $topic[2]]
 }
