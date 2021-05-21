@@ -14,7 +14,7 @@ func (p Position) String() string {
 }
 
 const (
-	EOF = -(iota + 1)
+	EOF rune = -(iota + 1)
 	Keyword
 	Ident
 	Comment
@@ -97,8 +97,9 @@ var assignments = map[rune]rune{
 }
 
 type Token struct {
-	Input string
-	Type  rune
+	Input       string
+	Type        rune
+	Interpolate bool
 	Position
 }
 

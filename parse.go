@@ -754,6 +754,10 @@ func (p *Parser) parseLiteral() (Expr, error) {
 	if !p.curr.IsLiteral() {
 		return nil, p.unexpectedToken()
 	}
+	if p.curr.Interpolate {
+		defer p.next()
+		return parseTemplate(p.curr.Input)
+	}
 	expr := makeLiteral(p.curr)
 	if mul, ok := multipliers[p.peek.Input]; ok {
 		expr.mul = mul

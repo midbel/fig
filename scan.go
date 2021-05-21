@@ -198,6 +198,7 @@ func (s *Scanner) scanHeredoc(tok *Token) {
 		prev = line
 	}
 	tok.Type = String
+	tok.Interpolate = true
 	tok.Input = strings.TrimSpace(s.str.String())
 	if len(prev) == 0 {
 		tok.Type = Invalid
@@ -540,6 +541,7 @@ func (s *Scanner) scanString(tok *Token) {
 		s.read()
 	}
 	tok.Type = String
+	tok.Interpolate = quote == dquote
 	tok.Input = s.str.String()
 	s.read()
 }

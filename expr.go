@@ -752,3 +752,81 @@ func (i Index) Eval(e Environment) (Value, error) {
 	}
 	return arr.at(ptr)
 }
+
+type Template struct {
+	expr []Expr
+}
+
+func (t Template) String() string {
+	return "template()"
+}
+
+func (t Template) Eval(e Environment) (Value, error) {
+	var str strings.Builder
+	for _, ex := range t.expr {
+		v, err := ex.Eval(e)
+		if err != nil {
+			return nil, err
+		}
+		t, err := v.toText()
+		if err != nil {
+			return nil, err
+		}
+		s, _ := toText(t)
+		str.WriteString(s)
+	}
+	return makeText(str.String()), nil
+}
+
+func parseTemplate(str string) (Expr, error) {
+	createLiteral := func(ws *strings.Builder, tpl *Template) {
+		defer ws.Reset()
+		if ws.Len() == 0 {
+			return
+		}
+		i := makeLiteral(makeToken(ws.String(), String))
+		tpl.expr = append(tpl.expr, i)
+	}
+	createVariable := func(ws *strings.Builder, tpl *Template, marker rune) error {
+		defer ws.Reset()
+		kind := EnvVar
+		if marker == dollar {
+			kind = LocalVar
+		}
+		i := makeVariable(makeToken(ws.String(), kind))
+		tpl.expr = append(tpl.expr, i)
+		return nil
+	}
+
+	var (
+		rs  = strings.NewReader(str)
+		ws  strings.Builder
+		tpl Template
+	)
+	for rs.Len() > 0 {
+		r, _, _ := rs.ReadRune()
+		if isVariable(r) {
+			createLiteral(&ws, &tpl)
+			marker := r
+			if r, _, _ := rs.ReadRune(); !isLetter(r) {
+				return nil, fmt.Errorf("invalid variable name")
+			}
+			rs.UnreadRune()
+			for rs.Len() > 0 {
+				r, _, _ := rs.ReadRune()
+				if !isIdent(r) {
+					if err := createVariable(&ws, &tpl, marker); err != nil {
+						return nil, err
+					}
+					ws.WriteRune(r)
+					break
+				}
+				ws.WriteRune(r)
+			}
+			continue
+		}
+		ws.WriteRune(r)
+	}
+	createLiteral(&ws, &tpl)
+	return tpl, nil
+}
