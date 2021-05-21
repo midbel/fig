@@ -1,15 +1,23 @@
 package = fig
 version = "1.0.0"
 
+topic = utils
+topic = configuration
+topic = settings
+topic = "file format"
+
 dev {
+  name = midbel
+  repo = "https://github.com/midbel"
   mail = "dev@midbel.org"
   mail = "noreply@midbel.org"
   mail = "info@midbel.org"
-  repo = "https://github.com/midbel"
 }
 
 # semver returns a string with a well formatted semantic version of the package
-semver(major, minor, patch) {}
+semver(major=0, minor=0, patch=0) {
+  return join([major, minor, patch], sep=".")
+}
 
 mode_exec = 0o755
 mode_doc  = 0o644
@@ -74,12 +82,14 @@ resource {
 }
 */
 
+curr_ver = 2
+
 changelog {
   date    = 2021-05-07
-  version = join([0, 2, 0], ".")
+  version = semver(minor=$curr_ver)
 }
 
 changelog {
   date    = 2021-05-07
-  version = join([0, 1, 0], ".")
+  version = semver(minor=$curr_ver - 1)
 }

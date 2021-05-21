@@ -62,7 +62,7 @@ user_defined {
 	loop4() {
 		let i = 0
 		for (let j = 0; j < 100; j += 1) {
-			i += j
+			i += 1
 		}
 		return i
 	}
@@ -94,5 +94,7 @@ user_defined {
 	until = loop(10)
 	ctrl  = loop2()
 	each  = loop3([1, 2, 3])
+	for4  = loop4()
+	for6  = loop6()
 	exists = check_file("testdata/main.fig")
 }

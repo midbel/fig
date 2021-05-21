@@ -28,42 +28,27 @@ func ParseDocumentWithEnv(r io.Reader, env Environment) (*Document, error) {
 }
 
 func (d *Document) DefineInt(str string, i int64) {
-	if e, ok := d.env.(*Env); ok {
-		e.Define(str, makeInt(i))
-	}
+	d.env.Define(str, makeInt(i))
 }
 
 func (d *Document) DefineBool(str string, b bool) {
-	if e, ok := d.env.(*Env); ok {
-		e.Define(str, makeBool(b))
-	}
+	d.env.Define(str, makeBool(b))
 }
 
 func (d *Document) DefineDouble(str string, f float64) {
-	if e, ok := d.env.(*Env); ok {
-		e.Define(str, makeDouble(f))
-	}
+	d.env.Define(str, makeDouble(f))
 }
 
 func (d *Document) DefineText(str string, t string) {
-	if e, ok := d.env.(*Env); ok {
-		e.Define(str, makeText(str))
-	}
+	d.env.Define(str, makeText(str))
 }
 
 func (d *Document) DefineTime(str string, t time.Time) {
-	if e, ok := d.env.(*Env); ok {
-		e.Define(str, makeMoment(t))
-	}
-}
-
-func (d *Document) Expr(paths ...string) (Expr, error) {
-	e, _, err := d.find(paths...)
-	return e, err
+	d.env.Define(str, makeMoment(t))
 }
 
 func (d *Document) Int(paths ...string) (int64, error) {
-	v, err := d.eval(paths...)
+	v, err := d.eval(paths)
 	if err != nil {
 		return 0, err
 	}
@@ -74,8 +59,31 @@ func (d *Document) Int(paths ...string) (int64, error) {
 	return toInt(i)
 }
 
+func (d *Document) IntArray(paths ...string) ([]int64, error) {
+	v, err := d.eval(paths)
+	if err != nil {
+		return nil, err
+	}
+	s, ok := v.(Slice)
+	if !ok {
+		i, err := toInt(v)
+		if err != nil {
+			return nil, err
+		}
+		return []int64{i}, nil
+	}
+	vs := make([]int64, len(s.inner))
+	for i := range s.inner {
+		vs[i], err = toInt(s.inner[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return vs, nil
+}
+
 func (d *Document) Float(paths ...string) (float64, error) {
-	v, err := d.eval(paths...)
+	v, err := d.eval(paths)
 	if err != nil {
 		return 0, err
 	}
@@ -86,20 +94,55 @@ func (d *Document) Float(paths ...string) (float64, error) {
 	return toFloat(f)
 }
 
+func (d *Document) FloatArray(paths ...string) ([]float64, error) {
+	v, err := d.eval(paths)
+	if err != nil {
+		return nil, err
+	}
+	s, ok := v.(Slice)
+	if !ok {
+		i, err := toFloat(v)
+		if err != nil {
+			return nil, err
+		}
+		return []float64{i}, nil
+	}
+	vs := make([]float64, len(s.inner))
+	for i := range s.inner {
+		vs[i], err = toFloat(s.inner[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return vs, nil
+}
+
 func (d *Document) Bool(paths ...string) (bool, error) {
-	v, err := d.eval(paths...)
+	v, err := d.eval(paths)
 	if err != nil {
 		return false, err
 	}
-	b, err := v.toBool()
+	return v.isTrue(), nil
+}
+
+func (d *Document) BoolArray(paths ...string) ([]bool, error) {
+	v, err := d.eval(paths)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	return b.isTrue(), nil
+	s, ok := v.(Slice)
+	if !ok {
+		return []bool{v.isTrue()}, nil
+	}
+	vs := make([]bool, len(s.inner))
+	for i := range s.inner {
+		vs[i] = s.inner[i].isTrue()
+	}
+	return vs, nil
 }
 
 func (d *Document) Time(paths ...string) (time.Time, error) {
-	v, err := d.eval(paths...)
+	v, err := d.eval(paths)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -110,8 +153,31 @@ func (d *Document) Time(paths ...string) (time.Time, error) {
 	return toTime(t)
 }
 
+func (d *Document) TimeArray(paths ...string) ([]time.Time, error) {
+	v, err := d.eval(paths)
+	if err != nil {
+		return nil, err
+	}
+	s, ok := v.(Slice)
+	if !ok {
+		i, err := toTime(v)
+		if err != nil {
+			return nil, err
+		}
+		return []time.Time{i}, nil
+	}
+	vs := make([]time.Time, len(s.inner))
+	for i := range s.inner {
+		vs[i], err = toTime(s.inner[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return vs, nil
+}
+
 func (d *Document) Text(paths ...string) (string, error) {
-	v, err := d.eval(paths...)
+	v, err := d.eval(paths)
 	if err != nil {
 		return "", err
 	}
@@ -122,8 +188,31 @@ func (d *Document) Text(paths ...string) (string, error) {
 	return toText(t)
 }
 
+func (d *Document) TextArray(paths ...string) ([]string, error) {
+	v, err := d.eval(paths)
+	if err != nil {
+		return nil, err
+	}
+	s, ok := v.(Slice)
+	if !ok {
+		i, err := toText(v)
+		if err != nil {
+			return nil, err
+		}
+		return []string{i}, nil
+	}
+	vs := make([]string, len(s.inner))
+	for i := range s.inner {
+		vs[i], err = toText(s.inner[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return vs, nil
+}
+
 func (d *Document) Value(paths ...string) (interface{}, error) {
-	v, err := d.eval(paths...)
+	v, err := d.eval(paths)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +220,7 @@ func (d *Document) Value(paths ...string) (interface{}, error) {
 }
 
 func (d *Document) Slice(paths ...string) ([]interface{}, error) {
-	_, err := d.eval(paths...)
+	_, err := d.eval(paths)
 	if err != nil {
 		return nil, err
 	}
@@ -164,37 +253,103 @@ func (d *Document) DecodeWithEnv(v interface{}, env Environment) error {
 	return nil
 }
 
-func (d *Document) eval(paths ...string) (Value, error) {
-	e, env, err := d.find(paths...)
+func (d *Document) eval(paths []string) (Value, error) {
+	rs, err := d.find(paths)
 	if err != nil {
 		return nil, err
 	}
-	return e.Eval(env)
+	if len(rs) == 0 {
+		return nil, fmt.Errorf("no result match")
+	}
+	var arr []Value
+	for _, r := range rs {
+		v, err := r.Eval(d.env)
+		if err != nil {
+			return nil, err
+		}
+		arr = append(arr, v)
+	}
+	if len(arr) == 1 {
+		return arr[0], nil
+	}
+	return makeSlice(arr), nil
 }
 
-func (d *Document) find(paths ...string) (Expr, Environment, error) {
+func (d *Document) find(paths []string) ([]result, error) {
 	if len(paths) == 0 {
-		return nil, nil, fmt.Errorf("empty path!")
+		return nil, fmt.Errorf("empty path!")
 	}
-	var (
-		curr = d.root
-		err  error
-		list []*Object
-	)
-	list = append(list, curr.copy())
+	list := []*Object{d.root.copy()}
+	return findExpr(d.root, list, paths)
+}
+
+type result struct {
+	Expr
+	List []*Object
+}
+
+func makeResult(e Expr, list []*Object) result {
+	return result{
+		Expr: e,
+		List: list,
+	}
+}
+
+func (r result) Eval(e Environment) (Value, error) {
+	return r.Expr.Eval(createEnv(reverseList(r.List), e))
+}
+
+func findExpr(root *Object, list []*Object, paths []string) ([]result, error) {
+	var err error
 	for i := 0; i < len(paths)-1; i++ {
-		curr, err = curr.getObject(paths[i])
+		n, err := root.getNode(paths[i])
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		list = append(list, curr.copy())
+		switch n := n.(type) {
+		case List:
+			var rs []result
+			for _, n := range n.nodes {
+				obj, ok := n.(*Object)
+				if !ok {
+					continue
+				}
+				r, err := findExpr(obj, list, paths[i+1:])
+				if err != nil {
+					return nil, err
+				}
+				rs = append(rs, r...)
+			}
+			return rs, nil
+		case *Object:
+			root = n
+		default:
+			return nil, fmt.Errorf("unexpected node type %T", n)
+		}
+		list = append(list, root.copy())
 	}
-	opt, err := curr.getOption(paths[len(paths)-1])
+	n, err := root.getNode(paths[len(paths)-1])
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	list[len(list)-1].unregister(opt.name.Input)
-	return opt.expr, createEnv(reverseList(list), d.env), nil
+	list[len(list)-1].unregister(paths[len(paths)-1])
+
+	var rs []result
+	switch n := n.(type) {
+	case Option:
+		rs = append(rs, makeResult(n.expr, list))
+	case List:
+		for _, n := range n.nodes {
+			o, ok := n.(Option)
+			if !ok {
+				return nil, fmt.Errorf("unexpected node type %T", n)
+			}
+			rs = append(rs, makeResult(o.expr, list))
+		}
+	default:
+		return nil, fmt.Errorf("unexpected node type %T", n)
+	}
+	return rs, nil
 }
 
 func reverseList(list []*Object) []*Object {

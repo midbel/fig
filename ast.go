@@ -89,15 +89,6 @@ func createObjectWithToken(tok Token) *Object {
 	}
 }
 
-func (o *Object) Decode(v interface{}) error {
-	return nil
-}
-
-func (o *Object) MarshalJSON() ([]byte, error) {
-	// TODO
-	return nil, nil
-}
-
 func (o *Object) String() string {
 	return fmt.Sprintf("object(%s)", o.name.Input)
 }
@@ -226,6 +217,14 @@ func (o *Object) getFunction(str string) (Func, error) {
 	return fn, nil
 }
 
+func (o *Object) getNode(str string) (Node, error) {
+	n, ok := o.nodes[str]
+	if !ok {
+		return nil, fmt.Errorf("%s: %w object", str, ErrUndefined)
+	}
+	return n, nil
+}
+
 func (o *Object) getObject(str string) (*Object, error) {
 	n, ok := o.nodes[str]
 	if !ok {
@@ -279,11 +278,6 @@ func (i List) String() string {
 	return fmt.Sprintf("list(%s)", i.name)
 }
 
-func (i List) MarshalJSON() ([]byte, error) {
-	// TODO
-	return nil, nil
-}
-
 type Option struct {
 	name Token
 	expr Expr
@@ -293,8 +287,4 @@ type Option struct {
 
 func (o Option) String() string {
 	return fmt.Sprintf("option(%s, %s)", o.name.Input, o.expr)
-}
-
-func (o Option) MarshalJSON() ([]byte, error) {
-	return nil, nil
 }

@@ -68,6 +68,8 @@ func checkInt(t *testing.T, doc *Document) {
 		Want int64
 	}{
 		{Key: []string{"blocks", "size"}, Want: 0},
+		{Key: []string{"user_defined", "for4"}, Want: 100},
+		{Key: []string{"user_defined", "for6"}, Want: 0},
 		{Key: []string{"user_defined", "each"}, Want: 6},
 		{Key: []string{"user_defined", "ctrl"}, Want: 52},
 		{Key: []string{"user_defined", "until"}, Want: 10},

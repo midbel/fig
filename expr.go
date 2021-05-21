@@ -126,8 +126,9 @@ func (f ForLoop) String() string {
 }
 
 func (f ForLoop) Eval(e Environment) (Value, error) {
+	ee := EnclosedEnv(e)
 	if f.init != nil {
-		if _, err := f.init.Eval(e); err != nil {
+		if _, err := f.init.Eval(ee); err != nil {
 			return nil, err
 		}
 	}
@@ -138,7 +139,7 @@ func (f ForLoop) Eval(e Environment) (Value, error) {
 	)
 	for {
 		if f.cdt != nil {
-			if last, err = f.cdt.Eval(e); err != nil {
+			if last, err = f.cdt.Eval(ee); err != nil {
 				return nil, err
 			}
 			if !last.isTrue() {
@@ -146,7 +147,7 @@ func (f ForLoop) Eval(e Environment) (Value, error) {
 			}
 		}
 		loop++
-		if last, err = f.body.Eval(e); err != nil {
+		if last, err = f.body.Eval(EnclosedEnv(ee)); err != nil {
 			if errors.Is(err, errReturn) {
 				return last, err
 			} else if errors.Is(err, errBreak) {
@@ -158,7 +159,7 @@ func (f ForLoop) Eval(e Environment) (Value, error) {
 			}
 		}
 		if f.next != nil {
-			if _, err = f.next.Eval(e); err != nil {
+			if _, err = f.next.Eval(ee); err != nil {
 				return nil, err
 			}
 		}
