@@ -332,7 +332,9 @@ func findExpr(root *Object, list []*Object, paths []string) ([]result, error) {
 	if err != nil {
 		return nil, err
 	}
-	list[len(list)-1].unregister(paths[len(paths)-1])
+	if len(list) > 1 {
+		list[len(list)-1].unregister(paths[len(paths)-1])
+	}
 
 	var rs []result
 	switch n := n.(type) {

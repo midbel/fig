@@ -44,7 +44,7 @@ resource doc {
   mode = $mode_doc
 }
 
-
+/*
 resource {
   binary {
     path = "$dir_exec/figfmt"
@@ -55,6 +55,7 @@ resource {
     mode = $mode_doc
   }
 }
+*/
 
 
 /*
@@ -87,11 +88,11 @@ curr_ver = 2
 changelog {
   date    = 2021-05-07
   version = semver(minor=$curr_ver)
-  #topic   = [$topic[0], $topic[1]]
+  topic   = [$topic[0], $topic[1]]
 }
 
 changelog {
   date    = 2021-05-07
   version = semver(minor=$curr_ver - 1)
-  #topic   = [$topic[0], $topic[1], $topic[2]]
+  topic   = [$topic[0], $topic[1], $topic[2]]
 }

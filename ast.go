@@ -225,30 +225,6 @@ func (o *Object) getNode(str string) (Node, error) {
 	return n, nil
 }
 
-func (o *Object) getExpr(str string) (Expr, error) {
-	node, ok := o.nodes[str]
-	if !ok {
-		return nil, fmt.Errorf("%s: %w option", str, ErrUndefined)
-	}
-	e, ok := node.(interface{ asExpr() (Expr, error) })
-	if !ok {
-		return nil, fmt.Errorf("%s: not an option", str)
-	}
-	return e.asExpr()
-}
-
-func (o *Object) getObject(str string) (*Object, error) {
-	n, ok := o.nodes[str]
-	if !ok {
-		return nil, fmt.Errorf("%s: %w object", str, ErrUndefined)
-	}
-	obj, ok := n.(*Object)
-	if !ok {
-		return nil, fmt.Errorf("%s: not an object (%T)", str, n)
-	}
-	return obj, nil
-}
-
 func (o *Object) getOption(str string) (Option, error) {
 	node, ok := o.nodes[str]
 	if !ok {
