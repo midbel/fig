@@ -57,7 +57,6 @@ var multipliers = map[string]float64{
 
 type Expr interface {
 	Eval(Environment) (Value, error)
-	fmt.Stringer
 }
 
 type ForeachLoop struct {
@@ -68,10 +67,6 @@ type ForeachLoop struct {
 	alt   Expr
 
 	Note
-}
-
-func (f ForeachLoop) String() string {
-	return fmt.Sprintf("foreach(%s)", f.expr)
 }
 
 func (f ForeachLoop) Eval(e Environment) (Value, error) {
@@ -119,10 +114,6 @@ type ForLoop struct {
 	alt  Expr
 
 	Note
-}
-
-func (f ForLoop) String() string {
-	return fmt.Sprintf("for(%s)", f.cdt)
 }
 
 func (f ForLoop) Eval(e Environment) (Value, error) {
@@ -178,10 +169,6 @@ type WhileLoop struct {
 	Note
 }
 
-func (w WhileLoop) String() string {
-	return fmt.Sprintf("while(%s)", w.cdt)
-}
-
 func (w WhileLoop) Eval(e Environment) (Value, error) {
 	var (
 		loop int
@@ -219,20 +206,12 @@ type BreakLoop struct {
 	Note
 }
 
-func (_ BreakLoop) String() string {
-	return "break"
-}
-
 func (_ BreakLoop) Eval(_ Environment) (Value, error) {
 	return nil, errBreak
 }
 
 type ContinueLoop struct {
 	Note
-}
-
-func (_ ContinueLoop) String() string {
-	return "continue"
 }
 
 func (_ ContinueLoop) Eval(_ Environment) (Value, error) {
@@ -259,10 +238,6 @@ func (b Block) Eval(e Environment) (Value, error) {
 	return last, nil
 }
 
-func (b Block) String() string {
-	return "block()"
-}
-
 type Assignment struct {
 	ident Token
 	expr  Expr
@@ -283,10 +258,6 @@ func (a Assignment) Eval(e Environment) (Value, error) {
 	return nil, e.assign(a.ident.Input, v)
 }
 
-func (a Assignment) String() string {
-	return fmt.Sprintf("assign(%s, expr: %s)", a.ident.Input, a.expr)
-}
-
 type Return struct {
 	expr Expr
 
@@ -301,19 +272,11 @@ func (r Return) Eval(e Environment) (Value, error) {
 	return value, err
 }
 
-func (r Return) String() string {
-	return fmt.Sprintf("return(%s)", r.expr)
-}
-
 type Unary struct {
 	right Expr
 	op    rune
 
 	Note
-}
-
-func (u Unary) String() string {
-	return fmt.Sprintf("unary(%s)", u.right)
 }
 
 func (u Unary) Eval(e Environment) (Value, error) {
@@ -341,43 +304,6 @@ type Binary struct {
 	op    rune
 
 	Note
-}
-
-func (b Binary) String() string {
-	var op string
-	switch b.op {
-	case Add:
-		op = "add"
-	case Sub:
-		op = "sub"
-	case Mul:
-		op = "mul"
-	case Div:
-		op = "div"
-	case Mod:
-		op = "mod"
-	case Pow:
-		op = "pow"
-	case And:
-		op = "and"
-	case Or:
-		op = "or"
-	case Gt:
-		op = "gt"
-	case Lt:
-		op = "lt"
-	case Ge:
-		op = "ge"
-	case Le:
-		op = "le"
-	case Equal:
-		op = "eq"
-	case NotEqual:
-		op = "ne"
-	default:
-		op = "other"
-	}
-	return fmt.Sprintf("binary(%s, left: %s, right: %s)", op, b.left, b.right)
 }
 
 func (b Binary) Eval(e Environment) (Value, error) {
@@ -481,10 +407,6 @@ func (t Ternary) Eval(e Environment) (Value, error) {
 	return nil, nil
 }
 
-func (t Ternary) String() string {
-	return fmt.Sprintf("ternary(%s, csq: %s, alt: %s)", t.cdt, t.csq, t.alt)
-}
-
 type Literal struct {
 	tok Token
 	mul float64
@@ -494,10 +416,6 @@ type Literal struct {
 
 func makeLiteral(tok Token) Literal {
 	return Literal{tok: tok}
-}
-
-func (i Literal) String() string {
-	return fmt.Sprintf("literal(%s)", i.tok.Input)
 }
 
 func (i Literal) Eval(_ Environment) (Value, error) {
@@ -557,10 +475,6 @@ func makeIdentifier(tok Token) Identifier {
 	return Identifier{tok: tok}
 }
 
-func (i Identifier) String() string {
-	return fmt.Sprintf("identifier(%s)", i.tok)
-}
-
 func (i Identifier) Eval(e Environment) (Value, error) {
 	return e.Resolve(i.tok.Input)
 }
@@ -575,16 +489,6 @@ func makeVariable(tok Token) Variable {
 	return Variable{tok: tok}
 }
 
-func (v Variable) String() string {
-	var prefix string
-	if v.tok.Type == LocalVar {
-		prefix = "local"
-	} else {
-		prefix = "env"
-	}
-	return fmt.Sprintf("%s(%s)", prefix, v.tok.Input)
-}
-
 func (v Variable) Eval(e Environment) (Value, error) {
 	if v.tok.Type == LocalVar {
 		return e.resolveLocal(v.tok.Input)
@@ -597,10 +501,6 @@ type Call struct {
 	args []Argument
 
 	Note
-}
-
-func (c Call) String() string {
-	return fmt.Sprintf("call(%s)", c.name.Input)
 }
 
 func (c Call) Eval(e Environment) (Value, error) {
@@ -691,25 +591,10 @@ func (v value) Eval(_ Environment) (Value, error) {
 	return v.inner, nil
 }
 
-func (v value) String() string {
-	return fmt.Sprintf("value(%s)", v.inner)
-}
-
 type Array struct {
 	expr []Expr
 
 	Note
-}
-
-func (a Array) String() string {
-	if len(a.expr) == 0 {
-		return "array()"
-	}
-	var str []string
-	for _, e := range a.expr {
-		str = append(str, e.String())
-	}
-	return fmt.Sprintf("array(%s)", strings.Join(str, ", "))
 }
 
 func (a Array) Eval(e Environment) (Value, error) {
@@ -737,10 +622,6 @@ type Index struct {
 	Note
 }
 
-func (i Index) String() string {
-	return fmt.Sprintf("index(arr: %s, index: %s)", i.arr, i.ptr)
-}
-
 func (i Index) Eval(e Environment) (Value, error) {
 	arr, err := i.arr.Eval(e)
 	if err != nil {
@@ -755,10 +636,6 @@ func (i Index) Eval(e Environment) (Value, error) {
 
 type Template struct {
 	expr []Expr
-}
-
-func (t Template) String() string {
-	return "template()"
 }
 
 func (t Template) Eval(e Environment) (Value, error) {

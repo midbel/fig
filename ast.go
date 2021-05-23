@@ -3,7 +3,6 @@ package fig
 import (
 	"errors"
 	"fmt"
-	"strings"
 )
 
 type Node interface{}
@@ -18,13 +17,6 @@ type Argument struct {
 	expr     Expr
 	pos      int
 	variadic bool
-}
-
-func (a Argument) String() string {
-	if a.expr == nil {
-		return fmt.Sprintf("arg(%s, pos: %d)", a.name.Input, a.pos)
-	}
-	return fmt.Sprintf("arg(%s, pos: %d, expr: %s)", a.name.Input, a.pos, a.expr)
 }
 
 func (a Argument) isPositional() bool {
@@ -45,14 +37,6 @@ type Func struct {
 	name Token
 	args []Argument
 	body Expr
-}
-
-func (f Func) String() string {
-	args := make([]string, len(f.args))
-	for i := range f.args {
-		args[i] = f.args[i].String()
-	}
-	return fmt.Sprintf("func(%s, args: %s)", f.name.Input, strings.Join(args, ", "))
 }
 
 func (f Func) Eval(e Environment) (Value, error) {
@@ -87,10 +71,6 @@ func createObjectWithToken(tok Token) *Object {
 		name:  tok,
 		nodes: make(map[string]Node),
 	}
-}
-
-func (o *Object) String() string {
-	return fmt.Sprintf("object(%s)", o.name.Input)
 }
 
 func (o *Object) merge(node Node) error {
@@ -176,12 +156,12 @@ func (o *Object) register(opt Option) error {
 		o.nodes[opt.name.Input] = i
 	case List:
 		if _, ok := x.nodes[0].(Option); !ok {
-			return fmt.Errorf("%s: try to add option to object array is %w", opt, ErrAllow)
+			return fmt.Errorf("%s: try to add option to object array is %w", opt.name.Input, ErrAllow)
 		}
 		x.nodes = append(x.nodes, opt)
 		o.nodes[opt.name.Input] = x
 	default:
-		return fmt.Errorf("%s: can not be inserted", opt)
+		return fmt.Errorf("%s: can not be inserted", opt.name.Input)
 	}
 	return nil
 }
@@ -265,10 +245,6 @@ type List struct {
 	nodes []Node
 }
 
-func (i List) String() string {
-	return fmt.Sprintf("list(%s)", i.name)
-}
-
 func (i List) asOption() (Option, error) {
 	var (
 		es  []Expr
@@ -291,12 +267,4 @@ type Option struct {
 	expr Expr
 
 	Note
-}
-
-func (o Option) String() string {
-	return fmt.Sprintf("option(%s, %s)", o.name.Input, o.expr)
-}
-
-func (o Option) asExpr() (Expr, error) {
-	return o.expr, nil
 }

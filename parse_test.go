@@ -82,7 +82,7 @@ func testLiteralValue(t *testing.T, want Literal, got Expr) {
 		return
 	}
 	if !want.tok.Equal(g.tok) {
-		t.Errorf("literal mismatched! want %s, got %s", want, g)
+		t.Errorf("literal mismatched! want %s, got %s", want.tok.Input, g.tok.Input)
 	}
 }
 
