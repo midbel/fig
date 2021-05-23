@@ -86,6 +86,20 @@ user_defined {
 		return i
 	}
 
+	loop7() {
+		for {
+			break
+		}
+		return 100
+	}
+
+	loop8() {
+		while {
+			break
+		}
+		return 100
+	}
+
 	hello = sayHello()
 	world = sayHello(msg="say world")
 	add   = addInt(10, 20)

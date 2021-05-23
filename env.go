@@ -183,7 +183,7 @@ func sliceFromEnv(e Environment, str string) ([]Value, error) {
 	}
 	vs, ok := v.(Slice)
 	if !ok {
-		return nil, nil
+		return nil, ErrIncompatible
 	}
 	return vs.inner, nil
 }

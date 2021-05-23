@@ -440,8 +440,6 @@ func (p *Parser) parseIf() (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		ter.alt = Block{}
 	}
 	return ter, nil
 }
@@ -451,22 +449,26 @@ func (p *Parser) parseWhile() (Expr, error) {
 	defer p.leaveLoop()
 
 	p.next()
-	if p.curr.Type != BegGrp {
-		return nil, p.unexpectedToken()
-	}
-	p.next()
+
 	var (
 		while WhileLoop
 		err   error
 	)
-	// if while.cdt, err = p.parseExpr(bindLowest); err != nil {
-	if while.cdt, err = p.parseExpression(); err != nil {
-		return nil, err
-	}
-	if p.curr.Type != EndGrp {
+
+	switch p.curr.Type {
+	case BegObj:
+	case BegGrp:
+		p.next()
+		if while.cdt, err = p.parseExpression(); err != nil {
+			return nil, err
+		}
+		if p.curr.Type != EndGrp {
+			return nil, p.unexpectedToken()
+		}
+		p.next()
+	default:
 		return nil, p.unexpectedToken()
 	}
-	p.next()
 	if while.csq, err = p.parseBody(); err != nil {
 		return nil, err
 	}
@@ -533,11 +535,6 @@ func (p *Parser) parseForeach() (Expr, error) {
 func (p *Parser) parseFor() (Expr, error) {
 	p.next()
 
-	if p.curr.Type != BegGrp {
-		return nil, p.unexpectedToken()
-	}
-	p.next()
-
 	p.enterLoop()
 	defer p.leaveLoop()
 
@@ -548,35 +545,43 @@ func (p *Parser) parseFor() (Expr, error) {
 		forloop ForLoop
 		err     error
 	)
-	if p.curr.Type != Semicolon {
-		if forloop.init, err = p.parseExpression(); err != nil {
-			return nil, err
-		}
-	} else {
-		p.next()
-	}
 
-	if p.curr.Type != Semicolon {
-		if forloop.cdt, err = p.parseExpr(bindLowest); err != nil {
-			return nil, err
-		}
+	switch p.curr.Type {
+	case BegObj:
+	case BegGrp:
+		p.next()
 		if p.curr.Type != Semicolon {
-			return nil, p.unexpectedToken()
+			if forloop.init, err = p.parseExpression(); err != nil {
+				return nil, err
+			}
+		} else {
+			p.next()
 		}
-		p.next()
-	} else {
-		p.next()
-	}
 
-	if p.curr.Type != EndGrp {
-		if forloop.next, err = p.parseExpr(bindLowest); err != nil {
-			return nil, err
+		if p.curr.Type != Semicolon {
+			if forloop.cdt, err = p.parseExpr(bindLowest); err != nil {
+				return nil, err
+			}
+			if p.curr.Type != Semicolon {
+				return nil, p.unexpectedToken()
+			}
+			p.next()
+		} else {
+			p.next()
 		}
+
 		if p.curr.Type != EndGrp {
-			return nil, p.unexpectedToken()
+			if forloop.next, err = p.parseExpr(bindLowest); err != nil {
+				return nil, err
+			}
+			if p.curr.Type != EndGrp {
+				return nil, p.unexpectedToken()
+			}
 		}
+		p.next()
+	default:
+		return nil, p.unexpectedToken()
 	}
-	p.next()
 
 	if forloop.body, err = p.parseBody(); err != nil {
 		return nil, err
@@ -802,7 +807,7 @@ func (p *Parser) parseAssignment(left Expr) (Expr, error) {
 		return nil, p.unexpectedToken()
 	}
 	p.next()
-	expr, err := p.parseExpr(bindLowest)
+	expr, err := p.parseExpression()
 	if err != nil {
 		return nil, err
 	}

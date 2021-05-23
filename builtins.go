@@ -419,6 +419,8 @@ func typeof(e Environment) (Value, error) {
 		kind = "boolean"
 	case scoreSlice:
 		kind = "array"
+	case scoreText:
+		kind = "text"
 	default:
 		return nil, fmt.Errorf("unsupported type")
 	}
@@ -437,6 +439,7 @@ func length(e Environment) (Value, error) {
 	case Slice:
 		size = len(v.inner)
 	default:
+		return nil, ErrUnsupported
 	}
 	return makeInt(int64(size)), nil
 }
@@ -488,11 +491,15 @@ func sequence(e Environment) (Value, error) {
 		return nil, err
 	}
 
+	if step == 0 {
+		return makeSlice([]Value{}), nil
+	}
+
 	if lst < fst {
 		step = -step
 	}
 	var xs []Value
-	for fst < lst {
+	for fst != lst {
 		xs = append(xs, makeInt(fst))
 		fst += step
 	}
@@ -563,7 +570,7 @@ func all(e Environment) (Value, error) {
 		return nil, err
 	}
 	if len(vs) == 0 {
-		return makeBool(true), nil
+		return makeBool(false), nil
 	}
 	for _, v := range vs {
 		if !v.isTrue() {

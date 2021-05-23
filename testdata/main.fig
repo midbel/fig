@@ -13,6 +13,18 @@ index = [
   "string"
 ][5]
 
+base_dir = '/usr/share/doc'
+
+files {
+  readme {
+    path = "$base_dir/readme"
+  }
+  licence {
+    path = "$base_dir/licence"
+  }
+  mail = "noreply@@fig.org"
+}
+
 expr {
   int = 100 + 1
   neg = -100

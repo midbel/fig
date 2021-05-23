@@ -137,6 +137,9 @@ func checkString(t *testing.T, doc *Document) {
 		Key  []string
 		Want string
 	}{
+		{Key: []string{"files", "readme", "path"}, Want: "/usr/share/doc/readme"},
+		{Key: []string{"files", "licence", "path"}, Want: "/usr/share/doc/licence"},
+		{Key: []string{"files", "mail"}, Want: "noreply@fig.org"},
 		{Key: []string{"blocks", "hello"}, Want: "hello world"},
 		{Key: []string{"user_defined", "hello"}, Want: "hello world"},
 		{Key: []string{"index"}, Want: "string"},
