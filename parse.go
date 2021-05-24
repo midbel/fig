@@ -285,6 +285,7 @@ func (p *Parser) parseFunction() (Func, error) {
 		err error
 	)
 	fn.name = p.curr
+	p.next()
 	if fn.args, err = p.parseArguments(); err != nil {
 		return fn, err
 	}
@@ -295,16 +296,12 @@ func (p *Parser) parseFunction() (Func, error) {
 }
 
 func (p *Parser) parseArguments() ([]Argument, error) {
-	p.next()
-	if p.curr.Type != BegGrp {
-		return nil, p.unexpectedToken()
-	}
-	p.next()
 	var (
 		args   []Argument
 		err    error
 		onlykw bool
 	)
+	p.next()
 	for i := 0; !p.done() && p.curr.Type != EndGrp; i++ {
 		if p.curr.Type != Ident {
 			return nil, p.unexpectedToken()
@@ -322,9 +319,13 @@ func (p *Parser) parseArguments() ([]Argument, error) {
 			if a.expr, err = p.parseExpr(bindLowest); err != nil {
 				return nil, err
 			}
+			onlykw = true
 		}
 		switch p.curr.Type {
 		case Comma:
+			if p.peek.Type != Ident {
+				return nil, p.syntaxError()
+			}
 			p.next()
 		case EndGrp:
 		case EOL:

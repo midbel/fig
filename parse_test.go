@@ -7,6 +7,118 @@ import (
 	"testing"
 )
 
+func TestParseFunc(t *testing.T) {
+	data := []struct {
+		Input string
+		Args  []Argument
+		Body  Expr
+		Err   error
+	}{
+		{
+			Input: "func() {}",
+		},
+		{
+			Input: "func(arg) {}",
+			Args: []Argument{
+				{
+					name: makeToken("arg", Ident),
+					pos:  0,
+				},
+			},
+		},
+		{
+			Input: "func(pos,\n kw=0\n) {}",
+			Args: []Argument{
+				{
+					name: makeToken("pos", Ident),
+					pos:  0,
+				},
+				{
+					name: makeToken("kw", Ident),
+					pos:  1,
+					expr: makeLiteral(makeToken("0", Integer)),
+				},
+			},
+		},
+		{
+			Input: "func(arg=0, pos) {}",
+			Err: ErrSyntax,
+		},
+		{
+			Input: "func(\"str\", 125) {}",
+			Err: ErrUnexpected,
+		},
+		{
+			Input: "func(args,) {}",
+			Err: ErrSyntax,
+		},
+		{
+			Input: "func(args\n\targs) {}",
+			Err: ErrSyntax,
+		},
+		{
+			Input: "func(args,",
+			Err: ErrSyntax,
+		},
+	}
+	for _, d := range data {
+		p, err := NewParser(strings.NewReader(d.Input))
+		if err != nil {
+			t.Errorf("fail to init parser")
+			continue
+		}
+		obj := createObject()
+		err = p.parse(obj)
+		if d.Err != nil {
+			if err == nil {
+				t.Errorf("expected error but parse succeed!")
+			} else if !errors.Is(err, d.Err) {
+				t.Errorf("errors mismatched! want %s, got %s", d.Err, err)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("fail to parse %s: %s", d.Input, err)
+			continue
+		}
+		fn, ok := obj.nodes["func"].(Func)
+		if !ok {
+			t.Errorf("func is not a function! want %T, got %T", fn, obj.nodes["func"])
+			continue
+		}
+		if !testFuncArguments(t, fn, d.Args) {
+			continue
+		}
+	}
+}
+
+func testFuncArguments(t *testing.T, fn Func, want []Argument) bool {
+	t.Helper()
+	if len(fn.args) != len(want) {
+		t.Errorf("number of arguments mismatched! want %d, got %d", len(want), len(fn.args))
+		return false
+	}
+	for i := range want {
+		if !want[i].name.Equal(fn.args[i].name) {
+			t.Errorf("argument name mismatched! want %s, got %s", want[i].name, fn.args[i].name)
+			return false
+		}
+		if want[i].isPositional() && !fn.args[i].isPositional() {
+			t.Errorf("expected poitional argument, but keyword argument: %s", fn.args[i].name)
+			return false
+		}
+		if want[i].isPositional() {
+			continue
+		}
+		switch e := want[i].expr.(type) {
+		case Literal:
+			testLiteralValue(t, e, fn.args[i].expr)
+		default:
+		}
+	}
+	return true
+}
+
 func TestParseOption(t *testing.T) {
 	data := []struct {
 		Input string
