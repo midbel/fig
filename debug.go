@@ -76,6 +76,47 @@ func debugFunc(w io.Writer, fn Func, level int) {
 func debugOption(w io.Writer, opt Option, level int) {
 	level += 2
 	fmt.Fprint(w, strings.Repeat(" ", level))
-	fmt.Fprintf(w, "%s: %s", opt.name.Input, opt.expr)
+	fmt.Fprintf(w, "%s: ", opt.name.Input)
+	debugExpr(w, opt.expr)
 	fmt.Fprintln(w)
+}
+
+func debugExpr(w io.Writer, e Expr) {
+	switch e := e.(type) {
+	case Literal:
+		fmt.Fprintf(w, "literal(%s)", e.tok.Input)
+	case Variable:
+		fmt.Fprintf(w, "variable(%s)", e.tok.Input)
+	case Identifier:
+		fmt.Fprintf(w, "identifier(%s)", e.tok.Input)
+	case Template:
+		fmt.Fprint(w, "template(")
+		for i, e := range e.expr {
+			if i > 0 {
+				fmt.Fprint(w, ", ")
+			}
+			debugExpr(w, e)
+		}
+		fmt.Fprint(w, ")")
+	case Unary:
+		fmt.Fprint(w, "unary(right: ")
+		debugExpr(w, e.right)
+		fmt.Fprintf(w, ", op: %s)", types[e.op])
+	case Binary:
+		fmt.Fprint(w, "binary(left: ")
+		debugExpr(w, e.left)
+		fmt.Fprint(w, ", right: ")
+		debugExpr(w, e.right)
+		fmt.Fprintf(w, ", op: %s)", types[e.op])
+	case Array:
+		fmt.Fprint(w, "array(")
+		for i, e := range e.expr {
+			if i > 0 {
+				fmt.Fprint(w, ", ")
+			}
+			debugExpr(w, e)
+		}
+		fmt.Fprint(w, ")")
+	default:
+	}
 }

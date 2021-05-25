@@ -1,3 +1,8 @@
+
+
+# some newline before beginning of document
+# another comment
+
 bool  = true
 str1  = literal
 str2  = "quoted"

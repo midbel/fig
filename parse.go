@@ -222,14 +222,20 @@ func (p *Parser) parse(obj *Object) error {
 		}
 		return nil
 	}
-	var err error
-	for i := 0; !p.done() && p.curr.Type != BegObj; i++ {
+	var (
+		err error
+		tok Token
+	)
+	for i := 0; !p.done() && (p.curr.Type != BegObj && p.curr.Type != BegArr); i++ {
 		if !p.curr.IsIdent() {
 			return p.unexpectedToken()
 		}
-		if p.peek.Type == BegObj {
+		switch p.peek.Type {
+		case BegObj:
 			obj, err = obj.insert(p.curr)
-		} else {
+		case BegArr:
+			tok = p.curr
+		default:
 			obj, err = obj.get(p.curr)
 		}
 		if err != nil {
@@ -237,10 +243,38 @@ func (p *Parser) parse(obj *Object) error {
 		}
 		p.next()
 	}
+	switch p.curr.Type {
+	case BegObj:
+		err = p.parseObject(obj)
+	case BegArr:
+		err = p.parseList(tok, obj)
+	default:
+		err = p.unexpectedToken()
+	}
+	return err
+}
+
+func (p *Parser) parseList(tok Token, obj *Object) error {
+	p.next()
 	if p.curr.Type != BegObj {
 		return p.unexpectedToken()
 	}
-	return p.parseObject(obj)
+	for !p.done() && p.curr.Type != EndArr {
+		o, err := obj.insert(tok)
+		if err != nil {
+			return err
+		}
+		if err = p.parseObject(o); err != nil {
+			return err
+		}
+		p.skip(EOL)
+	}
+	if p.curr.Type != EndArr {
+		return p.unexpectedToken()
+	}
+	p.next()
+	p.skip(EOL)
+	return nil
 }
 
 func (p *Parser) parseObject(obj *Object) error {
@@ -992,10 +1026,6 @@ func (p *Parser) bindCurrent() int {
 	return powers[p.curr.Type]
 }
 
-func (p *Parser) bindPeek() int {
-	return powers[p.peek.Type]
-}
-
 func (p *Parser) enterLoop() {
 	p.loop++
 }
@@ -1030,6 +1060,12 @@ func (p *Parser) syntaxError() error {
 
 func (p *Parser) done() bool {
 	return p.curr.Type == EOF
+}
+
+func (p *Parser) skip(kind rune) {
+	for p.curr.Type == kind {
+		p.next()
+	}
 }
 
 func (p *Parser) next() {
