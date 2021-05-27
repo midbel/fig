@@ -136,7 +136,7 @@ func (o *Object) insert(tok Token) (*Object, error) {
 		x.nodes = append(x.nodes, obj)
 		o.nodes[tok.Input] = x
 	default:
-		return nil, fmt.Errorf("%s: can not be inserted", tok)
+		return nil, fmt.Errorf("%w: %s can not be inserted", ErrAllow, tok)
 	}
 	return obj, nil
 }
@@ -161,7 +161,7 @@ func (o *Object) register(opt Option) error {
 		x.nodes = append(x.nodes, opt)
 		o.nodes[opt.name.Input] = x
 	default:
-		return fmt.Errorf("%s: can not be inserted", opt.name.Input)
+		return fmt.Errorf("%w: %s can not be inserted", ErrAllow, opt.name.Input)
 	}
 	return nil
 }
@@ -173,7 +173,7 @@ func (o *Object) registerFunc(fn Func) error {
 		return nil
 	}
 	if _, ok := n.(Func); !ok {
-		return fmt.Errorf("%s: try to replace option by function", fn.name.Input)
+		return fmt.Errorf("%w: try to replace option by function %s", ErrAllow, fn.name.Input)
 	}
 	o.nodes[fn.name.Input] = fn
 	return nil

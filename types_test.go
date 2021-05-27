@@ -13,7 +13,22 @@ type ValueTestCase struct {
 	err   error
 }
 
-func TestValueCompare(t *testing.T) {
+func TestValue(t *testing.T) {
+		t.Run("add", testAdd)
+		t.Run("subtract", testSubtract)
+		t.Run("multiply", testMultiply)
+		t.Run("divide", testDivide)
+		t.Run("modulo", testModulo)
+		t.Run("power", testPower)
+		t.Run("left-shift", testLeftShift)
+		t.Run("right-shift", testRightShift)
+		t.Run("bin-and", testBinaryAnd)
+		t.Run("bin-or", testBinaryOr)
+		t.Run("compare", testCompare)
+		t.Run("or", testOr)
+}
+
+func testCompare(t *testing.T) {
 	data := []struct {
 		left  Value
 		right Value
@@ -117,7 +132,7 @@ func TestValueCompare(t *testing.T) {
 	}
 }
 
-func TestOr(t *testing.T) {
+func testOr(t *testing.T) {
 	data := []ValueTestCase{
 		{
 			left:  makeBool(true),
@@ -171,7 +186,7 @@ func TestOr(t *testing.T) {
 	}
 }
 
-func TestValueLeftShift(t *testing.T) {
+func testLeftShift(t *testing.T) {
 	data := []ValueTestCase{
 		{
 			left:  makeInt(1),
@@ -220,7 +235,7 @@ func TestValueLeftShift(t *testing.T) {
 	}
 }
 
-func TestValueRightShift(t *testing.T) {
+func testRightShift(t *testing.T) {
 	data := []ValueTestCase{
 		{
 			left:  makeInt(1),
@@ -269,7 +284,7 @@ func TestValueRightShift(t *testing.T) {
 	}
 }
 
-func TestValueBinaryAnd(t *testing.T) {
+func testBinaryAnd(t *testing.T) {
 	data := []ValueTestCase{
 		{
 			left:  makeInt(1),
@@ -303,7 +318,7 @@ func TestValueBinaryAnd(t *testing.T) {
 	}
 }
 
-func TestValueBinaryOr(t *testing.T) {
+func testBinaryOr(t *testing.T) {
 	data := []ValueTestCase{
 		{
 			left:  makeInt(1),
@@ -342,7 +357,7 @@ func TestValueBinaryOr(t *testing.T) {
 	}
 }
 
-func TestValuePower(t *testing.T) {
+func testPower(t *testing.T) {
 	data := []ValueTestCase{
 		{
 			left:  makeInt(2),
@@ -401,7 +416,7 @@ func TestValuePower(t *testing.T) {
 	}
 }
 
-func TestValueDivide(t *testing.T) {
+func testDivide(t *testing.T) {
 	data := []ValueTestCase{
 		{
 			left:  makeInt(10),
@@ -475,7 +490,7 @@ func TestValueDivide(t *testing.T) {
 	}
 }
 
-func TestValueModulo(t *testing.T) {
+func testModulo(t *testing.T) {
 	data := []ValueTestCase{
 		{
 			left:  makeInt(10),
@@ -574,7 +589,7 @@ func TestValueModulo(t *testing.T) {
 	}
 }
 
-func TestValueMultiply(t *testing.T) {
+func testMultiply(t *testing.T) {
 	data := []ValueTestCase{
 		{
 			left:  makeInt(10),
@@ -653,7 +668,7 @@ func TestValueMultiply(t *testing.T) {
 	}
 }
 
-func TestValueSubtract(t *testing.T) {
+func testSubtract(t *testing.T) {
 	data := []ValueTestCase{
 		{
 			left:  makeInt(100),
@@ -727,7 +742,7 @@ func TestValueSubtract(t *testing.T) {
 	}
 }
 
-func TestValueAdd(t *testing.T) {
+func testAdd(t *testing.T) {
 	data := []ValueTestCase{
 		{
 			left:  makeInt(100),

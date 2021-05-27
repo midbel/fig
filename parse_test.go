@@ -7,6 +7,43 @@ import (
 	"testing"
 )
 
+func TestParseLoop(t *testing.T) {
+	data := []struct {
+		Input string
+		Err   error
+	}{
+		{
+			Input: "loop = { break }",
+			Err: ErrSyntax,
+		},
+		{
+			Input: "loop = { continue }",
+			Err: ErrSyntax,
+		},
+	}
+	for _, d := range data {
+		p, err := NewParser(strings.NewReader(d.Input))
+		if err != nil {
+			t.Errorf("fail to init parser")
+			continue
+		}
+		obj := createObject()
+		err = p.parse(obj)
+		if d.Err != nil {
+			if err == nil {
+				t.Errorf("expected error but parse succeed!")
+			} else if !errors.Is(err, d.Err) {
+				t.Errorf("errors mismatched! want %s, got %s", d.Err, err)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("fail to parse %s: %s", d.Input, err)
+			continue
+		}
+	}
+}
+
 func TestParseCall(t *testing.T) {
 	data := []struct {
 		Input string
@@ -214,6 +251,10 @@ func TestParseOption(t *testing.T) {
 		{
 			Input: "key = ",
 			Err:   ErrUnexpected,
+		},
+		{
+			Input: "key = 0 \n key() {}",
+			Err: ErrAllow,
 		},
 	}
 	for _, d := range data {
