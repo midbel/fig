@@ -14,18 +14,18 @@ type ValueTestCase struct {
 }
 
 func TestValue(t *testing.T) {
-		t.Run("add", testAdd)
-		t.Run("subtract", testSubtract)
-		t.Run("multiply", testMultiply)
-		t.Run("divide", testDivide)
-		t.Run("modulo", testModulo)
-		t.Run("power", testPower)
-		t.Run("left-shift", testLeftShift)
-		t.Run("right-shift", testRightShift)
-		t.Run("bin-and", testBinaryAnd)
-		t.Run("bin-or", testBinaryOr)
-		t.Run("compare", testCompare)
-		t.Run("or", testOr)
+	t.Run("add", testAdd)
+	t.Run("subtract", testSubtract)
+	t.Run("multiply", testMultiply)
+	t.Run("divide", testDivide)
+	t.Run("modulo", testModulo)
+	t.Run("power", testPower)
+	t.Run("left-shift", testLeftShift)
+	t.Run("right-shift", testRightShift)
+	t.Run("bin-and", testBinaryAnd)
+	t.Run("bin-or", testBinaryOr)
+	t.Run("compare", testCompare)
+	t.Run("or", testOr)
 }
 
 func testCompare(t *testing.T) {
