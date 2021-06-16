@@ -37,6 +37,10 @@ func EnclosedEnv(env Environment) *Env {
 	return &e
 }
 
+// func chain(env ...Environment) Environment {
+//
+// }
+
 func (e *Env) Delete(str string) {
 	e.rw.Lock()
 	defer e.rw.Unlock()

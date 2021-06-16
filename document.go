@@ -3,12 +3,26 @@ package fig
 import (
 	"fmt"
 	"io"
+	"reflect"
+	"strings"
 	"time"
 )
+
+type Setter interface {
+	Set(string, interface{}) error
+}
 
 type Document struct {
 	root *Object
 	env  Environment
+}
+
+func Decode(r io.Reader, v interface{}) error {
+	doc, err := ParseDocument(r)
+	if err != nil {
+		return err
+	}
+	return doc.Decode(v)
 }
 
 func ParseDocument(r io.Reader) (*Document, error) {
@@ -250,7 +264,13 @@ func (d *Document) Decode(v interface{}) error {
 }
 
 func (d *Document) DecodeWithEnv(v interface{}, env Environment) error {
-	return nil
+	old := d.env
+	defer func() {
+		d.env = old
+	}()
+	// d.env = chain(env, d.env)
+	d.env = env
+	return d.decode(reflect.ValueOf(v).Elem(), nil)
 }
 
 func (d *Document) eval(paths []string) (Value, error) {
@@ -353,6 +373,157 @@ func findExpr(root *Object, list []*Object, paths []string) ([]result, error) {
 	}
 	return rs, nil
 }
+
+func (d *Document) decode(v reflect.Value, paths []string) error {
+	if v.Kind() != reflect.Struct {
+		return fmt.Errorf("unexpected value type %s - struct expected", v.Kind())
+	}
+	var (
+		typ = v.Type()
+		key string
+	)
+	for i := 0; i < v.NumField(); i++ {
+		f := v.Field(i)
+		if !f.CanSet() {
+			continue
+		}
+		y := typ.Field(i)
+		switch key = y.Tag.Get("fig"); key {
+		case "":
+			key = strings.ToLower(y.Name)
+		case "-":
+			continue
+		default:
+		}
+		if err := d.decodeInto(f, append(paths, key)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *Document) decodeInto(f reflect.Value, paths []string) error {
+	// if f.CanInterface() && f.Type().Implements(settype) {
+	// 	v, err := d.Value(paths...)
+	// 	fmt.Println(v, err, paths)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	return f.Interface().(Setter).Set(paths[len(paths)-1], v)
+	// }
+	// if f.CanAddr() {
+	// 	a := f.Addr()
+	// 	if a.CanInterface() && a.Type().Implements(settype) {
+	// 		v, err := d.Value(paths...)
+	// 		fmt.Println(v, err, paths)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		return a.Interface().(Setter).Set(paths[len(paths)-1], v)
+	// 	}
+	// }
+	switch f.Kind() {
+	case reflect.String:
+		v, err := d.Text(paths...)
+		if err != nil {
+			return err
+		}
+		f.SetString(v)
+	case reflect.Bool:
+		v, err := d.Bool(paths...)
+		if err != nil {
+			return err
+		}
+		f.SetBool(v)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		v, err := d.Int(paths...)
+		if err != nil {
+			return err
+		}
+		f.SetInt(v)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		v, err := d.Int(paths...)
+		if err != nil {
+			return err
+		}
+		f.SetUint(uint64(v))
+	case reflect.Float32, reflect.Float64:
+		v, err := d.Float(paths...)
+		if err != nil {
+			return err
+		}
+		f.SetFloat(v)
+	case reflect.Ptr:
+		if f.IsNil() || !f.IsValid() {
+			f.Set(reflect.New(f.Type().Elem()))
+		}
+		return d.decode(f.Elem(), paths)
+	case reflect.Interface:
+		if f.IsNil() || !f.IsValid() {
+			return fmt.Errorf("invalid value given")
+		}
+		k := f.Elem().Kind()
+		if k == reflect.Struct {
+			e := reflect.New(f.Elem().Type())
+			if err := d.decodeInto(e, paths); err != nil {
+				return err
+			}
+			f.Set(reflect.Indirect(e))
+			return nil
+		}
+		return d.decodeInto(f.Elem(), paths)
+	case reflect.Struct:
+		if f.Type() == timetype {
+			v, err := d.Time(paths...)
+			if err != nil {
+				return err
+			}
+			f.Set(reflect.ValueOf(v))
+			return nil
+		}
+		doc, err := d.Document(paths...)
+		if err != nil {
+			return err
+		}
+		return doc.decode(f, nil)
+	case reflect.Slice:
+		v, err := d.Value(paths...)
+		if err != nil {
+			return err
+		}
+		if k := reflect.TypeOf(v).Kind(); k != reflect.Slice {
+			v = []interface{}{v}
+		}
+		var (
+			vs  = reflect.ValueOf(v)
+			typ = f.Type().Elem()
+		)
+		for i := 0; i < vs.Len(); i++ {
+			var (
+				v  = reflect.ValueOf(vs.Index(i).Interface())
+				vt = v.Type()
+				cv = vt.ConvertibleTo(typ)
+			)
+			if !vt.AssignableTo(typ) && !cv {
+				return fmt.Errorf("%s can not be assigned to %s", vt, typ)
+			}
+			if cv {
+				v = v.Convert(typ)
+			}
+			f.Set(reflect.Append(f, v))
+		}
+	case reflect.Array:
+	case reflect.Map:
+	default:
+	}
+	return nil
+}
+
+var (
+	timetype = reflect.TypeOf((*time.Time)(nil)).Elem()
+	bytetype = reflect.TypeOf((*[]byte)(nil)).Elem()
+	settype  = reflect.TypeOf((*Setter)(nil)).Elem()
+)
 
 func reverseList(list []*Object) []*Object {
 	size := len(list)
