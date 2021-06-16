@@ -8,22 +8,54 @@ import (
 	"os"
 )
 
-func include(args map[string]Expr) (Node, error) {
-	if len(args) == 0 {
-		return nil, invalidArgument("include")
-	}
+func getTry(args map[string]Expr, env Environment) (bool, error) {
 	var (
 		val Value
 		err error
-		env = EmptyEnv()
 	)
 	if tmp, ok := args["try"]; ok {
 		if val, err = tmp.Eval(env); err != nil {
-			return nil, err
+			return false, err
 		}
 	}
-	try := val != nil && val.isTrue()
+	return val != nil && val.isTrue(), nil
+}
 
+func getKey(args map[string]Expr, env Environment) (string, error) {
+	var (
+		val Value
+		err error
+	)
+	if tmp, ok := args["key"]; ok {
+		if val, err = tmp.Eval(env); err != nil {
+			return "", err
+		}
+	} else {
+		return "", nil
+	}
+	return toText(val)
+}
+
+func getInsert(args map[string]Expr, env Environment) (string, error) {
+	var (
+		val Value
+		err error
+	)
+	if tmp, ok := args["insert"]; ok {
+		if val, err = tmp.Eval(env); err != nil {
+			return "", err
+		}
+	} else {
+		return "", nil
+	}
+	return toText(val)
+}
+
+func getFile(args map[string]Expr, try bool, env Environment) (*Object, error) {
+	var (
+		val Value
+		err error
+	)
 	tmp, ok := args["file"]
 	if !ok {
 		return nil, missingArgument("include", "file")
@@ -44,9 +76,38 @@ func include(args map[string]Expr) (Node, error) {
 	}
 	defer rc.Close()
 
-	node, err := Parse(rc)
-	if err != nil && !try {
+	return Parse(rc)
+}
+
+func include(args map[string]Expr) (Node, error) {
+	if len(args) == 0 {
+		return nil, invalidArgument("include")
+	}
+	var (
+		err error
+		env = EmptyEnv()
+	)
+
+	try, err := getTry(args, env)
+	if err != nil {
 		return nil, err
+	}
+
+	key, err := getKey(args, env)
+	if err != nil {
+		return nil, err
+	}
+
+	node, err := getFile(args, try, env)
+	if err != nil || node == nil {
+		return nil, err
+	}
+	if key != "" {
+		node.name = makeToken(key, Ident)
+		node.insmode, err = getInsert(args, env)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return node, nil
 }

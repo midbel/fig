@@ -9,7 +9,7 @@ import (
 )
 
 type Setter interface {
-	Set(string, interface{}) error
+	Set(interface{}) error
 }
 
 type Document struct {
@@ -403,25 +403,23 @@ func (d *Document) decode(v reflect.Value, paths []string) error {
 }
 
 func (d *Document) decodeInto(f reflect.Value, paths []string) error {
-	// if f.CanInterface() && f.Type().Implements(settype) {
-	// 	v, err := d.Value(paths...)
-	// 	fmt.Println(v, err, paths)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	return f.Interface().(Setter).Set(paths[len(paths)-1], v)
-	// }
-	// if f.CanAddr() {
-	// 	a := f.Addr()
-	// 	if a.CanInterface() && a.Type().Implements(settype) {
-	// 		v, err := d.Value(paths...)
-	// 		fmt.Println(v, err, paths)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		return a.Interface().(Setter).Set(paths[len(paths)-1], v)
-	// 	}
-	// }
+	if f.CanInterface() && f.Type().Implements(settype) {
+		v, err := d.Value(paths...)
+		if err != nil {
+			return err
+		}
+		return f.Interface().(Setter).Set(paths[len(paths)-1], v)
+	}
+	if f.CanAddr() {
+		a := f.Addr()
+		if a.CanInterface() && a.Type().Implements(settype) {
+			v, err := d.Value(paths...)
+			if err != nil {
+				return err
+			}
+			return a.Interface().(Setter).Set(paths[len(paths)-1], v)
+		}
+	}
 	switch f.Kind() {
 	case reflect.String:
 		v, err := d.Text(paths...)
@@ -487,17 +485,13 @@ func (d *Document) decodeInto(f reflect.Value, paths []string) error {
 		}
 		return doc.decode(f, nil)
 	case reflect.Slice:
-		v, err := d.Value(paths...)
-		if err != nil {
-			return err
-		}
-		if k := reflect.TypeOf(v).Kind(); k != reflect.Slice {
-			v = []interface{}{v}
-		}
 		var (
-			vs  = reflect.ValueOf(v)
+			vs  = d.asSlice(paths)
 			typ = f.Type().Elem()
 		)
+		if !vs.IsValid() {
+			return fmt.Errorf("invalid value")
+		}
 		for i := 0; i < vs.Len(); i++ {
 			var (
 				v  = reflect.ValueOf(vs.Index(i).Interface())
@@ -517,6 +511,17 @@ func (d *Document) decodeInto(f reflect.Value, paths []string) error {
 	default:
 	}
 	return nil
+}
+
+func (d *Document) asSlice(paths []string) reflect.Value {
+	v, err := d.Value(paths...)
+	if err != nil {
+		return reflect.Value{}
+	}
+	if k := reflect.TypeOf(v).Kind(); k != reflect.Slice {
+		v = []interface{}{v}
+	}
+	return reflect.ValueOf(v)
 }
 
 var (

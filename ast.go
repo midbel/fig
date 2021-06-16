@@ -3,6 +3,7 @@ package fig
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 type Node interface{}
@@ -53,9 +54,16 @@ func (f Func) copyArgs() []Argument {
 	return as
 }
 
+const (
+	InsAppend  = "append"
+	InsMerge   = "merge"
+	InsRewrite = "rewrite"
+)
+
 type Object struct {
 	name     Token
 	priority int64
+	insmode  string
 	nodes    map[string]Node
 
 	Note
@@ -76,17 +84,73 @@ func createObjectWithToken(tok Token) *Object {
 func (o *Object) merge(node Node) error {
 	switch n := node.(type) {
 	case *Object:
-		o.mergeObject(n)
+		switch strings.ToLower(n.insmode) {
+		case InsAppend:
+			return o.appendObject(n)
+		case InsMerge:
+			return o.mergeObject(n)
+		case InsRewrite, "":
+			o.rewriteObject(n)
+		default:
+			return fmt.Errorf("%s: unknown insert mode", n.insert)
+		}
 	case List:
 	case Option:
 		return o.register(n)
 	default:
-		return fmt.Errorf("unexpected node type")
+		return fmt.Errorf("unexpected node type: %T", n)
 	}
 	return nil
 }
 
-func (o *Object) mergeObject(other *Object) {
+func (o *Object) mergeObject(other *Object) error {
+	var err error
+	for k, n := range other.nodes {
+		if _, ok := o.nodes[k]; !ok {
+			o.nodes[k] = n
+			continue
+		}
+		switch n := n.(type) {
+		case List:
+		case Option:
+			err = o.register(n)
+		case *Object:
+			err = o.appendObject(n)
+		default:
+		}
+		if err != nil {
+			break
+		}
+	}
+	return err
+}
+
+func (o *Object) appendObject(other *Object) error {
+	n, ok := o.nodes[other.name.Input]
+	if !ok {
+		o.nodes[other.name.Input] = other
+		return nil
+	}
+	switch x := n.(type) {
+	case *Object:
+		i := List{
+			name:  x.name,
+			nodes: []Node{n, other},
+		}
+		o.nodes[x.name.Input] = i
+	case List:
+		x.nodes = append(x.nodes, other)
+	default:
+		return fmt.Errorf("unexpected node type: %T", n)
+	}
+	return nil
+}
+
+func (o *Object) rewriteObject(other *Object) {
+	if other.name.IsIdent() {
+		o.nodes[other.name.Input] = other
+		return
+	}
 	for k, v := range other.nodes {
 		o.nodes[k] = v
 	}
