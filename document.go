@@ -1,6 +1,7 @@
 package fig
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -34,11 +35,14 @@ func ParseDocumentWithEnv(r io.Reader, env Environment) (*Document, error) {
 	if err != nil {
 		return nil, err
 	}
-	doc := Document{
+	return createDocument(root, env), nil
+}
+
+func createDocument(root *Object, env Environment) *Document {
+	return &Document{
 		root: root,
 		env:  env,
 	}
-	return &doc, nil
 }
 
 func (d *Document) DefineInt(str string, i int64) {
@@ -303,6 +307,13 @@ func (d *Document) find(paths []string) ([]result, error) {
 	return findExpr(d.root, list, paths)
 }
 
+func (d *Document) list(paths []string) []*Object {
+	if len(paths) == 0 {
+		return nil
+	}
+	return findObjects(d.root, paths)
+}
+
 type result struct {
 	Expr
 	List []*Object
@@ -317,6 +328,40 @@ func makeResult(e Expr, list []*Object) result {
 
 func (r result) Eval(e Environment) (Value, error) {
 	return r.Expr.Eval(createEnv(reverseList(r.List), e))
+}
+
+func findObjects(root *Object, paths []string) []*Object {
+	var list []*Object
+	for i := 0; i < len(paths)-1; i++ {
+		n, err := root.getNode(paths[i])
+		if err != nil {
+			break
+		}
+		obj, ok := n.(*Object)
+		if !ok {
+			return nil
+		}
+		root = obj
+	}
+	n, err := root.getNode(paths[len(paths)-1])
+	if err != nil {
+		return nil
+	}
+	switch n := n.(type) {
+	case *Object:
+		list = append(list, n)
+	case List:
+		for _, n := range n.nodes {
+			obj, ok := n.(*Object)
+			if !ok {
+				return nil
+			}
+			list = append(list, obj)
+		}
+	default:
+		return nil
+	}
+	return list
 }
 
 func findExpr(root *Object, list []*Object, paths []string) ([]result, error) {
@@ -387,15 +432,26 @@ func (d *Document) decode(v reflect.Value, paths []string) error {
 		if !f.CanSet() {
 			continue
 		}
-		y := typ.Field(i)
-		switch key = y.Tag.Get("fig"); key {
+		var (
+			yf = typ.Field(i)
+			rq bool
+		)
+		switch key = yf.Tag.Get("fig"); key {
 		case "":
-			key = strings.ToLower(y.Name)
+			key = strings.ToLower(yf.Name)
 		case "-":
 			continue
 		default:
+			parts := strings.Split(key, ",")
+			key = strings.TrimSpace(parts[0])
+			if len(parts) > 1 {
+				rq = strings.TrimSpace(parts[1]) == "required"
+			}
 		}
 		if err := d.decodeInto(f, append(paths, key)); err != nil {
+			if errors.Is(err, ErrUndefined) && !rq {
+				continue
+			}
 			return err
 		}
 	}
@@ -485,27 +541,7 @@ func (d *Document) decodeInto(f reflect.Value, paths []string) error {
 		}
 		return doc.decode(f, nil)
 	case reflect.Slice:
-		var (
-			vs  = d.asSlice(paths)
-			typ = f.Type().Elem()
-		)
-		if !vs.IsValid() {
-			return fmt.Errorf("invalid value")
-		}
-		for i := 0; i < vs.Len(); i++ {
-			var (
-				v  = reflect.ValueOf(vs.Index(i).Interface())
-				vt = v.Type()
-				cv = vt.ConvertibleTo(typ)
-			)
-			if !vt.AssignableTo(typ) && !cv {
-				return fmt.Errorf("%s can not be assigned to %s", vt, typ)
-			}
-			if cv {
-				v = v.Convert(typ)
-			}
-			f.Set(reflect.Append(f, v))
-		}
+		return d.decodeSlice(f, paths)
 	case reflect.Array:
 	case reflect.Map:
 	default:
@@ -513,15 +549,43 @@ func (d *Document) decodeInto(f reflect.Value, paths []string) error {
 	return nil
 }
 
-func (d *Document) asSlice(paths []string) reflect.Value {
-	v, err := d.Value(paths...)
+func (d *Document) decodeSlice(f reflect.Value, paths []string) error {
+	typ := f.Type().Elem()
+	if typ.Kind() == reflect.Struct {
+		var (
+			vs = reflect.MakeSlice(reflect.SliceOf(typ), 0, 10)
+			el = reflect.New(typ).Elem()
+		)
+		for _, root := range d.list(paths) {
+			doc := createDocument(root, d.env)
+			if err := doc.decode(el, nil); err != nil {
+				return err
+			}
+			vs = reflect.Append(vs, el)
+		}
+		f.Set(vs)
+		return nil
+	}
+	vs, err := asSlice(d, paths)
 	if err != nil {
-		return reflect.Value{}
+		return err
 	}
-	if k := reflect.TypeOf(v).Kind(); k != reflect.Slice {
-		v = []interface{}{v}
+	for i := 0; i < vs.Len(); i++ {
+		var (
+			v  = reflect.ValueOf(vs.Index(i).Interface())
+			vt = v.Type()
+			cv = vt.ConvertibleTo(typ)
+		)
+		if !vt.AssignableTo(typ) && !cv {
+			return fmt.Errorf("%s can not be assigned to %s", vt, typ)
+		}
+		if cv {
+			v = v.Convert(typ)
+		}
+		f = reflect.Append(f, v)
+		// f.Set(reflect.Append(f, v))
 	}
-	return reflect.ValueOf(v)
+	return nil
 }
 
 var (
@@ -536,4 +600,15 @@ func reverseList(list []*Object) []*Object {
 		list[i], list[j] = list[j], list[i]
 	}
 	return list
+}
+
+func asSlice(d *Document, paths []string) (reflect.Value, error) {
+	v, err := d.Value(paths...)
+	if err != nil {
+		return reflect.Value{}, err
+	}
+	if k := reflect.TypeOf(v).Kind(); k != reflect.Slice {
+		v = []interface{}{v}
+	}
+	return reflect.ValueOf(v), nil
 }
