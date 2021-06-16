@@ -408,7 +408,7 @@ func (d *Document) decodeInto(f reflect.Value, paths []string) error {
 		if err != nil {
 			return err
 		}
-		return f.Interface().(Setter).Set(paths[len(paths)-1], v)
+		return f.Interface().(Setter).Set(v)
 	}
 	if f.CanAddr() {
 		a := f.Addr()
@@ -417,7 +417,7 @@ func (d *Document) decodeInto(f reflect.Value, paths []string) error {
 			if err != nil {
 				return err
 			}
-			return a.Interface().(Setter).Set(paths[len(paths)-1], v)
+			return a.Interface().(Setter).Set(v)
 		}
 	}
 	switch f.Kind() {
