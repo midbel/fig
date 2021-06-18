@@ -92,7 +92,7 @@ func (o *Object) merge(node Node) error {
 		case InsRewrite, "":
 			o.rewriteObject(n)
 		default:
-			return fmt.Errorf("%s: unknown insert mode", n.insert)
+			return fmt.Errorf("%s: unknown insert mode", n.insmode)
 		}
 	case List:
 	case Option:
@@ -112,6 +112,7 @@ func (o *Object) mergeObject(other *Object) error {
 		}
 		switch n := n.(type) {
 		case List:
+			err = o.mergeList(n)
 		case Option:
 			err = o.register(n)
 		case *Object:
@@ -123,6 +124,50 @@ func (o *Object) mergeObject(other *Object) error {
 		}
 	}
 	return err
+}
+
+func (o *Object) mergeList(other List) error {
+	if len(other.nodes) == 0 {
+		// discard empty list
+		return nil
+	}
+	n, ok := o.nodes[other.name.Input]
+	if !ok {
+		o.nodes[other.name.Input] = other
+		return nil
+	}
+	switch n := n.(type) {
+	case *Object:
+		if err := isObject(other.nodes[0]); err != nil {
+			return fmt.Errorf("%s: not an object's list: %w", other.name.Input, ErrAllow)
+		}
+		other.nodes = append([]Node{n}, other.nodes...)
+	case List:
+		if len(n.nodes) == 0 {
+			break
+		}
+		switch n.nodes[0].(type) {
+		case Option:
+			if err := isOption(other.nodes[0]); err != nil {
+				return fmt.Errorf("%s: not an option's list: %w", other.name.Input, ErrAllow)
+			}
+		case *Object:
+			if err := isObject(other.nodes[0]); err != nil {
+				return fmt.Errorf("%s: not an object's list: %w", other.name.Input, ErrAllow)
+			}
+		default:
+		}
+		n.nodes = append(n.nodes, other.nodes...)
+	case Option:
+		if err := isOption(other.nodes[0]); err != nil {
+			return fmt.Errorf("%s: not an option's list: %w", other.name.Input, ErrAllow)
+		}
+		other.nodes = append([]Node{n}, other.nodes...)
+	default:
+		return fmt.Errorf("%w: %s can not be inserted", ErrAllow, other.name.Input)
+	}
+	o.nodes[other.name.Input] = other
+	return nil
 }
 
 func (o *Object) appendObject(other *Object) error {
@@ -193,7 +238,7 @@ func (o *Object) insert(tok Token) (*Object, error) {
 		}
 		o.nodes[tok.Input] = i
 	case List:
-		if _, ok := x.nodes[0].(*Object); !ok {
+		if err := isObject(x.nodes[0]); err != nil {
 			return nil, fmt.Errorf("%s: try to add object to option array is %w", tok, ErrAllow)
 		}
 		obj = createObjectWithToken(tok)
@@ -219,7 +264,7 @@ func (o *Object) register(opt Option) error {
 		}
 		o.nodes[opt.name.Input] = i
 	case List:
-		if _, ok := x.nodes[0].(Option); !ok {
+		if err := isOption(x.nodes[0]); err != nil {
 			return fmt.Errorf("%s: try to add option to object array is %w", opt.name.Input, ErrAllow)
 		}
 		x.nodes = append(x.nodes, opt)
@@ -331,4 +376,18 @@ type Option struct {
 	expr Expr
 
 	Note
+}
+
+func isOption(n Node) error {
+	if _, ok := n.(Option); !ok {
+		return fmt.Errorf("not an option")
+	}
+	return nil
+}
+
+func isObject(n Node) error {
+	if _, ok := n.(*Object); !ok {
+		return fmt.Errorf("not an object")
+	}
+	return nil
 }
