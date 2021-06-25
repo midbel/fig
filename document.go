@@ -331,6 +331,9 @@ func (r result) Eval(e Environment) (Value, error) {
 }
 
 func findObjects(root *Object, paths []string) []*Object {
+	if len(paths) == 1 {
+		return []*Object{root}
+	}
 	var list []*Object
 	for i := 0; i < len(paths)-1; i++ {
 		n, err := root.getNode(paths[i])
@@ -419,7 +422,31 @@ func findExpr(root *Object, list []*Object, paths []string) ([]result, error) {
 	return rs, nil
 }
 
+func (d *Document) decodeSetter(f reflect.Value, paths []string) (bool, error) {
+	if f.CanInterface() && f.Type().Implements(settype) {
+		v, err := d.Value(paths...)
+		if err != nil {
+			return false, err
+		}
+		return true, f.Interface().(Setter).Set(v)
+	}
+	if f.CanAddr() {
+		a := f.Addr()
+		if a.CanInterface() && a.Type().Implements(settype) {
+			v, err := d.Value(paths...)
+			if err != nil {
+				return false, err
+			}
+			return true, a.Interface().(Setter).Set(v)
+		}
+	}
+	return false, nil
+}
+
 func (d *Document) decode(v reflect.Value, paths []string) error {
+	if ok, err := d.decodeSetter(v, paths); ok || err != nil {
+		return err
+	}
 	if v.Kind() != reflect.Struct {
 		return fmt.Errorf("unexpected value type %s - struct expected", v.Kind())
 	}
@@ -459,22 +486,8 @@ func (d *Document) decode(v reflect.Value, paths []string) error {
 }
 
 func (d *Document) decodeInto(f reflect.Value, paths []string) error {
-	if f.CanInterface() && f.Type().Implements(settype) {
-		v, err := d.Value(paths...)
-		if err != nil {
-			return err
-		}
-		return f.Interface().(Setter).Set(v)
-	}
-	if f.CanAddr() {
-		a := f.Addr()
-		if a.CanInterface() && a.Type().Implements(settype) {
-			v, err := d.Value(paths...)
-			if err != nil {
-				return err
-			}
-			return a.Interface().(Setter).Set(v)
-		}
+	if ok, err := d.decodeSetter(f, paths); ok || err != nil {
+		return err
 	}
 	switch f.Kind() {
 	case reflect.String:
