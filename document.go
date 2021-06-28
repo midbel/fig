@@ -273,7 +273,15 @@ func (d *Document) DecodeWithEnv(v interface{}, env Environment) error {
 		d.env = old
 	}()
 	d.env = env
-	return d.decode(reflect.ValueOf(v).Elem(), d.root)
+
+	var (
+		val = reflect.ValueOf(v)
+		typ = val.Type().Elem()
+	)
+	if k := typ.Kind(); k == reflect.Interface && typ.NumMethod() == 0 {
+		return d.decodeEmpty(val, d.root)
+	}
+	return d.decode(val.Elem(), d.root)
 }
 
 func (d *Document) eval(paths []string) (Value, error) {
@@ -378,10 +386,31 @@ func findExpr(root *Object, list []*Object, paths []string) ([]result, error) {
 }
 
 func (d *Document) decode(v reflect.Value, root *Object) error {
+	if !v.IsValid() {
+		return fmt.Errorf("fail to decode value")
+	}
 	switch v.Kind() {
 	case reflect.Struct:
+	case reflect.Ptr:
+		if v.IsNil() {
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+		return d.decode(v.Elem(), root)
+	case reflect.Interface:
+		if v.NumMethod() == 0 {
+			return d.decodeEmpty(v, root)
+		}
+		e := v.Elem()
+		if e.Kind() == reflect.Struct {
+			e = reflect.New(e.Type()).Elem()
+		}
+		err := d.decode(e, root)
+		if err == nil {
+			v.Set(e)
+		}
+		return err
 	case reflect.Map:
-		return fmt.Errorf("not yet implemented")
+		return d.decodeMap(v, root)
 	default:
 		return fmt.Errorf("unexpected value type %s - struct/map expected", v.Kind())
 	}
@@ -395,7 +424,7 @@ func (d *Document) decode(v reflect.Value, root *Object) error {
 			continue
 		}
 		var (
-			yf = typ.Field(i)
+			yf       = typ.Field(i)
 			required bool
 		)
 		switch key = yf.Tag.Get("fig"); key {
@@ -422,6 +451,65 @@ func (d *Document) decode(v reflect.Value, root *Object) error {
 		}
 	}
 	return nil
+}
+
+func (d *Document) decodeEmpty(v reflect.Value, root *Object) error {
+	var (
+		dat = make(map[string]interface{})
+		tmp = reflect.ValueOf(&dat)
+		err error
+	)
+	if err = d.decode(tmp.Elem(), d.root); err == nil {
+		v.Elem().Set(tmp)
+	}
+	return err
+}
+
+func (d *Document) decodeMap(v reflect.Value, root *Object) error {
+	if v.IsNil() {
+		v.Set(reflect.MakeMap(v.Type()))
+	}
+	var err error
+	for k, n := range root.nodes {
+		var val reflect.Value
+		switch n := n.(type) {
+		case Option:
+			if arr, ok := n.expr.(Array); ok {
+				typ := reflect.SliceOf(v.Type().Elem())
+				val = reflect.MakeSlice(typ, len(arr.expr), len(arr.expr))
+				err = d.decodeList(val, n.asList())
+				break
+			}
+			val = reflect.New(v.Type().Elem()).Elem()
+			err = d.decodeOption(val, n)
+		case List:
+			if len(n.nodes) == 0 {
+				break
+			}
+			switch {
+			case isOption(n.nodes[0]) == nil:
+				typ := reflect.SliceOf(v.Type().Elem())
+				val = reflect.MakeSlice(typ, len(n.nodes), len(n.nodes))
+			case isObject(n.nodes[0]) == nil:
+				typ := reflect.MapOf(v.Type().Key(), v.Type().Elem())
+				typ = reflect.SliceOf(typ)
+				val = reflect.MakeSlice(typ, len(n.nodes), len(n.nodes))
+			default:
+				return fmt.Errorf("%T: can not decode list with node type", n.nodes[0])
+			}
+			err = d.decodeList(val, n)
+		case *Object:
+			val = reflect.MakeMap(v.Type())
+			err = d.decode(val, n)
+		default:
+			err = fmt.Errorf("%T: can not decode node type", n)
+		}
+		if err != nil {
+			break
+		}
+		v.SetMapIndex(reflect.ValueOf(k), val)
+	}
+	return err
 }
 
 func (d *Document) decodeNode(v reflect.Value, n Node) error {
@@ -453,7 +541,7 @@ func (d *Document) decodeList(v reflect.Value, list List) error {
 	if v.Kind() == reflect.Slice && v.Len() == 0 {
 		var (
 			typ = v.Type().Elem()
-			vs = reflect.MakeSlice(reflect.SliceOf(typ), len(list.nodes), len(list.nodes))
+			vs  = reflect.MakeSlice(reflect.SliceOf(typ), len(list.nodes), len(list.nodes))
 		)
 		v.Set(vs)
 	}
@@ -463,16 +551,12 @@ func (d *Document) decodeList(v reflect.Value, list List) error {
 	var err error
 	switch {
 	case isOption(list.nodes[0]) == nil:
-		for i, n := range list.nodes {
-			if err = d.decodeOption(v.Index(i), n.(Option)); err != nil {
-				break
-			}
+		for i := 0; err == nil && i < len(list.nodes); i++ {
+			err = d.decodeOption(v.Index(i), list.nodes[i].(Option))
 		}
 	case isObject(list.nodes[0]) == nil:
-		for i, n := range list.nodes {
-			if err = d.decode(v.Index(i), n.(*Object)); err != nil {
-				break
-			}
+		for i := 0; err == nil && i < len(list.nodes); i++ {
+			err = d.decode(v.Index(i), list.nodes[i].(*Object))
 		}
 	default:
 		err = fmt.Errorf("%T: can not decode list with node type", list.nodes[0])
