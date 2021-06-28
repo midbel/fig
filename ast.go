@@ -354,6 +354,21 @@ type List struct {
 	nodes []Node
 }
 
+func (i List) Eval(e Environment) (interface{}, error) {
+	vs := make([]interface{}, 0, len(i.nodes))
+	for j := range i.nodes {
+		if err := isOption(i.nodes[j]); err != nil {
+			return nil, err
+		}
+		v, err := i.nodes[j].(Option).Eval(e)
+		if err != nil {
+			return nil, err
+		}
+		vs = append(vs, v)
+	}
+	return vs, nil
+}
+
 func (i List) asOption() (Option, error) {
 	var (
 		es  []Expr
@@ -376,6 +391,14 @@ type Option struct {
 	expr Expr
 
 	Note
+}
+
+func (o Option) Eval(e Environment) (interface{}, error) {
+	v, err := o.expr.Eval(e)
+	if err == nil {
+		return toInterface(v), nil
+	}
+	return nil, err
 }
 
 func isOption(n Node) error {

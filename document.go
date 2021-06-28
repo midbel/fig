@@ -272,9 +272,8 @@ func (d *Document) DecodeWithEnv(v interface{}, env Environment) error {
 	defer func() {
 		d.env = old
 	}()
-	// d.env = chain(env, d.env)
 	d.env = env
-	return d.decode(reflect.ValueOf(v).Elem(), nil)
+	return d.decode(reflect.ValueOf(v).Elem(), d.root)
 }
 
 func (d *Document) eval(paths []string) (Value, error) {
@@ -307,13 +306,6 @@ func (d *Document) find(paths []string) ([]result, error) {
 	return findExpr(d.root, list, paths)
 }
 
-func (d *Document) list(paths []string) []*Object {
-	if len(paths) == 0 {
-		return nil
-	}
-	return findObjects(d.root, paths)
-}
-
 type result struct {
 	Expr
 	List []*Object
@@ -328,43 +320,6 @@ func makeResult(e Expr, list []*Object) result {
 
 func (r result) Eval(e Environment) (Value, error) {
 	return r.Expr.Eval(createEnv(reverseList(r.List), e))
-}
-
-func findObjects(root *Object, paths []string) []*Object {
-	if len(paths) == 1 {
-		return []*Object{root}
-	}
-	var list []*Object
-	for i := 0; i < len(paths)-1; i++ {
-		n, err := root.getNode(paths[i])
-		if err != nil {
-			break
-		}
-		obj, ok := n.(*Object)
-		if !ok {
-			return nil
-		}
-		root = obj
-	}
-	n, err := root.getNode(paths[len(paths)-1])
-	if err != nil {
-		return nil
-	}
-	switch n := n.(type) {
-	case *Object:
-		list = append(list, n)
-	case List:
-		for _, n := range n.nodes {
-			obj, ok := n.(*Object)
-			if !ok {
-				return nil
-			}
-			list = append(list, obj)
-		}
-	default:
-		return nil
-	}
-	return list
 }
 
 func findExpr(root *Object, list []*Object, paths []string) ([]result, error) {
@@ -422,31 +377,7 @@ func findExpr(root *Object, list []*Object, paths []string) ([]result, error) {
 	return rs, nil
 }
 
-func (d *Document) decodeSetter(f reflect.Value, paths []string) (bool, error) {
-	if f.CanInterface() && f.Type().Implements(settype) {
-		v, err := d.Value(paths...)
-		if err != nil {
-			return false, err
-		}
-		return true, f.Interface().(Setter).Set(v)
-	}
-	if f.CanAddr() {
-		a := f.Addr()
-		if a.CanInterface() && a.Type().Implements(settype) {
-			v, err := d.Value(paths...)
-			if err != nil {
-				return false, err
-			}
-			return true, a.Interface().(Setter).Set(v)
-		}
-	}
-	return false, nil
-}
-
-func (d *Document) decode(v reflect.Value, paths []string) error {
-	if ok, err := d.decodeSetter(v, paths); ok || err != nil {
-		return err
-	}
+func (d *Document) decode(v reflect.Value, root *Object) error {
 	if v.Kind() != reflect.Struct {
 		return fmt.Errorf("unexpected value type %s - struct expected", v.Kind())
 	}
@@ -461,7 +392,7 @@ func (d *Document) decode(v reflect.Value, paths []string) error {
 		}
 		var (
 			yf = typ.Field(i)
-			rq bool
+			required bool
 		)
 		switch key = yf.Tag.Get("fig"); key {
 		case "":
@@ -472,133 +403,126 @@ func (d *Document) decode(v reflect.Value, paths []string) error {
 			parts := strings.Split(key, ",")
 			key = strings.TrimSpace(parts[0])
 			if len(parts) > 1 {
-				rq = strings.TrimSpace(parts[1]) == "required"
+				required = strings.TrimSpace(parts[1]) == "required"
 			}
 		}
-		if err := d.decodeInto(f, append(paths, key)); err != nil {
-			if errors.Is(err, ErrUndefined) && !rq {
+		n, err := root.getNode(key)
+		if err != nil {
+			if errors.Is(err, ErrUndefined) && !required {
 				continue
 			}
 			return err
 		}
+		if err := d.decodeNode(f, n); err != nil {
+			return fmt.Errorf("fail to decode %s: %v", key, err)
+		}
 	}
 	return nil
 }
 
-func (d *Document) decodeInto(f reflect.Value, paths []string) error {
-	if ok, err := d.decodeSetter(f, paths); ok || err != nil {
+func (d *Document) decodeNode(v reflect.Value, n Node) error {
+	var err error
+	switch n := n.(type) {
+	case *Object:
+		err = d.decode(v, n)
+	case Option:
+		err = d.decodeOption(v, n)
+	case List:
+		err = d.decodeList(v, n)
+	default:
+		err = fmt.Errorf("%T: can not decode node type", n)
+	}
+	return err
+}
+
+func (d *Document) decodeList(v reflect.Value, list List) error {
+	if len(list.nodes) == 0 {
+		return nil
+	}
+	if k := v.Kind(); k != reflect.Array && k != reflect.Slice && isSetter(v) {
+		value, err := list.Eval(d.env)
+		if err == nil {
+			_, err = d.decodeSetter(v, value)
+		}
 		return err
 	}
-	switch f.Kind() {
-	case reflect.String:
-		v, err := d.Text(paths...)
-		if err != nil {
-			return err
-		}
-		f.SetString(v)
-	case reflect.Bool:
-		v, err := d.Bool(paths...)
-		if err != nil {
-			return err
-		}
-		f.SetBool(v)
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		v, err := d.Int(paths...)
-		if err != nil {
-			return err
-		}
-		f.SetInt(v)
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		v, err := d.Int(paths...)
-		if err != nil {
-			return err
-		}
-		f.SetUint(uint64(v))
-	case reflect.Float32, reflect.Float64:
-		v, err := d.Float(paths...)
-		if err != nil {
-			return err
-		}
-		f.SetFloat(v)
-	case reflect.Ptr:
-		if f.IsNil() || !f.IsValid() {
-			f.Set(reflect.New(f.Type().Elem()))
-		}
-		return d.decode(f.Elem(), paths)
-	case reflect.Interface:
-		if f.IsNil() || !f.IsValid() {
-			return fmt.Errorf("invalid value given")
-		}
-		k := f.Elem().Kind()
-		if k == reflect.Struct {
-			e := reflect.New(f.Elem().Type())
-			if err := d.decodeInto(e, paths); err != nil {
-				return err
-			}
-			f.Set(reflect.Indirect(e))
-			return nil
-		}
-		return d.decodeInto(f.Elem(), paths)
-	case reflect.Struct:
-		if f.Type() == timetype {
-			v, err := d.Time(paths...)
-			if err != nil {
-				return err
-			}
-			f.Set(reflect.ValueOf(v))
-			return nil
-		}
-		doc, err := d.Document(paths...)
-		if err != nil {
-			return err
-		}
-		return doc.decode(f, nil)
-	case reflect.Slice:
-		return d.decodeSlice(f, paths)
-	case reflect.Array:
-	case reflect.Map:
-	default:
-	}
-	return nil
-}
-
-func (d *Document) decodeSlice(f reflect.Value, paths []string) error {
-	typ := f.Type().Elem()
-	if typ.Kind() == reflect.Struct {
-		var (
-			vs = reflect.MakeSlice(reflect.SliceOf(typ), 0, 10)
-			el = reflect.New(typ).Elem()
-		)
-		for _, root := range d.list(paths) {
-			doc := createDocument(root, d.env)
-			if err := doc.decode(el, nil); err != nil {
-				return err
+	var (
+		err error
+		typ = v.Type().Elem()
+		vs = reflect.MakeSlice(reflect.SliceOf(typ), 0, 10)
+	)
+	switch {
+	case isOption(list.nodes[0]) == nil:
+		for _, n := range list.nodes {
+			el := reflect.New(typ).Elem()
+			if err = d.decodeOption(el, n.(Option)); err != nil {
+				break
 			}
 			vs = reflect.Append(vs, el)
 		}
-		f.Set(vs)
-		return nil
+	case isObject(list.nodes[0]) == nil:
+		for _, n := range list.nodes {
+			el := reflect.New(typ).Elem()
+			if err = d.decode(el, n.(*Object)); err != nil {
+				break
+			}
+			vs = reflect.Append(vs, el)
+		}
+	default:
+		err = fmt.Errorf("%T: can not decode list with node type", list.nodes[0])
 	}
-	vs, err := asSlice(d, paths)
+	v.Set(vs)
+	return nil
+}
+
+func (d *Document) decodeOption(f reflect.Value, opt Option) error {
+	value, err := opt.Eval(d.env)
 	if err != nil {
 		return err
 	}
-	for i := 0; i < vs.Len(); i++ {
-		var (
-			v  = reflect.ValueOf(vs.Index(i).Interface())
-			vt = v.Type()
-			cv = vt.ConvertibleTo(typ)
-		)
-		if !vt.AssignableTo(typ) && !cv {
-			return fmt.Errorf("%s can not be assigned to %s", vt, typ)
-		}
-		if cv {
-			v = v.Convert(typ)
-		}
-		f = reflect.Append(f, v)
-		// f.Set(reflect.Append(f, v))
+	if ok, err := d.decodeSetter(f, value); ok || err != nil {
+		return err
+	}
+	var (
+		v = reflect.ValueOf(value)
+		t = v.Type()
+		set bool
+	)
+	if t.AssignableTo(f.Type()) {
+		f.Set(v)
+		set = true
+	}
+	if !set && t.ConvertibleTo(f.Type()) {
+		f.Set(v.Convert(f.Type()))
+		set = true
+	}
+	if !set {
+		return fmt.Errorf("%s: fail to decode option into %s", opt.name.Input, f.Type())
 	}
 	return nil
+}
+
+func (d *Document) decodeSetter(f reflect.Value, value interface{}) (bool, error) {
+	if f.CanInterface() && f.Type().Implements(settype) {
+		return true, f.Interface().(Setter).Set(value)
+	}
+	if f.CanAddr() {
+		a := f.Addr()
+		if a.CanInterface() && a.Type().Implements(settype) {
+			return true, a.Interface().(Setter).Set(value)
+		}
+	}
+	return false, nil
+}
+
+func isSetter(f reflect.Value) bool {
+	if f.CanInterface() && f.Type().Implements(settype) {
+		return true
+	}
+	if f.CanAddr() {
+		return isSetter(f.Addr())
+	}
+	return false
 }
 
 var (
@@ -613,15 +537,4 @@ func reverseList(list []*Object) []*Object {
 		list[i], list[j] = list[j], list[i]
 	}
 	return list
-}
-
-func asSlice(d *Document, paths []string) (reflect.Value, error) {
-	v, err := d.Value(paths...)
-	if err != nil {
-		return reflect.Value{}, err
-	}
-	if k := reflect.TypeOf(v).Kind(); k != reflect.Slice {
-		v = []interface{}{v}
-	}
-	return reflect.ValueOf(v), nil
 }
