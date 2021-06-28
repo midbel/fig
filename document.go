@@ -613,7 +613,7 @@ func isSetter(f reflect.Value) bool {
 	return false
 }
 
-var settype  = reflect.TypeOf((*Setter)(nil)).Elem()
+var settype = reflect.TypeOf((*Setter)(nil)).Elem()
 
 func reverseList(list []*Object) []*Object {
 	size := len(list)
