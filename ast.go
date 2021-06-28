@@ -401,6 +401,22 @@ func (o Option) Eval(e Environment) (interface{}, error) {
 	return nil, err
 }
 
+func (o Option) asList() List {
+	arr, ok := o.expr.(Array)
+	if !ok {
+		return List{}
+	}
+	var list List
+	for i := range arr.expr {
+		o := Option{
+			name: o.name,
+			expr: arr.expr[i],
+		}
+		list.nodes = append(list.nodes, o)
+	}
+	return list
+}
+
 func isOption(n Node) error {
 	if _, ok := n.(Option); !ok {
 		return fmt.Errorf("not an option")

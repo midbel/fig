@@ -378,8 +378,12 @@ func findExpr(root *Object, list []*Object, paths []string) ([]result, error) {
 }
 
 func (d *Document) decode(v reflect.Value, root *Object) error {
-	if v.Kind() != reflect.Struct {
-		return fmt.Errorf("unexpected value type %s - struct expected", v.Kind())
+	switch v.Kind() {
+	case reflect.Struct:
+	case reflect.Map:
+		return fmt.Errorf("not yet implemented")
+	default:
+		return fmt.Errorf("unexpected value type %s - struct/map expected", v.Kind())
 	}
 	var (
 		typ = v.Type()
@@ -446,36 +450,40 @@ func (d *Document) decodeList(v reflect.Value, list List) error {
 		}
 		return err
 	}
-	var (
-		err error
-		typ = v.Type().Elem()
-		vs = reflect.MakeSlice(reflect.SliceOf(typ), 0, 10)
-	)
+	if v.Kind() == reflect.Slice && v.Len() == 0 {
+		var (
+			typ = v.Type().Elem()
+			vs = reflect.MakeSlice(reflect.SliceOf(typ), len(list.nodes), len(list.nodes))
+		)
+		v.Set(vs)
+	}
+	if len(list.nodes) > v.Len() {
+		return fmt.Errorf("slice/array too short")
+	}
+	var err error
 	switch {
 	case isOption(list.nodes[0]) == nil:
-		for _, n := range list.nodes {
-			el := reflect.New(typ).Elem()
-			if err = d.decodeOption(el, n.(Option)); err != nil {
+		for i, n := range list.nodes {
+			if err = d.decodeOption(v.Index(i), n.(Option)); err != nil {
 				break
 			}
-			vs = reflect.Append(vs, el)
 		}
 	case isObject(list.nodes[0]) == nil:
-		for _, n := range list.nodes {
-			el := reflect.New(typ).Elem()
-			if err = d.decode(el, n.(*Object)); err != nil {
+		for i, n := range list.nodes {
+			if err = d.decode(v.Index(i), n.(*Object)); err != nil {
 				break
 			}
-			vs = reflect.Append(vs, el)
 		}
 	default:
 		err = fmt.Errorf("%T: can not decode list with node type", list.nodes[0])
 	}
-	v.Set(vs)
 	return nil
 }
 
 func (d *Document) decodeOption(f reflect.Value, opt Option) error {
+	if _, ok := opt.expr.(Array); ok {
+		return d.decodeList(f, opt.asList())
+	}
 	value, err := opt.Eval(d.env)
 	if err != nil {
 		return err
@@ -486,20 +494,16 @@ func (d *Document) decodeOption(f reflect.Value, opt Option) error {
 	var (
 		v = reflect.ValueOf(value)
 		t = v.Type()
-		set bool
 	)
 	if t.AssignableTo(f.Type()) {
 		f.Set(v)
-		set = true
+		return nil
 	}
-	if !set && t.ConvertibleTo(f.Type()) {
+	if t.ConvertibleTo(f.Type()) {
 		f.Set(v.Convert(f.Type()))
-		set = true
+		return nil
 	}
-	if !set {
-		return fmt.Errorf("%s: fail to decode option into %s", opt.name.Input, f.Type())
-	}
-	return nil
+	return fmt.Errorf("%s: fail to decode option into %s", opt.name.Input, f.Type())
 }
 
 func (d *Document) decodeSetter(f reflect.Value, value interface{}) (bool, error) {
