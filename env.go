@@ -37,10 +37,6 @@ func EnclosedEnv(env Environment) *Env {
 	return &e
 }
 
-// func chain(env ...Environment) Environment {
-//
-// }
-
 func (e *Env) Delete(str string) {
 	e.rw.Lock()
 	defer e.rw.Unlock()
@@ -101,6 +97,17 @@ func createEnv(list []*Object, other Environment) Environment {
 
 func (e *env) Define(str string, v Value) {
 	// nothing to do - immutable env
+}
+
+func (e *env) pop() {
+	if len(e.list) == 0 {
+		return
+	}
+	e.list = e.list[:len(e.list)-1]
+}
+
+func (e *env) push(obj *Object) {
+	e.list = append(e.list, obj)
 }
 
 func (e *env) assign(str string, v Value) error {
