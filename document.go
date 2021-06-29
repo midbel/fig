@@ -421,6 +421,11 @@ func decode(v reflect.Value, root *Object, env *env) error {
 		return err
 	case reflect.Map:
 		return decodeMap(v, root, env)
+	case reflect.Slice, reflect.Array:
+		i := List{
+			nodes: []Node{root},
+		}
+		return decodeList(v, i, env)
 	default:
 		return fmt.Errorf("unexpected value type %s - struct/map expected", v.Kind())
 	}
@@ -567,6 +572,12 @@ func decodeList(v reflect.Value, list List, env *env) error {
 func decodeOption(f reflect.Value, opt Option, env *env) error {
 	if _, ok := opt.expr.(Array); ok {
 		return decodeList(f, opt.asList(), env)
+	}
+	if k := f.Kind(); k == reflect.Slice || k == reflect.Array {
+		i := List{
+			nodes: []Node{opt},
+		}
+		return decodeList(f, i, env)
 	}
 	value, err := opt.Eval(env)
 	if err != nil {
