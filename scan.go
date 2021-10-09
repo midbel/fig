@@ -139,608 +139,59 @@ func (s *Scanner) Scan() Token {
 		s.skipBlank()
 		return tok
 	}
-	switch {
-	case isNL(s.char):
-		tok.Type = EOL
-		s.skipNewline()
-	case isLetter(s.char):
-		s.scanIdent(&tok)
-	case isQuote(s.char):
-		s.scanString(&tok)
-	case isDelim(s.char):
-		s.scanDelimiter(&tok)
-	case isDigit(s.char):
-		s.scanNumber(&tok)
-	case isOperator(s.char):
-		s.scanOperator(&tok)
-	case isMacro(s.char):
-		s.scanMacro(&tok)
-	case isVariable(s.char):
-		s.scanVariable(&tok)
-	default:
-		tok.Type = Invalid
-	}
-	if tok.Type == Heredoc {
-		s.scanHeredoc(&tok)
-	}
-	s.skipBlank()
 	return tok
 }
 
 func (s *Scanner) scanHeredoc(tok *Token) {
-	for isUpper(s.char) {
-		s.str.WriteRune(s.char)
-		s.read()
-	}
-	if !isNL(s.char) {
-		tok.Type = Invalid
-		return
-	}
-	var (
-		label = s.str.String()
-		prev  string
-		tmp   bytes.Buffer
-	)
-	s.str.Reset()
-	for !isEOF(s.char) {
-		s.read()
-		s.skipBlank()
-		for !isNL(s.char) && !isEOF(s.char) {
-			tmp.WriteRune(s.char)
-			s.read()
-		}
-		line := tmp.String()
-		if strings.TrimSpace(line) == label {
-			break
-		}
-		tmp.WriteRune(nl)
-		io.Copy(&s.str, &tmp)
-		prev = line
-	}
-	tok.Type = String
-	tok.Interpolate = true
-	tok.Input = strings.TrimSpace(s.str.String())
-	if len(prev) == 0 {
-		tok.Type = Invalid
-	}
-}
-
-func (s *Scanner) scanVariable(tok *Token) {
-	var kind rune
-	switch s.char {
-	case dollar:
-		kind = LocalVar
-	case arobase:
-		kind = EnvVar
-	}
-	s.read()
-	if !isLetter(s.char) {
-		tok.Type = Invalid
-		return
-	}
-	s.scanIdent(tok)
-	tok.Type = kind
-
 }
 
 func (s *Scanner) scanIdent(tok *Token) {
-	for isIdent(s.char) {
-		s.str.WriteRune(s.char)
-		s.read()
-	}
-	tok.Input = s.str.String()
-	switch tok.Input {
-	case kwTrue, kwFalse, kwOn, kwOff, kwYes, kwNo:
-		tok.Type = Boolean
-	case kwInf, kwNan:
-		tok.Type = Float
-	case kwIf:
-		tok.Type = If
-	case kwFor:
-		tok.Type = For
-	case kwWhile:
-		tok.Type = While
-	case kwReturn:
-		tok.Type = Ret
-	case kwLet:
-		tok.Type = Let
-	case kwElse:
-		tok.Type = Else
-	case kwForeach:
-		tok.Type = Foreach
-	case kwBreak:
-		tok.Type = Break
-	case kwContinue:
-		tok.Type = Continue
-	default:
-		tok.Type = Ident
-		if isKeyword(tok.Input) {
-			tok.Type = Keyword
-		}
-	}
 }
 
 func (s *Scanner) scanMacro(tok *Token) {
-	s.read()
-	for isLetter(s.char) || s.char == underscore {
-		s.str.WriteRune(s.char)
-		s.read()
-	}
-	tok.Type = Macro
-	tok.Input = s.str.String()
 }
 
 func (s *Scanner) scanNumber(tok *Token) {
-	var zeros int
-	if s.char == '0' {
-		peek := s.peek()
-		switch peek {
-		case 'x':
-			s.scanHexa(tok)
-		case 'o':
-			s.scanOctal(tok)
-		case 'b':
-			s.scanBin(tok)
-		}
-		if peek == 'x' || peek == 'o' || peek == 'b' {
-			return
-		}
-		s.str.WriteRune(s.char)
-		s.read()
-		for s.char == '0' {
-			s.str.WriteRune(s.char)
-			s.read()
-			zeros++
-		}
-	}
-	for isDigit(s.char) {
-		s.str.WriteRune(s.char)
-		s.read()
-		if s.char == underscore {
-			s.read()
-			if !isDigit(s.char) {
-				tok.Type = Invalid
-				return
-			}
-		}
-	}
-	switch peek := s.peek(); {
-	case (s.char == 'e' || s.char == 'E') && (isDigit(peek) || isSign(peek)):
-		s.scanExponent(tok)
-	case s.char == dot && isDigit(peek):
-		s.scanFraction(tok)
-	case s.char == colon && isDigit(peek):
-		s.scanTime(tok)
-	case s.char == minus && isDigit(peek):
-		s.scanDate(tok)
-	default:
-		tok.Type = Integer
-		tok.Input = s.str.String()
-	}
-	if (tok.Type == Integer || tok.Type == Float) && zeros > 0 {
-		tok.Type = Invalid
-	}
 }
 
 func (s *Scanner) scanFraction(tok *Token) {
-	s.read()
-	s.str.WriteRune(dot)
-	for isDigit(s.char) {
-		s.str.WriteRune(s.char)
-		s.read()
-		if s.char == underscore {
-			s.read()
-			if !isDigit(s.char) {
-				tok.Type = Invalid
-			}
-		}
-	}
-	tok.Type = Float
-	tok.Input = s.str.String()
-	if s.char == 'e' || s.char == 'E' {
-		s.scanExponent(tok)
-	}
 }
 
 func (s *Scanner) scanExponent(tok *Token) {
-	s.str.WriteRune(s.char)
-	s.read()
-	if isSign(s.char) {
-		s.str.WriteRune(s.char)
-		s.read()
-	}
-	for isDigit(s.char) {
-		s.str.WriteRune(s.char)
-		s.read()
-		if s.char == underscore {
-			s.read()
-			if !isDigit(s.char) {
-				tok.Type = Invalid
-				return
-			}
-		}
-	}
-	tok.Type = Float
-	tok.Input = s.str.String()
 }
 
 func (s *Scanner) scanDate(tok *Token) {
-	scan := func() bool {
-		for i := 0; i < 2; i++ {
-			if !isDigit(s.char) {
-				return false
-			}
-			s.str.WriteRune(s.char)
-			s.read()
-		}
-		return true
-	}
-	s.str.WriteRune(s.char)
-	s.read()
-	for i := 0; i < 2; i++ {
-		if !scan() || (i == 0 && s.char != minus) {
-			tok.Type = Invalid
-			tok.Input = s.str.String()
-			return
-		}
-		if i == 0 {
-			s.str.WriteRune(s.char)
-			s.read()
-		}
-	}
-	tok.Type = Date
-	tok.Input = s.str.String()
-	if s.char == 'T' || s.char == space {
-		s.scanTime(tok)
-		if tok.Type != Time {
-			tok.Input = s.str.String()
-			return
-		}
-		s.scanTimeOffset(tok)
-		if tok.Type == Invalid {
-			return
-		}
-		tok.Type = DateTime
-		tok.Input = s.str.String()
-	}
 }
 
 func (s *Scanner) scanTimeOffset(tok *Token) {
-	if s.char == 'Z' {
-		s.str.WriteRune(s.char)
-		s.read()
-		return
-	}
-	if !isSign(s.char) {
-		return
-	}
-	scan := func() bool {
-		for i := 0; i < 2; i++ {
-			if !isDigit(s.char) {
-				return false
-			}
-			s.str.WriteRune(s.char)
-			s.read()
-		}
-		return true
-	}
-	s.str.WriteRune(s.char)
-	s.read()
-	for i := 0; i < 2; i++ {
-		if !scan() || (i == 0 && s.char != colon) {
-			tok.Type = Invalid
-			tok.Input = s.str.String()
-			return
-		}
-		if i == 0 {
-			s.str.WriteRune(s.char)
-			s.read()
-		}
-	}
 }
 
 func (s *Scanner) scanTime(tok *Token) {
-	scan := func() bool {
-		for i := 0; i < 2; i++ {
-			if !isDigit(s.char) {
-				return false
-			}
-			s.str.WriteRune(s.char)
-			s.read()
-		}
-		return true
-	}
-	count := 2
-	if s.char == 'T' || s.char == ' ' {
-		count++
-	}
-	s.str.WriteRune(s.char)
-	s.read()
-	for i := 0; i < count; i++ {
-		if !scan() && i < count-1 && s.char != colon {
-			tok.Type = Invalid
-			tok.Input = s.str.String()
-			return
-		}
-		if i < count-1 {
-			s.str.WriteRune(s.char)
-			s.read()
-		}
-	}
-	if s.char == dot {
-		s.str.WriteRune(s.char)
-		s.read()
-		for i := 0; isDigit(s.char) && i < 9; i++ {
-			s.str.WriteRune(s.char)
-			s.read()
-		}
-	}
-	tok.Type = Time
-	tok.Input = s.str.String()
 }
 
 func (s *Scanner) scanHexa(tok *Token) {
-	s.read()
-	s.read()
-	s.str.WriteRune('0')
-	s.str.WriteRune('x')
-	tok.Type = Integer
-	tok.Input = s.scanIntegerWithBase(isHex)
-	if tok.Input == "" {
-		tok.Type = Invalid
-	}
 }
 
 func (s *Scanner) scanOctal(tok *Token) {
-	s.read()
-	s.read()
-	s.str.WriteRune('0')
-	s.str.WriteRune('o')
-	tok.Type = Integer
-	tok.Input = s.scanIntegerWithBase(isOctal)
-	if tok.Input == "" {
-		tok.Type = Invalid
-	}
 }
 
 func (s *Scanner) scanBin(tok *Token) {
-	s.read()
-	s.read()
-	s.str.WriteRune('0')
-	s.str.WriteRune('b')
-	tok.Type = Integer
-	tok.Input = s.scanIntegerWithBase(isBin)
-	if tok.Input == "" {
-		tok.Type = Invalid
-	}
 }
 
 func (s *Scanner) scanIntegerWithBase(accept func(b rune) bool) string {
-	for accept(s.char) {
-		s.str.WriteRune(s.char)
-		s.read()
-		if s.char == underscore {
-			s.read()
-			if !accept(s.char) {
-				return ""
-			}
-		}
-	}
-	return s.str.String()
+	return ""
 }
 
 func (s *Scanner) scanString(tok *Token) {
-	quote := s.char
-	s.read()
-	for s.char != quote {
-		if quote == dquote && s.char == backslash {
-			s.read()
-			s.char = escapes[s.char]
-		}
-		s.str.WriteRune(s.char)
-		s.read()
-	}
-	tok.Type = String
-	tok.Interpolate = quote == dquote
-	tok.Input = s.str.String()
-	s.read()
-}
-
-func (s *Scanner) scanOperator(tok *Token) {
-	prev := s.prev()
-	switch s.char {
-	case colon:
-		tok.Type = Assign
-	case equal:
-		tok.Type = Assign
-		if peek := s.peek(); peek == equal {
-			tok.Type = Equal
-			s.read()
-		}
-	case bang:
-		tok.Type = Not
-		if peek := s.peek(); peek == equal {
-			tok.Type = NotEqual
-			s.read()
-		}
-	case plus:
-		tok.Type = Add
-		if peek := s.peek(); peek == plus {
-			tok.Type = Increment
-			s.read()
-		} else if peek == equal {
-			tok.Type = AddAssign
-			s.read()
-		}
-	case minus:
-		tok.Type = Sub
-		if peek := s.peek(); peek == minus {
-			tok.Type = Decrement
-			s.read()
-		} else if peek == equal {
-			tok.Type = SubAssign
-			s.read()
-		}
-	case slash:
-		tok.Type = Div
-		if peek := s.peek(); peek == equal {
-			tok.Type = DivAssign
-			s.read()
-		}
-	case question:
-		tok.Type = Question
-	case star:
-		tok.Type = Mul
-		if peek := s.peek(); peek == star {
-			tok.Type = Pow
-			s.read()
-		} else if peek == equal {
-			tok.Type = MulAssign
-			s.read()
-		}
-	case percent:
-		tok.Type = Mod
-		if peek := s.peek(); peek == equal {
-			tok.Type = ModAssign
-			s.read()
-		}
-	case langle:
-		tok.Type = Lt
-		if peek := s.peek(); peek == equal {
-			tok.Type = Le
-			s.read()
-		} else if peek == langle {
-			tok.Type = Lshift
-			s.read()
-			if peek := s.peek(); isUpper(peek) {
-				tok.Type = Heredoc
-			} else if peek == equal {
-				tok.Type = LshiftAssign
-				s.read()
-			}
-		}
-	case rangle:
-		tok.Type = Gt
-		if peek := s.peek(); peek == equal {
-			tok.Type = Ge
-			s.read()
-		} else if peek == rangle {
-			tok.Type = Rshift
-			s.read()
-			if peek := s.peek(); peek == equal {
-				tok.Type = RshiftAssign
-				s.read()
-			}
-		}
-	case lparen:
-		tok.Type = BegGrp
-	case rparen:
-		tok.Type = EndGrp
-	case ampersand:
-		tok.Type = Band
-		if peek := s.peek(); peek == ampersand {
-			tok.Type = And
-			s.read()
-		} else if peek == equal {
-			tok.Type = BandAssign
-			s.read()
-		}
-	case pipe:
-		tok.Type = Bor
-		if peek := s.peek(); peek == pipe {
-			tok.Type = Or
-			s.read()
-		} else if peek == equal {
-			tok.Type = BorAssign
-			s.read()
-		}
-	case tilde:
-		tok.Type = Bnot
-	}
-	if !isGroup(s.char) && tok.Type != Assign && tok.Type != Heredoc {
-		var (
-			next   = s.peek()
-			before = isGroup(prev) || isBlank(prev)
-			after  = isGroup(next) || isBlank(next)
-		)
-		if !before && !after {
-			tok.Type = Invalid
-		}
-	}
-	s.read()
 }
 
 func (s *Scanner) scanDelimiter(tok *Token) {
-	var kind rune
-	switch s.char {
-	case lsquare:
-		kind = BegArr
-	case rsquare:
-		kind = EndArr
-	case lcurly:
-		kind = BegObj
-	case rcurly:
-		kind = EndObj
-	case comma:
-		kind = Comma
-	case semicolon:
-		kind = Semicolon
-	default:
-	}
-	tok.Type = kind
-	s.read()
-	s.skipBlank()
-	if tok.Type != EndArr {
-		s.skipNewline()
-	}
 }
 
 func (s *Scanner) scanComment(tok *Token, long bool) {
-	if long {
-		s.scanCommentMultiline(tok)
-		return
-	}
-	s.read()
-	if isBlank(s.char) {
-		s.skipBlank()
-	}
-
-	for !isNL(s.char) && !isEOF(s.char) {
-		s.str.WriteRune(s.char)
-		s.read()
-	}
-	s.skipNewline()
-	tok.Type = Comment
-	tok.Input = s.str.String()
 }
 
 func (s *Scanner) scanCommentMultiline(tok *Token) {
-	s.read()
-	s.read()
-	if isBlank(s.char) {
-		s.skipBlank()
-	}
-	nested := 1
-	for !isEOF(s.char) {
-		if peek := s.peek(); s.char == star && peek == slash {
-			nested--
-			if nested == 0 {
-				s.read()
-				s.read()
-				break
-			}
-		} else if s.char == slash && peek == star {
-			nested++
-		}
-		s.str.WriteRune(s.char)
-		s.read()
-	}
-	tok.Type = Comment
-	tok.Input = strings.TrimSpace(s.str.String())
-	if isEOF(s.char) && nested > 0 {
-		tok.Type = Invalid
-	}
-	s.skipNewline()
 }
 
 func (s *Scanner) peek() rune {
@@ -777,26 +228,11 @@ func (s *Scanner) read() {
 	}
 }
 
-// func (s *Scanner) unread() {
-// 	if s.next <= 0 || s.char == zero {
-// 		return
-// 	}
-// 	if s.char == nl {
-// 		s.line--
-// 		s.column = s.seen
-// 	} else {
-// 		s.column--
-// 	}
-// 	s.next = s.curr
-// 	s.curr -= utf8.RuneLen(s.char)
-// 	s.char, _ = utf8.DecodeRune(s.input[s.curr:])
-// }
-
 func (s *Scanner) skipBlank() {
 	s.skip(isBlank)
 }
 
-func (s *Scanner) skipNewline() {
+func (s *Scanner) skipNL() {
 	s.skip(isNL)
 }
 
@@ -811,7 +247,7 @@ func (s *Scanner) reset() {
 }
 
 func isNL(b rune) bool {
-	return b == nl
+	return b == nl || b == cr
 }
 
 func isEOF(b rune) bool {
@@ -868,19 +304,4 @@ func isOctal(b rune) bool {
 
 func isMacro(b rune) bool {
 	return b == dot
-}
-
-func isOperator(b rune) bool {
-	return isSign(b) || b == tilde || b == pipe || b == ampersand ||
-		b == colon || b == equal || b == bang || b == slash || b == question ||
-		b == star || b == percent || b == langle || b == rangle ||
-		isGroup(b)
-}
-
-func isVariable(b rune) bool {
-	return b == dollar || b == arobase
-}
-
-func isGroup(b rune) bool {
-	return b == rparen || b == lparen
 }

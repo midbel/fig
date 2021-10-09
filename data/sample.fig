@@ -1,5 +1,5 @@
 # a comment
-key = value
+key      = value
 boolean  = true
 boolean  = false
 nullable = null
@@ -51,42 +51,6 @@ section datetimes {
 	datetime = 2021-04-10T10:15:54+02:00
 	datetime = 2021-04-10T10:15:54-07:00
 	datetime = 2021-04-10T10:15:54.456789
-}
-
-section compare {
-	eq  = 1 == 1
-	ne  = 1 != 1
-	gt  = 1 > 1
-	lt  = 1 < 1
-	ge  = 1 >= 1
-	le  = 1 <= 1
-	not = !(1 >= 1)
-}
-
-section variables {
-	local = $local
-	env   = @env
-}
-
-section relations {
-	and = true && false
-	or  = true || false
-}
-
-section arithmetic {
-	binand = 1 & 1
-	binor  = 1 | 1
-	binnot = ~1
-	grp    = 1 + (1 * 2) / ((1 + 2) / 2)
-	mod    = 1 % 1
-	div    = 1 / 1
-	mul    = 1 * 1
-	add    = 1 + 1
-	lshift = 1 << 2
-	rshift = 1 >> 2
-	min    = -1
-	sub    = 1 - 1
-  pow    = 1 ** 2
 }
 
 heredoc = <<STR
