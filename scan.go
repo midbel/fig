@@ -3,54 +3,9 @@ package fig
 import (
 	"bytes"
 	"io"
-	"sort"
 	"strings"
 	"unicode/utf8"
-	// "fmt"
 )
-
-const (
-	kwTrue     = "true"
-	kwFalse    = "false"
-	kwOn       = "on"
-	kwOff      = "off"
-	kwYes      = "yes"
-	kwNo       = "no"
-	kwInf      = "inf"
-	kwNan      = "nan"
-	kwIf       = "if"
-	kwElse     = "else"
-	kwFor      = "for"
-	kwWhile    = "while"
-	kwLet      = "let"
-	kwReturn   = "return"
-	kwForeach  = "foreach"
-	kwIn       = "in"
-	kwBreak    = "break"
-	kwContinue = "continue"
-)
-
-var keywords = []string{
-	kwIf,
-	kwElse,
-	kwFor,
-	kwWhile,
-	kwLet,
-	kwReturn,
-	kwForeach,
-	kwIn,
-	kwBreak,
-	kwContinue,
-}
-
-func init() {
-	sort.Strings(keywords)
-}
-
-func isKeyword(str string) bool {
-	i := sort.SearchStrings(keywords, str)
-	return i < len(keywords) && keywords[i] == str
-}
 
 const (
 	zero       = 0
@@ -236,7 +191,7 @@ func (s *Scanner) scanIdent(tok *Token) {
 	tok.Literal = s.str.String()
 	tok.Type = Ident
 	switch tok.Literal {
-	case "true", "false":
+	case "true", "false", "yes", "no", "on", "off":
 		tok.Type = Boolean
 	case "null":
 	default:
