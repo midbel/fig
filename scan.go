@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"sort"
+	"strings"
 	"unicode/utf8"
 	// "fmt"
 )
@@ -145,6 +146,8 @@ func (s *Scanner) Scan() Token {
 	switch {
 	case isLetter(s.char):
 		s.scanIdent(&tok)
+	case isVariable(s.char):
+		s.scanVariable(&tok)
 	case isDigit(s.char):
 		s.scanNumber(&tok)
 	case isQuote(s.char):
@@ -168,6 +171,61 @@ func (s *Scanner) Scan() Token {
 }
 
 func (s *Scanner) scanHeredoc(tok *Token) {
+	s.read()
+	s.read()
+	if !isUpper(s.char) {
+		tok.Type = Invalid
+		return
+	}
+	var (
+		tmp bytes.Buffer
+		pfx string
+	)
+	for isUpper(s.char) {
+		s.str.WriteRune(s.char)
+		s.read()
+	}
+	pfx = s.str.String()
+	s.str.Reset()
+	if !isNL(s.char) {
+		tok.Type = Invalid
+		return
+	}
+	s.skipNL()
+	for !s.isDone() {
+		for !isNL(s.char) && !s.isDone() {
+			tmp.WriteRune(s.char)
+			s.read()
+		}
+		if tmp.String() == pfx {
+			break
+		}
+		for isNL(s.char) {
+			tmp.WriteRune(s.char)
+			s.read()
+		}
+		io.Copy(&s.str, &tmp)
+		tmp.Reset()
+	}
+	tok.Type = Heredoc
+	tok.Literal = strings.TrimSpace(s.str.String())
+}
+
+func (s *Scanner) scanVariable(tok *Token) {
+	tok.Type = LocalVar
+	if s.char == arobase {
+		tok.Type = EnvVar
+	}
+	s.read()
+	if !isLetter(s.char) {
+		tok.Type = Invalid
+		return
+	}
+	for isIdent(s.char) {
+		s.str.WriteRune(s.char)
+		s.read()
+	}
+	tok.Literal = s.str.String()
 }
 
 func (s *Scanner) scanIdent(tok *Token) {
@@ -490,4 +548,8 @@ func isOctal(b rune) bool {
 
 func isMacro(b rune) bool {
 	return b == dot
+}
+
+func isVariable(b rune) bool {
+	return b == dollar || b == arobase
 }

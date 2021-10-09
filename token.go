@@ -25,6 +25,8 @@ const (
 	Date
 	DateTime
 	Time
+	LocalVar
+	EnvVar
 	Boolean
 	BegArr
 	EndArr
@@ -61,6 +63,8 @@ var types = map[rune]string{
 	Assign:    "assignment",
 	Semicolon: "semicolon",
 	Invalid:   "invalid",
+	LocalVar:  "local-var",
+	EnvVar:    "env-var",
 }
 
 type Token struct {

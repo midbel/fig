@@ -24,3 +24,12 @@ object {
 }
 
 .include(priority=5)
+
+local-var = $var
+env-var   = @var
+
+heredoc = <<STR
+the quick brown fox
+jumps over
+the lazy dog
+STR
