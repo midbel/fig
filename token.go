@@ -15,7 +15,6 @@ func (p Position) String() string {
 
 const (
 	EOF rune = -(iota + 1)
-	Keyword
 	Ident
 	Comment
 	Macro
@@ -31,34 +30,41 @@ const (
 	EndArr
 	BegObj
 	EndObj
+	BegGrp
+	EndGrp
 	Comma
+	Assign
 	Semicolon
+	Invalid
 )
 
 var types = map[rune]string{
-	EOF:          "eof",
-	Keyword:      "keyword",
-	Ident:        "ident",
-	Comment:      "comment",
-	Macro:        "macro",
-	Heredoc:      "heredoc",
-	String:       "string",
-	Integer:      "integer",
-	Float:        "float",
-	Date:         "date",
-	DateTime:     "datetime",
-	Time:         "time",
-	Boolean:      "boolean",
-	BegArr:       "beg-arr",
-	EndArr:       "end-arr",
-	BegObj:       "beg-obj",
-	EndObj:       "end-obj",
-	Comma:        "comma",
-	Semicolon:    "semicolon",
+	EOF:       "eof",
+	Ident:     "ident",
+	Comment:   "comment",
+	Macro:     "macro",
+	Heredoc:   "heredoc",
+	String:    "string",
+	Integer:   "integer",
+	Float:     "float",
+	Date:      "date",
+	DateTime:  "datetime",
+	Time:      "time",
+	Boolean:   "boolean",
+	BegArr:    "beg-arr",
+	EndArr:    "end-arr",
+	BegObj:    "beg-obj",
+	EndObj:    "end-obj",
+	BegGrp:    "beg-grp",
+	EndGrp:    "end-grp",
+	Comma:     "comma",
+	Assign:    "assignment",
+	Semicolon: "semicolon",
+	Invalid:   "invalid",
 }
 
 type Token struct {
-	Input       string
+	Literal     string
 	Type        rune
 	Interpolate bool
 	Position
@@ -66,13 +72,13 @@ type Token struct {
 
 func makeToken(str string, kind rune) Token {
 	return Token{
-		Input: str,
-		Type:  kind,
+		Literal: str,
+		Type:    kind,
 	}
 }
 
 func (t Token) Equal(other Token) bool {
-	return t.Input == other.Input && t.Type == other.Type
+	return t.Literal == other.Literal && t.Type == other.Type
 }
 
 func (t Token) IsComment() bool {
@@ -93,7 +99,7 @@ func (t Token) IsLiteral() bool {
 }
 
 func (t Token) isZero() bool {
-	return t.Input == "" && t.Type == 0
+	return t.Literal == "" && t.Type == 0
 }
 
 func (t Token) String() string {
@@ -101,8 +107,8 @@ func (t Token) String() string {
 	if !ok {
 		return "<unknown>"
 	}
-	if t.Input == "" {
+	if t.Literal == "" {
 		return fmt.Sprintf("<%s>", prefix)
 	}
-	return fmt.Sprintf("<%s(%s)>", prefix, t.Input)
+	return fmt.Sprintf("<%s(%s)>", prefix, t.Literal)
 }

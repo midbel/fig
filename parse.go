@@ -32,7 +32,7 @@ func NewParser(r io.Reader) (*Parser, error) {
 	return &p, nil
 }
 
-func Parse(r io.Reader) (error) {
+func Parse(r io.Reader) error {
 	p, err := NewParser(r)
 	if err != nil {
 		return err
@@ -40,7 +40,7 @@ func Parse(r io.Reader) (error) {
 	return p.Parse()
 }
 
-func (p *Parser) Parse() (error) {
+func (p *Parser) Parse() error {
 	return nil
 }
 

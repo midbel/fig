@@ -1,0 +1,26 @@
+# a comment
+key      = value
+boolean  = true
+boolean  = false
+nullable = null
+single-quote = 'single quote'
+double-quote = "double quote"
+
+integer1 = 100
+integer2 = 100_000
+
+hexa   = 0xdead_beef
+octal  = 0o123_456_7
+binary = 0b1111_0001
+
+float1 = 100.100_11
+float2 = 100.111e111
+float3 = 100.e111
+
+array = [1, 2, 'hello', true]
+object {
+  int: 100
+  str: 'string'
+}
+
+.include(priority=5)

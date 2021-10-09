@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/midbel/fig"
@@ -30,7 +29,7 @@ func main() {
 	} else if *parse {
 		err = parseFile(r)
 	} else {
-		err = queryFile(r, flag.Args())
+		// err = queryFile(r, flag.Args())
 	}
 	fmt.Println("elapsed:", time.Since(now))
 	if err != nil {
@@ -39,22 +38,22 @@ func main() {
 	}
 }
 
-func queryFile(r io.Reader, key []string) error {
-	doc, err := fig.ParseDocument(r)
-	if err != nil {
-		return err
-	}
-	for _, k := range key[1:] {
-		ks := strings.Split(k, "/")
-		str, err := doc.Value(ks...)
-		if err != nil {
-			return fmt.Errorf("%s: %s", k, err)
-		}
-		fmt.Printf("%s: %v", k, str)
-		fmt.Println()
-	}
-	return nil
-}
+// func queryFile(r io.Reader, key []string) error {
+// 	doc, err := fig.ParseDocument(r)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	for _, k := range key[1:] {
+// 		ks := strings.Split(k, "/")
+// 		str, err := doc.Value(ks...)
+// 		if err != nil {
+// 			return fmt.Errorf("%s: %s", k, err)
+// 		}
+// 		fmt.Printf("%s: %v", k, str)
+// 		fmt.Println()
+// 	}
+// 	return nil
+// }
 
 func scanFile(r io.Reader) error {
 	s, err := fig.Scan(r)
@@ -75,6 +74,5 @@ func scanFile(r io.Reader) error {
 }
 
 func parseFile(r io.Reader) error {
-	_, err := fig.Parse(r)
-	return err
+	return fig.Parse(r)
 }

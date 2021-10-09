@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"io"
 	"sort"
-	"strings"
 	"unicode/utf8"
+	// "fmt"
 )
 
 const (
@@ -125,6 +125,7 @@ func Scan(r io.Reader) (*Scanner, error) {
 
 func (s *Scanner) Scan() Token {
 	s.reset()
+	s.skipBlank()
 	var tok Token
 	tok.Position = Position{
 		Line: s.line,
@@ -136,8 +137,32 @@ func (s *Scanner) Scan() Token {
 	}
 	if k := s.peek(); s.char == pound || s.char == slash && k == star {
 		s.scanComment(&tok, s.char == slash && k == star)
-		s.skipBlank()
 		return tok
+	} else if s.char == langle && k == s.char {
+		s.scanHeredoc(&tok)
+		return tok
+	}
+	switch {
+	case isLetter(s.char):
+		s.scanIdent(&tok)
+	case isDigit(s.char):
+		s.scanNumber(&tok)
+	case isQuote(s.char):
+		s.scanString(&tok)
+	case isDelim(s.char):
+		s.scanDelimiter(&tok)
+	case isMacro(s.char):
+		tok.Type = Macro
+		s.read()
+	case isAssign(s.char):
+		tok.Type = Assign
+		s.read()
+		s.skipBlank()
+	case isNL(s.char):
+		tok.Type = Semicolon
+		s.skipNL()
+	default:
+		tok.Type = Invalid
 	}
 	return tok
 }
@@ -146,18 +171,175 @@ func (s *Scanner) scanHeredoc(tok *Token) {
 }
 
 func (s *Scanner) scanIdent(tok *Token) {
+	for isIdent(s.char) {
+		s.str.WriteRune(s.char)
+		s.read()
+	}
+	tok.Literal = s.str.String()
+	tok.Type = Ident
+	switch tok.Literal {
+	case "true", "false":
+		tok.Type = Boolean
+	case "null":
+	default:
+	}
 }
 
 func (s *Scanner) scanMacro(tok *Token) {
 }
 
+func (s *Scanner) scanString(tok *Token) {
+	quote := s.char
+	s.read()
+	for !s.isDone() {
+		s.str.WriteRune(s.char)
+		s.read()
+		if s.char == quote {
+			s.read()
+			break
+		}
+	}
+	tok.Literal = s.str.String()
+	tok.Type = String
+	if s.isDone() {
+		tok.Type = Invalid
+	}
+}
+
 func (s *Scanner) scanNumber(tok *Token) {
+	if s.char == '0' {
+		var ok bool
+		switch k := s.peek(); k {
+		case 'x':
+			s.scanHexa(tok)
+		case 'o':
+			s.scanOctal(tok)
+		case 'b':
+			s.scanBin(tok)
+		default:
+			ok = true
+		}
+		if !ok {
+			return
+		}
+	}
+	tok.Type = Integer
+	if ok := s.scanDigit(isDigit); !ok {
+		tok.Type = Invalid
+	}
+	tok.Literal = s.str.String()
+	if tok.Type == Invalid {
+		return
+	}
+	switch s.char {
+	case dot:
+		s.scanFraction(tok)
+	case colon:
+	case minus:
+	case 'e', 'E':
+		s.scanExponent(tok)
+	default:
+	}
 }
 
 func (s *Scanner) scanFraction(tok *Token) {
+	s.str.WriteRune(s.char)
+	s.read()
+	tok.Type = Float
+	if ok := s.scanDigit(isDigit); !ok {
+		tok.Type = Invalid
+	}
+	tok.Literal = s.str.String()
+	if tok.Type == Invalid {
+		return
+	}
+	if s.char == 'e' || s.char == 'E' {
+		s.scanExponent(tok)
+	}
+	tok.Literal = s.str.String()
 }
 
 func (s *Scanner) scanExponent(tok *Token) {
+	s.str.WriteRune(s.char)
+	s.read()
+	tok.Type = Float
+	if ok := s.scanDigit(isDigit); !ok {
+		tok.Type = Invalid
+	}
+	tok.Literal = s.str.String()
+}
+
+func (s *Scanner) scanHexa(tok *Token) {
+	s.read()
+	s.read()
+	s.str.WriteRune('0')
+	s.str.WriteRune('x')
+	tok.Type = Integer
+	if ok := s.scanDigit(isHex); !ok {
+		tok.Type = Invalid
+	}
+	tok.Literal = s.str.String()
+}
+
+func (s *Scanner) scanOctal(tok *Token) {
+	s.read()
+	s.read()
+	s.str.WriteRune('0')
+	s.str.WriteRune('o')
+	tok.Type = Integer
+	if ok := s.scanDigit(isOctal); !ok {
+		tok.Type = Invalid
+	}
+	tok.Literal = s.str.String()
+}
+
+func (s *Scanner) scanBin(tok *Token) {
+	s.read()
+	s.read()
+	s.str.WriteRune('0')
+	s.str.WriteRune('b')
+
+	tok.Type = Integer
+	if ok := s.scanDigit(isBin); !ok {
+		tok.Type = Invalid
+	}
+	tok.Literal = s.str.String()
+}
+
+func (s *Scanner) scanDigit(accept func(rune) bool) bool {
+	for accept(s.char) {
+		s.str.WriteRune(s.char)
+		s.read()
+		if s.char == underscore {
+			s.read()
+			if !accept(s.char) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (s *Scanner) scanDelimiter(tok *Token) {
+	switch s.char {
+	case lsquare:
+		tok.Type = BegArr
+	case rsquare:
+		tok.Type = EndArr
+	case lcurly:
+		tok.Type = BegObj
+	case rcurly:
+		tok.Type = EndObj
+	case lparen:
+		tok.Type = BegGrp
+	case rparen:
+		tok.Type = EndGrp
+	case comma:
+		tok.Type = Comma
+	case semicolon:
+		tok.Type = Semicolon
+	}
+	s.read()
 }
 
 func (s *Scanner) scanDate(tok *Token) {
@@ -169,29 +351,26 @@ func (s *Scanner) scanTimeOffset(tok *Token) {
 func (s *Scanner) scanTime(tok *Token) {
 }
 
-func (s *Scanner) scanHexa(tok *Token) {
-}
-
-func (s *Scanner) scanOctal(tok *Token) {
-}
-
-func (s *Scanner) scanBin(tok *Token) {
-}
-
-func (s *Scanner) scanIntegerWithBase(accept func(b rune) bool) string {
-	return ""
-}
-
-func (s *Scanner) scanString(tok *Token) {
-}
-
-func (s *Scanner) scanDelimiter(tok *Token) {
-}
-
-func (s *Scanner) scanComment(tok *Token, long bool) {
+func (s *Scanner) scanComment(tok *Token, multi bool) {
+	if multi {
+		s.scanCommentMultiline(tok)
+	}
+	s.read()
+	s.skipBlank()
+	for !isNL(s.char) {
+		s.str.WriteRune(s.char)
+		s.read()
+	}
+	s.skipNL()
+	tok.Literal = s.str.String()
+	tok.Type = Comment
 }
 
 func (s *Scanner) scanCommentMultiline(tok *Token) {
+}
+
+func (s *Scanner) isDone() bool {
+	return s.char == zero || s.char == utf8.RuneError
 }
 
 func (s *Scanner) peek() rune {
@@ -287,7 +466,14 @@ func isUpper(b rune) bool {
 }
 
 func isDelim(b rune) bool {
-	return b == lsquare || b == rsquare || b == lcurly || b == rcurly || b == comma || b == semicolon
+	return b == lsquare || b == rsquare ||
+		b == lcurly || b == rcurly ||
+		b == lparen || b == rparen ||
+		b == comma || b == semicolon
+}
+
+func isAssign(b rune) bool {
+	return b == colon || b == equal
 }
 
 func isHex(b rune) bool {
