@@ -283,6 +283,10 @@ func (s *Scanner) scanFraction(tok *Token) {
 func (s *Scanner) scanExponent(tok *Token) {
 	s.str.WriteRune(s.char)
 	s.read()
+	if isSign(s.char) {
+		s.str.WriteRune(s.char)
+		s.read()
+	}
 	tok.Type = Float
 	if ok := s.scanDigit(isDigit); !ok {
 		tok.Type = Invalid
