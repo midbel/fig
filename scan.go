@@ -103,7 +103,7 @@ func (s *Scanner) Scan() Token {
 		s.scanIdent(&tok)
 	case isVariable(s.char):
 		s.scanVariable(&tok)
-	case isDigit(s.char):
+	case isDigit(s.char) || isSign(s.char):
 		s.scanNumber(&tok)
 	case isQuote(s.char):
 		s.scanString(&tok)
@@ -220,6 +220,7 @@ func (s *Scanner) scanString(tok *Token) {
 }
 
 func (s *Scanner) scanNumber(tok *Token) {
+	signed := isSign(s.char)
 	if s.char == '0' {
 		var ok bool
 		switch k := s.peek(); k {
@@ -232,9 +233,16 @@ func (s *Scanner) scanNumber(tok *Token) {
 		default:
 			ok = true
 		}
+		if signed {
+			tok.Type = Invalid
+		}
 		if !ok {
 			return
 		}
+	}
+	if signed {
+		s.str.WriteRune(s.char)
+		s.read()
 	}
 	tok.Type = Integer
 	if ok := s.scanDigit(isDigit); !ok {
