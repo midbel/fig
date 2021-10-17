@@ -332,6 +332,9 @@ func (s *Scanner) scanBin(tok *Token) {
 }
 
 func (s *Scanner) scanDigit(accept func(rune) bool) bool {
+	if !accept(s.char) {
+		return false
+	}
 	for accept(s.char) {
 		s.str.WriteRune(s.char)
 		s.read()
