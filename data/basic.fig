@@ -1,5 +1,5 @@
 # option comment
-key      = value
+key      = value;
 boolean  = true
 boolean  = false
 nullable = null

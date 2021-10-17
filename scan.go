@@ -354,7 +354,7 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 	}
 	s.read()
 	switch tok.Type {
-	case Comma, BegArr, BegObj:
+	case Comma, EOL, BegArr, BegObj:
 		s.skipBlank()
 		s.skipNL()
 	default:
