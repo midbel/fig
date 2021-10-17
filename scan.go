@@ -117,7 +117,7 @@ func (s *Scanner) Scan() Token {
 		s.read()
 		s.skipBlank()
 	case isNL(s.char):
-		tok.Type = Semicolon
+		tok.Type = EOL
 		s.skipNL()
 	default:
 		tok.Type = Invalid
@@ -350,9 +350,15 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 	case comma:
 		tok.Type = Comma
 	case semicolon:
-		tok.Type = Semicolon
+		tok.Type = EOL
 	}
 	s.read()
+	switch tok.Type {
+	case Comma, BegArr, BegObj:
+		s.skipBlank()
+		s.skipNL()
+	default:
+	}
 }
 
 func (s *Scanner) scanDate(tok *Token) {

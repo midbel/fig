@@ -36,35 +36,35 @@ const (
 	EndGrp
 	Comma
 	Assign
-	Semicolon
+	EOL
 	Invalid
 )
 
 var types = map[rune]string{
-	EOF:       "eof",
-	Ident:     "ident",
-	Comment:   "comment",
-	Macro:     "macro",
-	Heredoc:   "heredoc",
-	String:    "string",
-	Integer:   "integer",
-	Float:     "float",
-	Date:      "date",
-	DateTime:  "datetime",
-	Time:      "time",
-	Boolean:   "boolean",
-	BegArr:    "beg-arr",
-	EndArr:    "end-arr",
-	BegObj:    "beg-obj",
-	EndObj:    "end-obj",
-	BegGrp:    "beg-grp",
-	EndGrp:    "end-grp",
-	Comma:     "comma",
-	Assign:    "assignment",
-	Semicolon: "semicolon",
-	Invalid:   "invalid",
-	LocalVar:  "local-var",
-	EnvVar:    "env-var",
+	EOF:      "eof",
+	Ident:    "ident",
+	Comment:  "comment",
+	Macro:    "macro",
+	Heredoc:  "heredoc",
+	String:   "string",
+	Integer:  "integer",
+	Float:    "float",
+	Date:     "date",
+	DateTime: "datetime",
+	Time:     "time",
+	Boolean:  "boolean",
+	BegArr:   "beg-arr",
+	EndArr:   "end-arr",
+	BegObj:   "beg-obj",
+	EndObj:   "end-obj",
+	BegGrp:   "beg-grp",
+	EndGrp:   "end-grp",
+	Comma:    "comma",
+	Assign:   "assignment",
+	EOL:      "eol",
+	Invalid:  "invalid",
+	LocalVar: "local-var",
+	EnvVar:   "env-var",
 }
 
 type Token struct {
@@ -85,21 +85,29 @@ func (t Token) Equal(other Token) bool {
 	return t.Literal == other.Literal && t.Type == other.Type
 }
 
-func (t Token) IsComment() bool {
+func (t Token) isComment() bool {
 	return t.Type == Comment
 }
 
-func (t Token) IsIdent() bool {
+func (t Token) isIdent() bool {
 	return t.Type == Ident || t.Type == String || t.Type == Integer
 }
 
-func (t Token) IsLiteral() bool {
+func (t Token) isLiteral() bool {
 	switch t.Type {
-	case Integer, Float, String, Date, Time, DateTime, Boolean, Heredoc:
+	case Integer, Float, String, Date, Time, DateTime, Boolean, Heredoc, Ident:
 		return true
 	default:
 		return false
 	}
+}
+
+func (t Token) isVariable() bool {
+	return t.Type == LocalVar || t.Type == EnvVar
+}
+
+func (t Token) isEOL() bool {
+	return t.Type == EOL
 }
 
 func (t Token) isZero() bool {

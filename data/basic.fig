@@ -1,9 +1,9 @@
-# a comment
+# option comment
 key      = value
 boolean  = true
 boolean  = false
 nullable = null
-single-quote = 'single quote'
+single-quote = 'single quote' # value comment
 double-quote = "double quote"
 
 integer1 = 100
@@ -17,13 +17,25 @@ float1 = 100.100_11
 float2 = 100.111e111
 float3 = 100.e111
 
-array = [1, 2, 'hello', true]
-object {
-  int: 100
-  str: 'string'
+array1 = [
+  # array comment
+  1,
+  2,
+  'hello',
+  true,
+  ["nested", "array", 1, 2, 3] # another array comment
+]
+
+array2 = [
+  "string" # array2 comment
+]
+
+object nested {
+  key = value
 }
 
-.include(priority=5)
+# macro comment
+.include("file.html", priority=5) # after comment
 
 local-var = $var
 env-var   = @var
@@ -33,3 +45,14 @@ the quick brown fox
 jumps over
 the lazy dog
 STR
+
+object {
+  # object comment
+  int: 100 # object comment
+  str: 'string'
+  # object comment
+  # option = commented
+}
+
+special = "value"; # a comment
+integer = 10
