@@ -64,9 +64,11 @@ func (p *Parser) parse() error {
 	default:
 		return p.unexpectedToken()
 	}
-	fmt.Println(p.curr)
 	p.next()
-	var err error
+	var (
+		err error
+		n   node
+	)
 	switch {
 	case p.curr.isIdent():
 		for !p.done() {
@@ -76,7 +78,6 @@ func (p *Parser) parse() error {
 			if !p.curr.isIdent() {
 				return p.unexpectedToken()
 			}
-			fmt.Println(p.curr)
 			p.next()
 		}
 		if p.curr.Type != BegObj {
@@ -86,7 +87,9 @@ func (p *Parser) parse() error {
 	case p.curr.Type == BegObj:
 		err = p.parseObject()
 	case p.curr.Type == Assign:
-		err = p.parseValue()
+		p.next()
+		n, err = p.parseValue()
+		fmt.Println("parse", n)
 	default:
 		err = p.unexpectedToken()
 	}
@@ -111,20 +114,92 @@ func (p *Parser) parseEOL() error {
 	return nil
 }
 
-func (p *Parser) parseValue() error {
-	p.next()
+func (p *Parser) parseValue() (node, error) {
+	var (
+		n   node
+		err error
+	)
 	switch {
 	case p.curr.Type == BegArr:
-		if err := p.parseArray(); err != nil {
-			return err
-		}
+		n, err = p.parseArray()
 	case p.curr.isLiteral() || p.curr.isVariable():
-		fmt.Println("parseValue:", p.curr)
+		n = createLiteral(p.curr)
 		p.next()
 	default:
+		return nil, p.unexpectedToken()
+	}
+	return n, err
+}
+
+func (p *Parser) parseObject() error {
+	p.next()
+	for !p.done() {
+		if p.curr.Type == EndObj {
+			break
+		}
+		if err := p.parse(); err != nil {
+			return err
+		}
+	}
+	if p.curr.Type != EndObj {
 		return p.unexpectedToken()
 	}
+	p.next()
 	return nil
+}
+
+func (p *Parser) parseArray() (node, error) {
+	var (
+		arr array
+		n   node
+	)
+	p.next()
+	for !p.done() {
+		if p.curr.Type == EndArr {
+			break
+		}
+		if p.curr.isComment() {
+			p.parseComment()
+		}
+		var err error
+		switch {
+		case p.curr.isLiteral():
+			n, err = p.parseValue()
+		case p.curr.Type == BegArr:
+			n, err = p.parseArray()
+		default:
+			return nil, p.unexpectedToken()
+		}
+		if err != nil {
+			return nil, err
+		}
+		arr.Nodes = append(arr.Nodes, n)
+		switch p.curr.Type {
+		case Comment:
+			p.parseComment()
+			if p.curr.Type != EndArr {
+				return nil, p.unexpectedToken()
+			}
+		case Comma:
+			p.next()
+			if p.curr.isComment() {
+				p.parseComment()
+			}
+		case EndArr:
+		case EOL:
+			if p.peek.Type != EndArr {
+				return nil, p.unexpectedToken()
+			}
+			p.next()
+		default:
+			return nil, p.unexpectedToken()
+		}
+	}
+	if p.curr.Type != EndArr {
+		return nil, p.unexpectedToken()
+	}
+	p.next()
+	return arr, nil
 }
 
 func (p *Parser) parseMacro() error {
@@ -132,7 +207,6 @@ func (p *Parser) parseMacro() error {
 	if p.curr.Type != Ident {
 		return p.unexpectedToken()
 	}
-	fmt.Println(p.curr)
 	p.next()
 	if p.curr.Type != BegGrp {
 		return p.unexpectedToken()
@@ -157,12 +231,10 @@ func (p *Parser) parseArgs() error {
 			if !p.curr.isLiteral() {
 				return p.unexpectedToken()
 			}
-			fmt.Println(p.curr)
 		} else {
 			if p.curr.Type != Ident {
 				return p.unexpectedToken()
 			}
-			fmt.Println(p.curr)
 			p.next()
 			if p.curr.Type != Assign {
 				return p.unexpectedToken()
@@ -171,7 +243,6 @@ func (p *Parser) parseArgs() error {
 			if !p.curr.isLiteral() {
 				return p.unexpectedToken()
 			}
-			fmt.Println(p.curr)
 		}
 		p.next()
 		switch p.curr.Type {
@@ -189,75 +260,8 @@ func (p *Parser) parseArgs() error {
 	return nil
 }
 
-func (p *Parser) parseObject() error {
-	p.next()
-	for !p.done() {
-		if p.curr.Type == EndObj {
-			break
-		}
-		if err := p.parse(); err != nil {
-			return err
-		}
-		// p.parseComment()
-	}
-	if p.curr.Type != EndObj {
-		return p.unexpectedToken()
-	}
-	p.next()
-	return nil
-}
-
-func (p *Parser) parseArray() error {
-	p.next()
-	for !p.done() {
-		if p.curr.Type == EndArr {
-			break
-		}
-		if p.curr.isComment() {
-			p.parseComment()
-		}
-		switch {
-		case p.curr.isLiteral():
-		case p.curr.Type == BegArr:
-			if err := p.parseArray(); err != nil {
-				return err
-			}
-		default:
-			return p.unexpectedToken()
-		}
-		fmt.Println("parseArray:", p.curr)
-		p.next()
-		switch p.curr.Type {
-		case Comment:
-			p.parseComment()
-			if p.curr.Type != EndArr {
-				return p.unexpectedToken()
-			}
-		case Comma:
-			p.next()
-			if p.curr.isComment() {
-				p.parseComment()
-			}
-		case EndArr:
-		case EOL:
-			if p.peek.Type != EndArr {
-				return p.unexpectedToken()
-			}
-			p.next()
-		default:
-			return p.unexpectedToken()
-		}
-	}
-	if p.curr.Type != EndArr {
-		return p.unexpectedToken()
-	}
-	p.next()
-	return nil
-}
-
 func (p *Parser) parseComment() {
 	for p.curr.isComment() {
-		fmt.Println("comment", p.curr)
 		p.next()
 	}
 }
