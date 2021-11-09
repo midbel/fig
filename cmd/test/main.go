@@ -29,7 +29,7 @@ func main() {
 	} else if *parse {
 		err = parseFile(r)
 	} else {
-
+		err = fig.Debug(r, os.Stdout)
 	}
 	fmt.Println("elapsed:", time.Since(now))
 	if err != nil {
@@ -57,5 +57,9 @@ func scanFile(r io.Reader) error {
 }
 
 func parseFile(r io.Reader) error {
-	return fig.Parse(r)
+	n, err := fig.Parse(r)
+	if err == nil {
+		fmt.Printf("%#v\n", n)
+	}
+	return err
 }

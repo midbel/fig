@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"runtime"
 )
 
 var (
@@ -28,49 +29,56 @@ func NewParser(r io.Reader) (*Parser, error) {
 	p.scan = sc
 	p.next()
 	p.next()
-
 	return &p, nil
+
 }
 
-func Parse(r io.Reader) error {
+func Parse(r io.Reader) (Node, error) {
 	p, err := NewParser(r)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	return p.Parse()
 }
 
-func (p *Parser) Parse() error {
+func (p *Parser) Parse() (Node, error) {
+	obj := createObject("root")
 	if p.curr.Type == BegObj {
-		return p.parseObject()
+		return obj, p.parseObject(obj)
 	}
 	for !p.done() {
-		if err := p.parse(); err != nil {
-			return err
+		if err := p.parse(obj); err != nil {
+			return nil, err
 		}
 	}
-	return nil
+	return obj, nil
 }
 
-func (p *Parser) parse() error {
+func (p *Parser) parse(obj *object) error {
 	if p.curr.isComment() {
 		p.parseComment()
 		return nil
 	}
+	var ident Token
 	switch {
 	case p.curr.Type == Macro:
 		return p.parseMacro()
 	case p.curr.isIdent():
+		ident = p.curr
 	default:
 		return p.unexpectedToken()
 	}
 	p.next()
 	var (
 		err error
-		n   node
+		n   Node
 	)
 	switch {
 	case p.curr.isIdent():
+		nest, err1 := obj.getObject(ident.Literal, false)
+		if err1 != nil {
+			return err1
+		}
 		for !p.done() {
 			if p.curr.Type == BegObj {
 				break
@@ -78,18 +86,29 @@ func (p *Parser) parse() error {
 			if !p.curr.isIdent() {
 				return p.unexpectedToken()
 			}
+			nest, err1 = nest.getObject(p.curr.Literal, p.peek.Type == BegObj)
+			if err1 != nil {
+				return err1
+			}
 			p.next()
 		}
 		if p.curr.Type != BegObj {
 			return p.unexpectedToken()
 		}
-		err = p.parseObject()
+		err = p.parseObject(nest)
 	case p.curr.Type == BegObj:
-		err = p.parseObject()
+		nest, err1 := obj.getObject(ident.Literal, true)
+		if err1 != nil {
+			return err1
+		}
+		err = p.parseObject(nest)
 	case p.curr.Type == Assign:
 		p.next()
 		n, err = p.parseValue()
-		fmt.Println("parse", n)
+		if err == nil {
+			n = createOption(ident.Literal, n)
+			err = obj.set(n)
+		}
 	default:
 		err = p.unexpectedToken()
 	}
@@ -114,30 +133,37 @@ func (p *Parser) parseEOL() error {
 	return nil
 }
 
-func (p *Parser) parseValue() (node, error) {
+func (p *Parser) parseValue() (Node, error) {
 	var (
-		n   node
+		n   Node
 		err error
 	)
 	switch {
 	case p.curr.Type == BegArr:
 		n, err = p.parseArray()
-	case p.curr.isLiteral() || p.curr.isVariable():
+	case p.curr.isVariable():
 		n = createLiteral(p.curr)
 		p.next()
+	case p.curr.isLiteral():
+		n = createLiteral(p.curr)
+		p.next()
+		if p.curr.isIdent() {
+			// n.Mul = p.curr
+			p.next()
+		}
 	default:
 		return nil, p.unexpectedToken()
 	}
 	return n, err
 }
 
-func (p *Parser) parseObject() error {
+func (p *Parser) parseObject(obj *object) error {
 	p.next()
 	for !p.done() {
 		if p.curr.Type == EndObj {
 			break
 		}
-		if err := p.parse(); err != nil {
+		if err := p.parse(obj); err != nil {
 			return err
 		}
 	}
@@ -148,10 +174,10 @@ func (p *Parser) parseObject() error {
 	return nil
 }
 
-func (p *Parser) parseArray() (node, error) {
+func (p *Parser) parseArray() (Node, error) {
 	var (
-		arr array
-		n   node
+		arr = createArray()
+		n   Node
 	)
 	p.next()
 	for !p.done() {
@@ -287,4 +313,10 @@ func (p *Parser) skip(kind rune) {
 func (p *Parser) next() {
 	p.curr = p.peek
 	p.peek = p.scan.Scan()
+}
+
+func printCaller() {
+	pc, file, lino, _ := runtime.Caller(2)
+	fn := runtime.FuncForPC(pc)
+	fmt.Println(fn.Name(), file, lino)
 }
