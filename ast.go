@@ -132,7 +132,21 @@ func (o *object) registerObject(obj *object) error {
 		o.Props[obj.Name] = obj
 		return nil
 	}
-	_ = curr
+	switch prev := curr.(type) {
+	case *object:
+		arr := createArray()
+		arr.Append(prev)
+		arr.Append(obj)
+		curr = arr
+	case *array:
+		if err := prev.Append(obj); err != nil {
+			return err
+		}
+		curr = prev
+	default:
+		return fmt.Errorf("%s: object can not be registered", obj.Name)
+	}
+	o.Props[obj.Name] = curr
 	return nil
 }
 
@@ -154,7 +168,7 @@ func (o *object) registerOption(opt *option) error {
 		}
 		curr = prev
 	default:
-		return fmt.Errorf("option can not be registered")
+		return fmt.Errorf("%s: option can not be registered", opt.Ident)
 	}
 	o.Props[opt.Ident] = curr
 	return nil
