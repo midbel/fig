@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"runtime"
 )
 
 var (
@@ -313,10 +312,4 @@ func (p *Parser) skip(kind rune) {
 func (p *Parser) next() {
 	p.curr = p.peek
 	p.peek = p.scan.Scan()
-}
-
-func printCaller() {
-	pc, file, lino, _ := runtime.Caller(2)
-	fn := runtime.FuncForPC(pc)
-	fmt.Println(fn.Name(), file, lino)
 }
