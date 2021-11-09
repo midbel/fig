@@ -118,10 +118,46 @@ func (o *object) set(n Node) error {
 	switch n := n.(type) {
 	case *option:
 		err = o.registerOption(n)
+	case *object:
+		err = o.registerObject(n)
 	default:
 		return fmt.Errorf("node can not be registered")
 	}
 	return err
+}
+
+func (o *object) registerObject(obj *object) error {
+	curr, ok := o.Props[obj.Name]
+	if !ok {
+		o.Props[obj.Name] = obj
+		return nil
+	}
+	_ = curr
+	return nil
+}
+
+func (o *object) registerOption(opt *option) error {
+	curr, ok := o.Props[opt.Ident]
+	if !ok {
+		o.Props[opt.Ident] = opt
+		return nil
+	}
+	switch prev := curr.(type) {
+	case *option:
+		arr := createArray()
+		arr.Append(prev)
+		arr.Append(opt)
+		curr = arr
+	case *array:
+		if err := prev.Append(opt); err != nil {
+			return err
+		}
+		curr = prev
+	default:
+		return fmt.Errorf("option can not be registered")
+	}
+	o.Props[opt.Ident] = curr
+	return nil
 }
 
 func (o *object) merge(node Node) error {
@@ -140,8 +176,10 @@ func (o *object) merge(node Node) error {
 		return fmt.Errorf("%s is not an object", obj.Name)
 	}
 	other := curr.(*object)
-	for k, v := range obj.Props {
-		other.Props[k] = v
+	for k := range obj.Props {
+		if err := other.set(obj.Props[k]); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -181,30 +219,6 @@ func (o *object) insert(node Node) error {
 		err = fmt.Errorf("%s is not an object", obj.Name)
 	}
 	return err
-}
-
-func (o *object) registerOption(opt *option) error {
-	curr, ok := o.Props[opt.Ident]
-	if !ok {
-		o.Props[opt.Ident] = opt
-		return nil
-	}
-	switch prev := curr.(type) {
-	case *option:
-		arr := createArray()
-		arr.Append(prev)
-		arr.Append(opt)
-		curr = arr
-	case *array:
-		if err := prev.Append(opt); err != nil {
-			return err
-		}
-		curr = prev
-	default:
-		return fmt.Errorf("option can not be registered")
-	}
-	o.Props[opt.Ident] = curr
-	return nil
 }
 
 type array struct {
