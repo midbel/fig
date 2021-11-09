@@ -35,22 +35,29 @@ type Argument interface {
 	GetBool() (bool, error)
 }
 
+const (
+	argFile  = "file"
+	argKey   = "key"
+	argFatal = "fatal"
+	argMeth  = "method"
+)
+
 func Include(root Node, args []Argument, kwargs map[string]Argument) error {
 	var (
 		file   string
 		key    string
 		fatal  bool
-		method strategy = sReplace
+		method strategy = sAppend
 		err    error
 	)
 
-	if file, err = getString(0, "file", args, kwargs); err != nil {
+	if file, err = getString(0, argFile, args, kwargs); err != nil {
 		return err
 	}
-	if key, err = getString(1, "key", args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
+	if key, err = getString(1, argKey, args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
 		return err
 	}
-	if fatal, err = getBool(2, "fatal", args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
+	if fatal, err = getBool(2, argFatal, args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
 		return err
 	}
 

@@ -178,20 +178,9 @@ func (o *object) merge(node Node) error {
 	if node.Type() != TypeObject {
 		return fmt.Errorf("node is not an object")
 	}
-	var (
-		obj      = node.(*object)
-		curr, ok = o.Props[obj.Name]
-	)
-	if !ok {
-		o.Props[obj.Name] = node
-		return nil
-	}
-	if curr.Type() != TypeObject {
-		return fmt.Errorf("%s is not an object", obj.Name)
-	}
-	other := curr.(*object)
+	obj := node.(*object)
 	for k := range obj.Props {
-		if err := other.set(obj.Props[k]); err != nil {
+		if err := o.set(obj.Props[k]); err != nil {
 			return err
 		}
 	}

@@ -4,8 +4,10 @@ object {
 }
 
 object {
+  name = "server-1"
   key2 = "value2"
   sec  = 100s
+  .include("data/commons.fig", fatal=true, key="server-1")
 }
 
 object nested {
@@ -17,7 +19,9 @@ object nested {
 }
 
 object {
+  name = "server-1"
   key5 = "value5"
+  .include("data/commons.fig", fatal=true, key="server-2")
 }
 
 object nested {
@@ -33,10 +37,3 @@ object nested {
     keys  = [true, true, false,]
   }
 }
-
-object nested {
-  key7 = "value7"
-  key9 = "value9"
-}
-
-.include("data/basic.fig", fatal=true, key="toto", method="merge")
