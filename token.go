@@ -22,9 +22,6 @@ const (
 	String
 	Integer
 	Float
-	Date
-	DateTime
-	Time
 	LocalVar
 	EnvVar
 	Boolean
@@ -49,9 +46,6 @@ var types = map[rune]string{
 	String:   "string",
 	Integer:  "integer",
 	Float:    "float",
-	Date:     "date",
-	DateTime: "datetime",
-	Time:     "time",
 	Boolean:  "boolean",
 	BegArr:   "beg-arr",
 	EndArr:   "end-arr",
@@ -95,7 +89,7 @@ func (t Token) isIdent() bool {
 
 func (t Token) isLiteral() bool {
 	switch t.Type {
-	case Integer, Float, String, Date, Time, DateTime, Boolean, Heredoc, Ident:
+	case Integer, Float, String, Boolean, Heredoc, Ident:
 		return true
 	default:
 		return false

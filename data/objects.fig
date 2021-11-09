@@ -1,9 +1,11 @@
 object {
   key1 = "value1"
+  int  = 100K
 }
 
 object {
   key2 = "value2"
+  sec  = 100s
 }
 
 object nested {
@@ -21,9 +23,20 @@ object {
 object nested {
   key6 = "value6"
   key8 = "value8"
+  sub {
+    key10 = 100
+    key11 = 100
+  }
+  sub {
+    key12 = 1000
+    key13 = 1000
+    keys  = [true, true, false,]
+  }
 }
 
 object nested {
   key7 = "value7"
   key9 = "value9"
 }
+
+.include("data/basic.fig", fatal=true, key="toto", method="merge")

@@ -16,6 +16,8 @@ type Parser struct {
 	scan *Scanner
 	curr Token
 	peek Token
+
+	macros map[string]macroFunc
 }
 
 func NewParser(r io.Reader) (*Parser, error) {
@@ -26,6 +28,9 @@ func NewParser(r io.Reader) (*Parser, error) {
 
 	var p Parser
 	p.scan = sc
+	p.macros = map[string]macroFunc{
+		"include": Include,
+	}
 	p.next()
 	p.next()
 	return &p, nil
@@ -61,7 +66,7 @@ func (p *Parser) parse(obj *object) error {
 	var ident Token
 	switch {
 	case p.curr.Type == Macro:
-		return p.parseMacro()
+		return p.parseMacro(obj)
 	case p.curr.isIdent():
 		ident = p.curr
 	default:
@@ -144,12 +149,13 @@ func (p *Parser) parseValue() (Node, error) {
 		n = createLiteral(p.curr)
 		p.next()
 	case p.curr.isLiteral():
-		n = createLiteral(p.curr)
+		i := createLiteral(p.curr)
 		p.next()
 		if p.curr.isIdent() {
-			// n.Mul = p.curr
+			i.Mul = p.curr
 			p.next()
 		}
+		n = i
 	default:
 		return nil, p.unexpectedToken()
 	}
@@ -227,24 +233,38 @@ func (p *Parser) parseArray() (Node, error) {
 	return arr, nil
 }
 
-func (p *Parser) parseMacro() error {
+func (p *Parser) parseMacro(obj *object) error {
 	p.next()
 	if p.curr.Type != Ident {
 		return p.unexpectedToken()
 	}
+	ident := p.curr
 	p.next()
 	if p.curr.Type != BegGrp {
 		return p.unexpectedToken()
 	}
-	if err := p.parseArgs(); err != nil {
+	args, kwargs, err := p.parseArgs()
+	if err != nil {
 		return err
 	}
-	return p.parseEOL()
+	err = p.parseEOL()
+	if err != nil {
+		return err
+	}
+	macro, ok := p.macros[ident.Literal]
+	if !ok {
+		return fmt.Errorf("%s: undefined macro", ident.Literal)
+	}
+	return macro(obj, args, kwargs)
 }
 
-func (p *Parser) parseArgs() error {
+func (p *Parser) parseArgs() ([]Argument, map[string]Argument, error) {
 	p.next()
-	var named bool
+	var (
+		named  bool
+		args   []Argument
+		kwargs = make(map[string]Argument)
+	)
 	for !p.done() {
 		if p.curr.Type == EndGrp {
 			break
@@ -254,20 +274,26 @@ func (p *Parser) parseArgs() error {
 		}
 		if !named {
 			if !p.curr.isLiteral() {
-				return p.unexpectedToken()
+				return nil, nil, p.unexpectedToken()
 			}
+			args = append(args, createLiteral(p.curr))
 		} else {
 			if p.curr.Type != Ident {
-				return p.unexpectedToken()
+				return nil, nil, p.unexpectedToken()
 			}
+			if _, ok := kwargs[p.curr.Literal]; ok {
+				return nil, nil, p.unexpectedToken()
+			}
+			ident := p.curr
 			p.next()
 			if p.curr.Type != Assign {
-				return p.unexpectedToken()
+				return nil, nil, p.unexpectedToken()
 			}
 			p.next()
 			if !p.curr.isLiteral() {
-				return p.unexpectedToken()
+				return nil, nil, p.unexpectedToken()
 			}
+			kwargs[ident.Literal] = createLiteral(p.curr)
 		}
 		p.next()
 		switch p.curr.Type {
@@ -275,14 +301,14 @@ func (p *Parser) parseArgs() error {
 			p.next()
 		case EndGrp:
 		default:
-			return p.unexpectedToken()
+			return nil, nil, p.unexpectedToken()
 		}
 	}
 	if p.curr.Type != EndGrp {
-		return p.unexpectedToken()
+		return nil, nil, p.unexpectedToken()
 	}
 	p.next()
-	return nil
+	return args, kwargs, nil
 }
 
 func (p *Parser) parseComment() {

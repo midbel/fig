@@ -2,6 +2,7 @@ package fig
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -123,6 +124,65 @@ func (o *object) set(n Node) error {
 	return err
 }
 
+func (o *object) merge(node Node) error {
+	if node.Type() != TypeObject {
+		return fmt.Errorf("node is not an object")
+	}
+	var (
+		obj      = node.(*object)
+		curr, ok = o.Props[obj.Name]
+	)
+	if !ok {
+		o.Props[obj.Name] = node
+		return nil
+	}
+	if curr.Type() != TypeObject {
+		return fmt.Errorf("%s is not an object", obj.Name)
+	}
+	other := curr.(*object)
+	for k, v := range obj.Props {
+		other.Props[k] = v
+	}
+	return nil
+}
+
+func (o *object) replace(node Node) error {
+	if node.Type() != TypeObject {
+		return fmt.Errorf("node is not an object")
+	}
+	obj := node.(*object)
+	o.Props[obj.Name] = obj
+	return nil
+}
+
+func (o *object) insert(node Node) error {
+	if node.Type() != TypeObject {
+		return fmt.Errorf("node is not an object")
+	}
+	var (
+		obj      = node.(*object)
+		curr, ok = o.Props[obj.Name]
+	)
+	if !ok {
+		o.Props[obj.Name] = node
+		return nil
+	}
+	var err error
+	switch curr.Type() {
+	case TypeObject:
+		arr := createArray()
+		arr.Append(curr)
+		arr.Append(node)
+		o.Props[obj.Name] = arr
+	case TypeArray:
+		arr := curr.(*array)
+		err = arr.Append(node)
+	default:
+		err = fmt.Errorf("%s is not an object", obj.Name)
+	}
+	return err
+}
+
 func (o *object) registerOption(opt *option) error {
 	curr, ok := o.Props[opt.Ident]
 	if !ok {
@@ -203,6 +263,22 @@ func (i *literal) String() string {
 
 func (_ *literal) Type() NodeType {
 	return TypeLiteral
+}
+
+func (i *literal) GetString() (string, error) {
+	return i.Token.Literal, nil
+}
+
+func (i *literal) GetInt() (int64, error) {
+	return strconv.ParseInt(i.Token.Literal, 0, 64)
+}
+
+func (i *literal) GetBool() (bool, error) {
+	return strconv.ParseBool(i.Token.Literal)
+}
+
+func (i *literal) GetFloat() (float64, error) {
+	return strconv.ParseFloat(i.Token.Literal, 64)
 }
 
 type macro struct {

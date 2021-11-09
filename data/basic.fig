@@ -34,9 +34,6 @@ object nested {
   key = value
 }
 
-# macro comment
-.include("file.html", priority=5) # after comment
-
 local-var = $var
 env-var   = @var
 
