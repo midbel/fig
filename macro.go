@@ -83,7 +83,7 @@ func include(file, key string, fatal bool, meth strategy) (Node, error) {
 		err  error
 	)
 	switch u.Scheme {
-	case "":
+	case "", "file":
 		rc, err = readFile(file)
 	case "http", "https":
 		rc, err = readRemote(file)
