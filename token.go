@@ -18,13 +18,13 @@ const (
 	Ident
 	Comment
 	Macro
+	Boolean
 	Heredoc
 	String
 	Integer
 	Float
 	LocalVar
 	EnvVar
-	Boolean
 	BegArr
 	EndArr
 	BegObj

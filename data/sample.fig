@@ -1,16 +1,18 @@
+# comment are skipped by the parser
 contact = "midbel@midbel.org"
 admin   = true
+TTL     = 100
 
 ports tcp {
   list    = [80, 443, 22]
   action  = allow
-  disable = false
+  disable = false # set it to true to enable the rule
 }
 
 ports udp {
   list    = [80, 443, 22]
   action  = block
-  disable = false
+  disable = false # set it to true to enable the rule
 }
 
 server {

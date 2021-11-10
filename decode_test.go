@@ -14,6 +14,12 @@ contact = "midbel@midbel.org"
 admin   = true
 TTL     = 100
 
+metadata {
+	version = "1.0.1"
+	tracker = "redmine"
+	vcs     = "git"
+}
+
 ports tcp {
   list    = [80, 443, 22]
   action  = allow
@@ -57,8 +63,9 @@ server {
 		Email   string `fig:"contact"`
 		Admin   bool
 		TTL     int
-		Rule    Rule     `fig:"ports"`
-		Servers []Server `fig:"server"`
+		Meta    map[string]interface{} `fig:"metadata"`
+		Rule    Rule                   `fig:"ports"`
+		Servers []Server               `fig:"server"`
 	}
 	var in Config
 	if err := fig.Decode(strings.NewReader(demo), &in); err != nil {
@@ -67,5 +74,5 @@ server {
 	}
 	fmt.Printf("%+v\n", in)
 	// Output:
-	// {Email:midbel@midbel.org Admin:true TTL:100 Rule:{TCP:[{List:[80 443 22] Action:allow Disable:false}] UDP:[{List:[80 443 22] Action:block Disable:false}]} Servers:[{Addr:192.168.67.181 Host:alpha Back:[10.100.0.1 10.100.0.2]} {Addr:192.168.67.236 Host:omega Back:[10.101.0.1 10.101.0.2 10.101.0.3]}]}
+	// {Email:midbel@midbel.org Admin:true TTL:100 Meta:map[tracker:redmine vcs:git version:1.0.1] Rule:{TCP:[{List:[80 443 22] Action:allow Disable:false}] UDP:[{List:[80 443 22] Action:block Disable:false}]} Servers:[{Addr:192.168.67.181 Host:alpha Back:[10.100.0.1 10.100.0.2]} {Addr:192.168.67.236 Host:omega Back:[10.101.0.1 10.101.0.2 10.101.0.3]}]}
 }
