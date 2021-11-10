@@ -42,17 +42,6 @@ section float {
   float5 = 1.1e-12
 }
 
-section datetimes {
-	date     = 2021-04-10
-	time     = 10:15:54
-	millis   = 10:32:34.123
-	datetime = 2021-04-10T10:15:54
-	datetime = 2021-04-10T10:15:54Z
-	datetime = 2021-04-10T10:15:54+02:00
-	datetime = 2021-04-10T10:15:54-07:00
-	datetime = 2021-04-10T10:15:54.456789
-}
-
 heredoc = <<STR
 the quick brown fox
 jumps over

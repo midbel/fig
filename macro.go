@@ -21,11 +21,24 @@ const (
 	sAppend
 	sMerge
 	sReplace
-	sError
 )
 
+func strategyFromString(str string) strategy {
+	s := sInvalid
+	switch str {
+	case "merge", "", "default":
+		s = sMerge
+	case "append":
+		s = sAppend
+	case "replace":
+		s = sReplace
+	default:
+	}
+	return s
+}
+
 func (s strategy) Valid() bool {
-	return s > sInvalid && s <= sError
+	return s > sInvalid && s <= sReplace
 }
 
 type Argument interface {
@@ -46,8 +59,8 @@ func Include(root Node, args []Argument, kwargs map[string]Argument) error {
 	var (
 		file   string
 		key    string
+		method string
 		fatal  bool
-		method strategy = sAppend
 		err    error
 	)
 
@@ -60,8 +73,10 @@ func Include(root Node, args []Argument, kwargs map[string]Argument) error {
 	if fatal, err = getBool(2, argFatal, args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
 		return err
 	}
-
-	n, err := include(file, key, fatal, method)
+	if method, err = getString(3, argMeth, args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
+		return err
+	}
+	n, err := include(file, key, fatal)
 	if err != nil || n == nil {
 		return err
 	}
@@ -69,21 +84,20 @@ func Include(root Node, args []Argument, kwargs map[string]Argument) error {
 	if !ok {
 		return fmt.Errorf("root should be an object! got %T", root)
 	}
-	switch method {
+	switch do := strategyFromString(method); do {
 	case sReplace:
 		err = obj.replace(n)
 	case sAppend:
 		err = obj.insert(n)
 	case sMerge:
 		err = obj.merge(n)
-	case sError:
 	default:
 		err = fmt.Errorf("unknown/unsupported insertion method supplied")
 	}
 	return err
 }
 
-func include(file, key string, fatal bool, meth strategy) (Node, error) {
+func include(file, key string, fatal bool) (Node, error) {
 	var (
 		u, _ = url.Parse(file)
 		rc   io.ReadCloser
