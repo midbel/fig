@@ -46,6 +46,9 @@ func Parse(r io.Reader) (Node, error) {
 }
 
 func (p *Parser) Parse() (Node, error) {
+	for p.curr.isEOL() {
+		p.next()
+	}
 	obj := createObject("root")
 	if p.curr.Type == BegObj {
 		return obj, p.parseObject(obj)

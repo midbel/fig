@@ -44,6 +44,54 @@ func (o *option) String() string {
 	return fmt.Sprintf("option(%s, %s)", o.Ident, o.Value.String())
 }
 
+func (o *option) GetString() (string, error) {
+	i, err := o.getLiteral()
+	if err != nil {
+		return "", err
+	}
+	return i.GetString()
+}
+
+func (o *option) GetBool() (bool, error) {
+	i, err := o.getLiteral()
+	if err != nil {
+		return false, err
+	}
+	return i.GetBool()
+}
+
+func (o *option) GetInt() (int64, error) {
+	i, err := o.getLiteral()
+	if err != nil {
+		return 0, err
+	}
+	return i.GetInt()
+}
+
+func (o *option) GetFloat() (float64, error) {
+	i, err := o.getLiteral()
+	if err != nil {
+		return 0, err
+	}
+	return i.GetFloat()
+}
+
+func (o *option) getLiteral() (*literal, error) {
+	i, ok := o.Value.(*literal)
+	if !ok {
+		return nil, fmt.Errorf("%s is not a literal", o.Ident)
+	}
+	return i, nil
+}
+
+func (o *option) getArray() (*array, error) {
+	a, ok := o.Value.(*array)
+	if !ok {
+		return nil, fmt.Errorf("%s is not an array", o.Ident)
+	}
+	return a, nil
+}
+
 func (_ *option) Type() NodeType {
 	return TypeOption
 }
@@ -257,6 +305,13 @@ func (a *array) String() string {
 
 func (_ *array) Type() NodeType {
 	return TypeArray
+}
+
+type Argument interface {
+	GetString() (string, error)
+	GetFloat() (float64, error)
+	GetInt() (int64, error)
+	GetBool() (bool, error)
 }
 
 type literal struct {

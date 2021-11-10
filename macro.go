@@ -41,13 +41,6 @@ func (s strategy) Valid() bool {
 	return s > sInvalid && s <= sReplace
 }
 
-type Argument interface {
-	GetString() (string, error)
-	GetFloat() (float64, error)
-	GetInt() (int64, error)
-	GetBool() (bool, error)
-}
-
 const (
 	argFile  = "file"
 	argKey   = "key"

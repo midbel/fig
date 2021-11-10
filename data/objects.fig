@@ -1,3 +1,6 @@
+key  = value
+bool = false
+
 object {
   key1 = "value1"
   int  = 100K
