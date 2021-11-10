@@ -68,6 +68,14 @@ func (o *option) GetInt() (int64, error) {
 	return i.GetInt()
 }
 
+func (o *option) GetUint() (uint64, error) {
+	i, err := o.getLiteral()
+	if err != nil {
+		return 0, err
+	}
+	return i.GetUint()
+}
+
 func (o *option) GetFloat() (float64, error) {
 	i, err := o.getLiteral()
 	if err != nil {
@@ -204,21 +212,22 @@ func (o *object) registerOption(opt *option) error {
 		o.Props[opt.Ident] = opt
 		return nil
 	}
-	switch prev := curr.(type) {
-	case *option:
+
+	c, ok := curr.(*option)
+	if !ok {
+		return fmt.Errorf("%s: option can not be registered", opt.Ident)
+	}
+	switch val := c.Value.(type) {
+	case *literal:
 		arr := createArray()
-		arr.Append(prev)
-		arr.Append(opt)
-		curr = arr
+		arr.Append(val)
+		arr.Append(opt.Value)
+		c.Value = arr
 	case *array:
-		if err := prev.Append(opt); err != nil {
-			return err
-		}
-		curr = prev
+		return val.Append(opt.Value)
 	default:
 		return fmt.Errorf("%s: option can not be registered", opt.Ident)
 	}
-	o.Props[opt.Ident] = curr
 	return nil
 }
 
@@ -311,6 +320,7 @@ type Argument interface {
 	GetString() (string, error)
 	GetFloat() (float64, error)
 	GetInt() (int64, error)
+	GetUint() (uint64, error)
 	GetBool() (bool, error)
 }
 
@@ -343,6 +353,10 @@ func (i *literal) GetString() (string, error) {
 
 func (i *literal) GetInt() (int64, error) {
 	return strconv.ParseInt(i.Token.Literal, 0, 64)
+}
+
+func (i *literal) GetUint() (uint64, error) {
+	return strconv.ParseUint(i.Token.Literal, 0, 64)
 }
 
 func (i *literal) GetBool() (bool, error) {

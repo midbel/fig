@@ -28,67 +28,68 @@ func decode(n Node, value reflect.Value) error {
 		err = decodeObject(n, value)
 	case *option:
 		err = decodeOption(n, value)
+	case *literal:
+		err = decodeLiteral(n, value)
 	default:
 		err = fmt.Errorf("value (%s) can not be decoded from %T", value.Kind(), n)
 	}
 	return err
 }
 
-func decodeOption(opt *option, v reflect.Value) error {
-	var (
-		value reflect.Value
-		err   error
-	)
+func decodeLiteral(lit *literal, v reflect.Value) error {
+	var err error
 	switch k := v.Kind(); k {
 	case reflect.String:
-		s, err1 := opt.GetString()
+		s, err1 := lit.GetString()
 		if err1 != nil {
 			err = err1
 			break
 		}
-		value = reflect.ValueOf(s)
+		v.SetString(s)
 	case reflect.Bool:
-		b, err1 := opt.GetBool()
+		b, err1 := lit.GetBool()
 		if err1 != nil {
 			err = err1
 			break
 		}
-		value = reflect.ValueOf(b)
+		v.SetBool(b)
 	case reflect.Float32, reflect.Float64:
-		f, err1 := opt.GetFloat()
+		f, err1 := lit.GetFloat()
 		if err1 != nil {
 			err = err1
 			break
 		}
-		value = reflect.ValueOf(f)
+		v.SetFloat(f)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		i, err1 := opt.GetInt()
+		i, err1 := lit.GetInt()
 		if err1 != nil {
 			err = err1
 			break
 		}
-		value = reflect.ValueOf(i)
+		v.SetInt(i)
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		i, err1 := opt.GetInt()
+		i, err1 := lit.GetUint()
 		if err1 != nil {
 			err = err1
 			break
 		}
-		value = reflect.ValueOf(uint64(i))
-	case reflect.Slice, reflect.Array:
-		arr, err := opt.getArray()
-		if err != nil {
-			return err
-		}
-		return decode(arr, v)
+		v.SetUint(i)
 	default:
 		return fmt.Errorf("primitive type expected! got %s", k)
 	}
-	if err != nil {
-		return err
+	return err
+}
+
+func decodeOption(opt *option, v reflect.Value) error {
+	switch opt.Value.Type() {
+	case TypeLiteral:
+		lit, _ := opt.getLiteral()
+		return decodeLiteral(lit, v)
+	case TypeArray:
+		return decode(opt.Value, v)
+	default:
+		return fmt.Errorf("literal/array/slice expected!")
 	}
-	v.Set(value)
-	return nil
 }
 
 func decodeArray(arr *array, v reflect.Value) error {
@@ -108,8 +109,17 @@ func decodeArray(arr *array, v reflect.Value) error {
 }
 
 func decodeObject(obj *object, v reflect.Value) error {
-	if v.Kind() != reflect.Struct {
-		return fmt.Errorf("struct type expected! got %s", v.Kind())
+	switch k := v.Kind(); k {
+	case reflect.Struct:
+	case reflect.Slice, reflect.Array:
+		n := reflect.New(v.Type().Elem()).Elem()
+		if err := decodeObject(obj, n); err != nil {
+			return err
+		}
+		v.Set(reflect.Append(v, n))
+		return nil
+	default:
+		return fmt.Errorf("struct/slice/array type expected! got %s", v.Kind())
 	}
 	t := v.Type()
 	for i := 0; i < v.NumField(); i++ {
@@ -119,7 +129,7 @@ func decodeObject(obj *object, v reflect.Value) error {
 		}
 		var (
 			ft  = t.Field(i)
-			tag = strings.ToLower(ft.Name)
+			tag = ft.Name
 		)
 		switch v := ft.Tag.Get("fig"); v {
 		case "":
@@ -129,8 +139,11 @@ func decodeObject(obj *object, v reflect.Value) error {
 			tag = v
 		}
 		node, ok := obj.Props[tag]
-		if !ok {
-			continue
+		if !ok && tag == ft.Name {
+      node, ok = obj.Props[strings.ToLower(tag)]
+      if !ok {
+        continue
+      }
 		}
 		if err := decode(node, f); err != nil {
 			return err
