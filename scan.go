@@ -373,15 +373,6 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 	}
 }
 
-func (s *Scanner) scanDate(tok *Token) {
-}
-
-func (s *Scanner) scanTimeOffset(tok *Token) {
-}
-
-func (s *Scanner) scanTime(tok *Token) {
-}
-
 func (s *Scanner) scanComment(tok *Token, multi bool) {
 	if multi {
 		s.scanCommentMultiline(tok)
