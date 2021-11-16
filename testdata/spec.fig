@@ -19,7 +19,7 @@ strings {
   over the lazy dog
 
   blanks (space, tabs, newline) in heredoc are kept! this is why the closing label
-  should be kept at the very beginning of a line
+  should always be at the very beginning of a line
 EOF
 }
 
