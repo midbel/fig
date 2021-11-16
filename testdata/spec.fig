@@ -72,6 +72,7 @@ object {
     code   = 42
     update = false
   }
+  .include("testdata/include.fig", key="sample", fatal=false, method=replace)
 }
 
 object {
@@ -81,6 +82,5 @@ object {
     name = "omega"
     addr = "omega@fig.org"
   }
+  .include("testdata/include.fig", key="sample", fatal=false, method=merge)
 }
-
-.include("testdata/include.fig", key="sample", fatal=false, method=replace)

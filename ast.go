@@ -177,7 +177,6 @@ func (o *object) set(n Node) error {
 	case *object:
 		err = o.registerObject(n)
 	default:
-		fmt.Println(n)
 		return fmt.Errorf("node can not be registered")
 	}
 	return err
@@ -324,6 +323,21 @@ type Argument interface {
 	GetUint() (uint64, error)
 	GetBool() (bool, error)
 }
+
+type variable struct {
+	Ident Token
+}
+
+func createVariable(tok Token) *variable {
+	return &variable{
+		Ident: tok,
+	}
+}
+
+func (v *variable) String() string {
+	return fmt.Sprintf("variable(%s)", v.Ident.Literal)
+}
+
 
 type literal struct {
 	Token   Token
