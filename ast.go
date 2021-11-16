@@ -367,6 +367,21 @@ func (i *literal) GetFloat() (float64, error) {
 	return strconv.ParseFloat(i.Token.Literal, 64)
 }
 
+func (i *literal) Get() (interface{}, error) {
+	switch i.Token.Type {
+	case Boolean:
+		return i.GetBool()
+	case String, Heredoc:
+		return i.GetString()
+	case Integer:
+		return i.GetInt()
+	case Float:
+		return i.GetFloat()
+	default:
+		return nil, fmt.Errorf("unknown literal type")
+	}
+}
+
 type macro struct {
 	Name    string
 	Args    []Node

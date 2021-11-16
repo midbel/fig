@@ -76,3 +76,39 @@ server {
 	// Output:
 	// {Email:midbel@midbel.org Admin:true TTL:100 Meta:map[tracker:redmine vcs:git version:1.0.1] Rule:{TCP:[{List:[80 443 22] Action:allow Disable:false}] UDP:[{List:[80 443 22] Action:block Disable:false}]} Servers:[{Addr:192.168.67.181 Host:alpha Back:[10.100.0.1 10.100.0.2]} {Addr:192.168.67.236 Host:omega Back:[10.101.0.1 10.101.0.2 10.101.0.3]}]}
 }
+
+func ExampleDecode_Generic() {
+	const demo = `
+name = demo
+server {
+	addr = "192.168.67.181"
+	name = alpha
+	ttl  = 100
+	enable = false
+}
+server {
+	addr = "192.168.67.236"
+	name = alpha
+	ttl  = 100
+	enable = true
+}
+	`
+
+	var empty interface{}
+	if err := fig.Decode(strings.NewReader(demo), &empty); err != nil {
+		fmt.Printf("fail to decode input string into interface{}: %s\n", err)
+		return
+	}
+
+	data := make(map[string]interface{})
+	if err := fig.Decode(strings.NewReader(demo), &data); err != nil {
+		fmt.Printf("fail to decode input string into map[string]interface{}: %s\n", err)
+		return
+	}
+
+	fmt.Printf("%+v\n", empty)
+	fmt.Printf("%+v\n", data)
+	// Output:
+	// map[name:demo server:[map[addr:192.168.67.181 enable:false name:alpha ttl:100] map[addr:192.168.67.236 enable:true name:alpha ttl:100]]]
+	// map[name:demo server:[map[addr:192.168.67.181 enable:false name:alpha ttl:100] map[addr:192.168.67.236 enable:true name:alpha ttl:100]]]
+}

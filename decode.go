@@ -30,6 +30,17 @@ func Decode(r io.Reader, v interface{}) error {
 		}
 		return err
 	}
+	if value.Kind() == reflect.Map {
+		if value.IsNil() {
+			m := make(map[string]interface{})
+			value.Set(reflect.ValueOf(m))
+		}
+		obj, ok := n.(*object)
+		if !ok {
+			return fmt.Errorf("root node is not an object")
+		}
+		return decodeMap(obj, value)
+	}
 	return decode(n, value.Elem())
 }
 
@@ -56,7 +67,7 @@ func decodeInterface(lit *literal, v reflect.Value) error {
 		err error
 	)
 	switch lit.Token.Type {
-	case String, Heredoc:
+	case String, Heredoc, Ident:
 		s, err1 := lit.GetString()
 		if err1 != nil {
 			err = err1
@@ -85,6 +96,14 @@ func decodeInterface(lit *literal, v reflect.Value) error {
 		}
 		val = reflect.ValueOf(f)
 	default:
+		if v.Kind() == reflect.Interface {
+			i, err1 := lit.Get()
+			if err1 != nil {
+				err = err1
+				break
+			}
+			v.Set(reflect.ValueOf(i))
+		}
 		err = fmt.Errorf("primitive type expected!")
 	}
 	if err == nil {
@@ -131,6 +150,13 @@ func decodeLiteral(lit *literal, v reflect.Value) error {
 			break
 		}
 		v.SetUint(i)
+	case reflect.Interface:
+		i, err1 := lit.Get()
+		if err1 != nil {
+			err = err1
+			break
+		}
+		v.Set(reflect.ValueOf(i))
 	default:
 		return fmt.Errorf("primitive type expected! got %s", k)
 	}
@@ -185,6 +211,13 @@ func decodeObject(obj *object, v reflect.Value) error {
 			v.Set(reflect.New(v.Type().Elem()))
 		}
 		return decodeObject(obj, v.Elem())
+	case reflect.Interface:
+		m := reflect.ValueOf(make(map[string]interface{}))
+		if err := decodeMap(obj, m); err != nil {
+			return err
+		}
+		v.Set(m)
+		return nil
 	default:
 		return fmt.Errorf("struct/slice/array type expected! got %s", v.Kind())
 	}
@@ -240,7 +273,11 @@ func decodeMap(obj *object, v reflect.Value) error {
 			vf = reflect.New(v.Type().Elem()).Elem()
 			err = decodeOption(o, vf)
 		case *array:
-			vf = reflect.MakeSlice(v.Type().Elem(), 0, len(o.Nodes))
+			var (
+				s = reflect.SliceOf(v.Type().Elem())
+				f = reflect.MakeSlice(s, 0, len(o.Nodes))
+			)
+			vf = reflect.New(f.Type()).Elem()
 			err = decodeArray(o, vf)
 		default:
 			err = fmt.Errorf("%s: can not decode %T", k, o)
