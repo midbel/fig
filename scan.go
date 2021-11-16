@@ -198,9 +198,6 @@ func (s *Scanner) scanIdent(tok *Token) {
 	}
 }
 
-func (s *Scanner) scanMacro(tok *Token) {
-}
-
 func (s *Scanner) scanString(tok *Token) {
 	quote := s.char
 	s.read()
