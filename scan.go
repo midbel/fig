@@ -205,12 +205,12 @@ func (s *Scanner) scanString(tok *Token) {
 	quote := s.char
 	s.read()
 	for !s.isDone() {
-		s.str.WriteRune(s.char)
-		s.read()
 		if s.char == quote {
 			s.read()
 			break
 		}
+		s.str.WriteRune(s.char)
+		s.read()
 	}
 	tok.Literal = s.str.String()
 	tok.Type = String
