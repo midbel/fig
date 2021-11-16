@@ -177,6 +177,7 @@ func (o *object) set(n Node) error {
 	case *object:
 		err = o.registerObject(n)
 	default:
+		fmt.Println(n)
 		return fmt.Errorf("node can not be registered")
 	}
 	return err
@@ -292,9 +293,9 @@ func createArray() *array {
 }
 
 func (a *array) Append(n Node) error {
-	if len(a.Nodes) > 0 && n.Type() != a.Nodes[0].Type() {
-		return fmt.Errorf("node can not be appended")
-	}
+	// if len(a.Nodes) > 0 && n.Type() != a.Nodes[0].Type() {
+	// 	return fmt.Errorf("node can not be appended")
+	// }
 	a.Nodes = append(a.Nodes, n)
 	return nil
 }

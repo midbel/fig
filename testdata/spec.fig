@@ -1,0 +1,86 @@
+empty = # option with no value is valid
+
+numbers {
+  int   = 42
+  bin   = 0b101010
+  oct   = 0o42
+  hex   = 0xdead_beaf
+  float1 = 3.14
+  float1 = 2e16
+}
+
+strings {
+  single  = 'foobar'
+  double  = "foobar"
+  heredoc = <<EOF
+  only heredoc can have multiline string
+  the quick brown fox
+  jumps
+  over the lazy dog
+
+  blanks (space, tabs, newline) in heredoc are kept! this is why the closing label
+  should be kept at the very beginning of a line
+EOF
+}
+
+variables {
+  local = $local
+  env   = @env
+}
+
+booleans {
+  truthy = true
+  falsy  = false
+}
+
+arrays {
+  empty  = []
+  simple = [1, 2, 3]
+  multiline1 = [
+    "foo",
+    "bar", # trailing comma is allow
+  ]
+  multiline2 = [
+    "foo",
+    "bar"
+  ]
+  nested = [
+    "foo",
+    "bar",
+    [true, 1, false, 2]
+  ]
+  # automatic array creation
+  auto = "foo"
+  auto = "bar"
+  auto = ["alpha", "omega"]
+}
+
+# object with the same declared multiple time automatically create an array of object
+# at any level of depth
+object {
+  key = first
+  # nested object
+  props {
+    name = "alpha"
+    addr = "alphæ@fig.org"
+  }
+  nested {
+    code   = 1
+    update = true
+  }
+  nested {
+    code   = 42
+    update = false
+  }
+}
+
+object {
+  key = second
+  # nested object
+  props {
+    name = "omega"
+    addr = "omega@fig.org"
+  }
+}
+
+.include("testdata/include.fig", key="sample", fatal=false, method=replace)

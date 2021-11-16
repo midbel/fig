@@ -134,6 +134,7 @@ func (p *Parser) parseEOL() error {
 		}
 	case Comment:
 		p.parseComment()
+	case EOF:
 	default:
 		return p.unexpectedToken()
 	}
@@ -159,6 +160,8 @@ func (p *Parser) parseValue() (Node, error) {
 			p.next()
 		}
 		n = i
+	case p.curr.isEOL():
+	case p.curr.isComment():
 	default:
 		return nil, p.unexpectedToken()
 	}

@@ -1,0 +1,13 @@
+package = fig
+version = "0.1.0"
+author  = midbel
+
+changelog {
+  date = "2021-11-16"
+  desc = "test parser"
+}
+
+changelog {
+  date = "2021-11-01"
+  desc = "restart from scratch"
+}

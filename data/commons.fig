@@ -1,4 +1,0 @@
-addr = "localhost:1001"
-user = guest
-pass = guest
-method = salt
