@@ -10,6 +10,7 @@ type NodeType int8
 
 const (
 	TypeLiteral NodeType = iota
+	TypeVariable
 	TypeOption
 	TypeArray
 	TypeObject
@@ -41,6 +42,9 @@ func createOption(ident string, value Node) *option {
 }
 
 func (o *option) String() string {
+	if o.Value == nil {
+		return fmt.Sprintf("option(%s)", o.Ident)
+	}
 	return fmt.Sprintf("option(%s, %s)", o.Ident, o.Value.String())
 }
 
@@ -105,15 +109,22 @@ func (_ *option) Type() NodeType {
 }
 
 type object struct {
+	parent *object
+
 	Name    string
 	Props   map[string]Node
 	Comment Node
 }
 
 func createObject(ident string) *object {
+	return enclosedObject(ident, nil)
+}
+
+func enclosedObject(ident string, parent *object) *object {
 	return &object{
-		Name:  ident,
-		Props: make(map[string]Node),
+		parent: parent,
+		Name:   ident,
+		Props:  make(map[string]Node),
 	}
 }
 
@@ -125,10 +136,25 @@ func (_ *object) Type() NodeType {
 	return TypeObject
 }
 
+func (o *object) resolve(ident string) (Node, error) {
+	n, ok := o.Props[ident]
+	if ok {
+		opt, ok := n.(*option)
+		if ok {
+			return opt.Value, nil
+		}
+	}
+	if o.parent != nil {
+		return o.parent.Resolve(ident)
+	}
+	return nil, fmt.Errorf("%s value can not be found!", ident)
+}
+
 func (o *object) getObject(ident string, last bool) (*object, error) {
 	nest, ok := o.Props[ident]
 	if !ok {
-		nest := createObject(ident)
+		// nest := createObject(ident)
+		nest := enclosedObject(ident, o)
 		o.Props[ident] = nest
 		return nest, nil
 	}
@@ -153,7 +179,8 @@ func (o *object) getObject(ident string, last bool) (*object, error) {
 }
 
 func (o *object) getLastObject(ident string, parent Node) (*object, error) {
-	nest := createObject(ident)
+	nest := enclosedObject(ident, o)
+	// nest := createObject(ident)
 	switch curr := parent.(type) {
 	case *object:
 		arr := createArray()
@@ -176,6 +203,12 @@ func (o *object) set(n Node) error {
 		err = o.registerOption(n)
 	case *object:
 		err = o.registerObject(n)
+	case *array:
+		for _, n := range n.Nodes {
+			if err := o.set(n); err != nil {
+				return err
+			}
+		}
 	default:
 		return fmt.Errorf("node can not be registered")
 	}
@@ -334,10 +367,13 @@ func createVariable(tok Token) *variable {
 	}
 }
 
+func (_ *variable) Type() NodeType {
+	return TypeVariable
+}
+
 func (v *variable) String() string {
 	return fmt.Sprintf("variable(%s)", v.Ident.Literal)
 }
-
 
 type literal struct {
 	Token   Token

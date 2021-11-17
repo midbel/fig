@@ -112,3 +112,33 @@ server {
 	// map[name:demo server:[map[addr:192.168.67.181 enable:false name:alpha ttl:100] map[addr:192.168.67.236 enable:true name:alpha ttl:100]]]
 	// map[name:demo server:[map[addr:192.168.67.181 enable:false name:alpha ttl:100] map[addr:192.168.67.236 enable:true name:alpha ttl:100]]]
 }
+
+func ExampleDecode_Variables() {
+	const demo = `
+name = demo
+ttl  = 30
+addr = "192.168.67.181"
+server {
+	addr = $addr
+	name = alpha
+	ttl  = $maxttl
+	enable = false
+}
+server {
+	addr = $addr
+	name = alpha
+	ttl  = $maxttl
+	enable = true
+}
+	`
+
+	data := make(map[string]interface{})
+	if err := fig.Decode(strings.NewReader(demo), &data); err != nil {
+		fmt.Printf("fail to decode input string into map[string]interface{}: %s\n", err)
+		return
+	}
+
+	fmt.Printf("%+v\n", data)
+	// Output:
+	// map[name:demo server:[map[addr:192.168.67.181 enable:false name:alpha ttl:30] map[addr:192.168.67.181 enable:true name:alpha ttl:30]]]
+}
