@@ -48,6 +48,14 @@ const (
 	argMeth  = "method"
 )
 
+func Define(root Node, _ []Argument, kwargs map[string]Argument) error {
+	return nil
+}
+
+func Copy(root Node, args []Argument, kwargs map[string]Argument) error {
+	return nil
+}
+
 func Include(root Node, args []Argument, kwargs map[string]Argument) error {
 	var (
 		file   string

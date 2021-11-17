@@ -30,6 +30,8 @@ func NewParser(r io.Reader) (*Parser, error) {
 	p.scan = sc
 	p.macros = map[string]macroFunc{
 		"include": Include,
+		"define":  Define,
+		"copy":    Copy,
 	}
 	p.next()
 	p.next()
@@ -150,7 +152,7 @@ func (p *Parser) parseValue() (Node, error) {
 	case p.curr.Type == BegArr:
 		n, err = p.parseArray()
 	case p.curr.isVariable():
-		n = createLiteral(p.curr)
+		n = createVariable(p.curr)
 		p.next()
 	case p.curr.isLiteral():
 		i := createLiteral(p.curr)
@@ -200,7 +202,7 @@ func (p *Parser) parseArray() (Node, error) {
 		}
 		var err error
 		switch {
-		case p.curr.isLiteral():
+		case p.curr.isLiteral() || p.curr.isVariable():
 			n, err = p.parseValue()
 		case p.curr.Type == BegArr:
 			n, err = p.parseArray()

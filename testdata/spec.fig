@@ -26,6 +26,10 @@ EOF
 variables {
   local = $local
   env   = @env
+  array = [
+    $local,
+    @env,
+  ]
 }
 
 booleans {
@@ -83,4 +87,12 @@ object {
     addr = "omega@fig.org"
   }
   .include("testdata/include.fig", key="sample", fatal=false, method=merge)
+}
+
+# .define: macro defines an object with set of key that can be reused anywhere
+# in the document via the .copy macro
+.define(magic, number=7, number=23, name=foobar)
+
+test {
+  .copy(magic, keys=[number, name, all], depth=1)
 }
