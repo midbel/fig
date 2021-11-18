@@ -147,8 +147,8 @@ func (s *Scanner) scanHeredoc(tok *Token) {
 		return
 	}
 	s.skipNL()
-	for !s.isDone() {
-		for !isNL(s.char) && !s.isDone() {
+	for !s.done() {
+		for !isNL(s.char) && !s.done() {
 			tmp.WriteRune(s.char)
 			s.read()
 		}
@@ -201,7 +201,7 @@ func (s *Scanner) scanIdent(tok *Token) {
 func (s *Scanner) scanString(tok *Token) {
 	quote := s.char
 	s.read()
-	for !s.isDone() {
+	for !s.done() {
 		if s.char == quote {
 			s.read()
 			break
@@ -211,7 +211,7 @@ func (s *Scanner) scanString(tok *Token) {
 	}
 	tok.Literal = s.str.String()
 	tok.Type = String
-	if s.isDone() {
+	if s.done() {
 		tok.Type = Invalid
 	}
 }
@@ -386,9 +386,36 @@ func (s *Scanner) scanComment(tok *Token, multi bool) {
 }
 
 func (s *Scanner) scanCommentMultiline(tok *Token) {
+	s.read()
+	s.read()
+	s.skipBlank()
+
+	var nested int
+	nested++
+	for !s.done() {
+		peek := s.peek()
+		switch {
+		case s.char == slash && peek == star:
+			nested++
+		case s.char == star && peek == slash:
+			nested--
+		}
+		if nested == 0 {
+			s.read()
+			s.read()
+			break
+		}
+		s.str.WriteRune(s.char)
+		s.read()
+	}
+	tok.Literal = s.str.String()
+	tok.Type = Comment
+	if nested != 0 {
+		tok.Type = Invalid
+	}
 }
 
-func (s *Scanner) isDone() bool {
+func (s *Scanner) done() bool {
 	return s.char == zero || s.char == utf8.RuneError
 }
 

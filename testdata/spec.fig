@@ -1,12 +1,22 @@
+/*
+fig supports single line comment but fig supports multine comments.
+/* nested multiline comments even if not recommended are supported*/
+*/
+
 empty = # option with no value is valid
 
 numbers {
+  # integers are supported
   int   = 42
+  negi  = -42
   bin   = 0b101010
   oct   = 0o42
   hex   = 0xdead_beaf
+
+  # float also are supported
   float1 = 3.14
   float1 = 2e16
+  negf   = -3.14
 }
 
 multipliers {
@@ -29,8 +39,6 @@ strings {
   should always be at the very beginning of a line
 EOF
 }
-
-local = 100
 
 # variables {
 #   local = $local
