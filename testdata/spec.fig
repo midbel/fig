@@ -127,3 +127,11 @@ depth = 1
 test {
   .apply(magic, fields=[number, name, all], method=merge)
 }
+
+functions {
+  echo(arg1, karg1=value, karg2=value) {
+    # expression
+  }
+  call = echo(1, karg1=2, karg2=2)
+  expr = 1 + 2
+}
