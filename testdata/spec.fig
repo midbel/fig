@@ -5,6 +5,14 @@ fig supports single line comment but fig supports multine comments.
 
 empty = # option with no value is valid
 
+# line can be ended or via a newline or via a semicolon
+delimiter1 = newline
+delimiter2 = semicolon;
+
+# equal and colon can be used freely as assignment separator
+assign1 = equal
+assign2 : colon
+
 numbers {
   # integers are supported
   int   = 42
