@@ -86,7 +86,7 @@ func Define(root, nest Node, args []Node, kwargs map[string]Node) error {
 	return nil
 }
 
-func Copy(root, _ Node, args []Node, kwargs map[string]Node) error {
+func Apply(root, _ Node, args []Node, kwargs map[string]Node) error {
 	if len(args) == 0 && len(kwargs) == 0 {
 		return fmt.Errorf("no enough arguments supplied")
 	}
@@ -113,7 +113,7 @@ func Copy(root, _ Node, args []Node, kwargs map[string]Node) error {
 	if !ok {
 		return fmt.Errorf("root should be an object! got %T", root)
 	}
-	other, err := obj.get(name, fields, depth)
+	other, err := obj.apply(name, fields, depth)
 	if err != nil {
 		return err
 	}

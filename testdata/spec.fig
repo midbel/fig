@@ -9,6 +9,13 @@ numbers {
   float1 = 2e16
 }
 
+multipliers {
+  kilo    = 100K
+  mega    = 100Mb
+  minutes = 120m
+  hours   = 2h
+}
+
 strings {
   single  = 'foobar'
   double  = "foobar"
@@ -92,7 +99,7 @@ object {
 }
 
 # .define: macro defines an object with set of key that can be reused anywhere
-# in the document via the .copy macro
+# in the document via the .apply macro
 .define(magic) {
   number = 7
   number = 23
@@ -102,5 +109,5 @@ object {
 
 depth = 1
 test {
-  .copy(magic, fields=[number, name, all], method=merge)
+  .apply(magic, fields=[number, name, all], method=merge)
 }
