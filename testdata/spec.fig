@@ -95,6 +95,7 @@ object {
   number = 7
   number = 23
   name   = foobar
+  all    = true
 }
 
 depth = 1

@@ -19,6 +19,7 @@ const (
 type Node interface {
 	fmt.Stringer
 	Type() NodeType
+	clone() Node
 }
 
 type note struct {
@@ -46,6 +47,10 @@ func (o *option) String() string {
 		return fmt.Sprintf("option(%s)", o.Ident)
 	}
 	return fmt.Sprintf("option(%s, %s)", o.Ident, o.Value.String())
+}
+
+func (o *option) clone() Node {
+	return createOption(o.Ident, o.Value.clone())
 }
 
 func (o *option) GetString() (string, error) {
@@ -138,8 +143,25 @@ func (_ *object) Type() NodeType {
 	return TypeObject
 }
 
+func (o *object) clone() Node {
+	// INFO: we don't include parent in clone object because clone is only used
+	// when "plucking" a defined object to be inserted somewhere else in the tree
+	// then, the plucked object will have it's parent field set properly
+	obj := createObject(o.Name)
+	for k, v := range o.Props {
+		obj.Props[k] = v.clone()
+	}
+	return obj
+}
+
 func (o *object) define(ident string, n Node) error {
-	o.Partials[ident] = n
+	obj, ok := n.(*object)
+	if !ok {
+		return fmt.Errorf("%s is not an object", ident)
+	}
+	obj.Name = ident
+	obj.parent = nil
+	o.Partials[ident] = obj
 	return nil
 }
 
@@ -148,13 +170,27 @@ func (o *object) get(ident string, keys []string, depth int64) (Node, error) {
 	if ok {
 		obj, ok := n.(*object)
 		if ok {
-			return obj, nil
+			return o.pluck(obj, keys, depth)
 		}
 	}
 	if o.parent != nil {
 		return o.parent.get(ident, keys, depth)
 	}
 	return nil, fmt.Errorf("%s: undefined node", ident)
+}
+
+func (o *object) pluck(ori *object, keys []string, depth int64) (Node, error) {
+	obj := createObject(ori.Name)
+	for _, k := range keys {
+		v, ok := ori.Props[k]
+		if !ok {
+			return nil, fmt.Errorf("%s: undefined property in %s", k, ori.Name)
+		}
+		// TODO: if v is an object, we have to check the depth value to see how depth
+		// we have to go when we clone it
+		obj.Props[k] = v.clone()
+	}
+	return obj, nil
 }
 
 func (o *object) resolve(ident string) (Node, error) {
@@ -218,6 +254,7 @@ func (o *object) getLastObject(ident string, parent Node) (*object, error) {
 }
 
 func (o *object) set(n Node) error {
+	// TODO: make sure that when an object is set, its parent field is set properly
 	var err error
 	switch n := n.(type) {
 	case *option:
@@ -370,6 +407,14 @@ func (_ *array) Type() NodeType {
 	return TypeArray
 }
 
+func (a *array) clone() Node {
+	arr := createArray()
+	for i := range arr.Nodes {
+		arr.Nodes = append(arr.Nodes, arr.Nodes[i].clone())
+	}
+	return arr
+}
+
 type Argument interface {
 	GetString() (string, error)
 	GetFloat() (float64, error)
@@ -394,6 +439,10 @@ func (_ *variable) Type() NodeType {
 
 func (v *variable) String() string {
 	return fmt.Sprintf("variable(%s)", v.Ident.Literal)
+}
+
+func (v *variable) clone() Node {
+	return createVariable(v.Ident)
 }
 
 type literal struct {
@@ -452,6 +501,12 @@ func (i *literal) Get() (interface{}, error) {
 	default:
 		return nil, fmt.Errorf("unknown literal type")
 	}
+}
+
+func (i *literal) clone() Node {
+	n := createLiteral(i.Token)
+	n.Mul = i.Mul
+	return n
 }
 
 type macro struct {
