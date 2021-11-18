@@ -165,7 +165,7 @@ func (o *object) define(ident string, n Node) error {
 	return nil
 }
 
-func (o *object) get(ident string, keys []string, depth int64) (Node, error) {
+func (o *object) apply(ident string, keys []string, depth int64) (Node, error) {
 	n, ok := o.Partials[ident]
 	if ok {
 		obj, ok := n.(*object)
@@ -174,7 +174,7 @@ func (o *object) get(ident string, keys []string, depth int64) (Node, error) {
 		}
 	}
 	if o.parent != nil {
-		return o.parent.get(ident, keys, depth)
+		return o.parent.apply(ident, keys, depth)
 	}
 	return nil, fmt.Errorf("%s: undefined node", ident)
 }
@@ -464,6 +464,53 @@ func (v *variable) clone() Node {
 	return createVariable(v.Ident)
 }
 
+const (
+	si   = 1000
+	iec  = 1024
+	min  = 60
+	hour = min * min
+	day  = hour * 24
+	week = day * 7
+	year = day * 365
+)
+
+var multipliers = map[string]func(float64) float64{
+	"K":  multiplyFloat(si),
+	"M":  multiplyFloat(si * si),
+	"G":  multiplyFloat(si * si * si),
+	"T":  multiplyFloat(si * si * si * si),
+	"Kb": multiplyFloat(iec),
+	"Mb": multiplyFloat(iec * iec),
+	"Gb": multiplyFloat(iec * iec * iec),
+	"Tb": multiplyFloat(iec * iec * iec * iec),
+	"s":  multiplyFloat(1),
+	"m":  multiplyFloat(min),
+	"h":  multiplyFloat(hour),
+	"d":  multiplyFloat(day),
+	"w":  multiplyFloat(week),
+	"y":  multiplyFloat(year),
+	"ms": multiplyFloat(1 / si),
+	"":   multiplyFloat(1),
+}
+
+func multiplyFloat(mul float64) func(float64) float64 {
+	return func(v float64) float64 {
+		return v * mul
+	}
+}
+
+func convertFloat(str, mul string) (float64, error) {
+	v, err := strconv.ParseFloat(str, 64)
+	if err != nil {
+		return v, err
+	}
+	fn, ok := multipliers[mul]
+	if !ok {
+		return v, fmt.Errorf("%s: unsupported/unknown multipliers", mul)
+	}
+	return fn(v), nil
+}
+
 type literal struct {
 	Token   Token
 	Mul     Token
@@ -491,20 +538,22 @@ func (i *literal) GetString() (string, error) {
 	return i.Token.Literal, nil
 }
 
-func (i *literal) GetInt() (int64, error) {
-	return strconv.ParseInt(i.Token.Literal, 0, 64)
-}
-
-func (i *literal) GetUint() (uint64, error) {
-	return strconv.ParseUint(i.Token.Literal, 0, 64)
-}
-
 func (i *literal) GetBool() (bool, error) {
 	return strconv.ParseBool(i.Token.Literal)
 }
 
+func (i *literal) GetInt() (int64, error) {
+	v, err := convertFloat(i.Token.Literal, i.Mul.Literal)
+	return int64(v), err
+}
+
+func (i *literal) GetUint() (uint64, error) {
+	v, err := convertFloat(i.Token.Literal, i.Mul.Literal)
+	return uint64(v), err
+}
+
 func (i *literal) GetFloat() (float64, error) {
-	return strconv.ParseFloat(i.Token.Literal, 64)
+	return convertFloat(i.Token.Literal, i.Mul.Literal)
 }
 
 func (i *literal) Get() (interface{}, error) {

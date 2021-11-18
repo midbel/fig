@@ -116,7 +116,7 @@ server {
 func ExampleDecode_Variables() {
 	const demo = `
 name = demo
-ttl  = 30
+ttl  = 30m
 addr = "192.168.67.181"
 server {
 	addr = $addr
@@ -140,5 +140,5 @@ server {
 
 	fmt.Printf("%+v\n", data)
 	// Output:
-	// map[addr:192.168.67.181 name:demo server:[map[addr:192.168.67.181 enable:false name:alpha ttl:30] map[addr:192.168.67.181 enable:true name:alpha ttl:30]] ttl:30]
+	// map[addr:192.168.67.181 name:demo server:[map[addr:192.168.67.181 enable:false name:alpha ttl:1800] map[addr:192.168.67.181 enable:true name:alpha ttl:1800]] ttl:1800]
 }

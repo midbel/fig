@@ -31,7 +31,7 @@ func NewParser(r io.Reader) (*Parser, error) {
 	p.macros = map[string]macrodef{
 		"include": createMacroDef(Include, false),
 		"define":  createMacroDef(Define, true),
-		"copy":    createMacroDef(Copy, false),
+		"apply":    createMacroDef(Apply, false),
 	}
 	p.next()
 	p.next()
@@ -157,7 +157,7 @@ func (p *Parser) parseValue() (Node, error) {
 	case p.curr.isLiteral():
 		i := createLiteral(p.curr)
 		p.next()
-		if p.curr.isIdent() {
+		if i.Token.isNumber() && p.curr.isIdent() {
 			i.Mul = p.curr
 			p.next()
 		}

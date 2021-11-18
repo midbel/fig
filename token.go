@@ -96,6 +96,10 @@ func (t Token) isLiteral() bool {
 	}
 }
 
+func (t Token) isNumber() bool {
+	return t.Type == Integer || t.Type == Float
+}
+
 func (t Token) isValue() bool {
 	return t.isLiteral() || t.isVariable()
 }
