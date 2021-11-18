@@ -23,14 +23,16 @@ strings {
 EOF
 }
 
-variables {
-  local = $local
-  env   = @env
-  array = [
-    $local,
-    @env,
-  ]
-}
+local = 100
+
+# variables {
+#   local = $local
+#   env   = @env
+#   array = [
+#     $local,
+#     @env,
+#   ]
+# }
 
 booleans {
   truthy = true

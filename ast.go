@@ -193,12 +193,12 @@ func (o *object) pluck(ori *object, keys []string, depth int64) (Node, error) {
 	return obj, nil
 }
 
-func (o *object) resolve(ident string) (Node, error) {
+func (o *object) resolve(ident string) (*option, error) {
 	n, ok := o.Props[ident]
 	if ok {
 		opt, ok := n.(*option)
 		if ok {
-			return opt.Value, nil
+			return opt, nil
 		}
 	}
 	if o.parent != nil {
@@ -298,6 +298,25 @@ func (o *object) registerObject(obj *object) error {
 }
 
 func (o *object) registerOption(opt *option) error {
+	switch v := opt.Value.(type) {
+	case *variable:
+		res, err := o.resolve(v.Ident.Literal)
+		if err != nil {
+			return err
+		}
+		opt.Value = res.Value.clone()
+	case *array:
+		for i := range v.Nodes {
+			if vr, ok := v.Nodes[i].(*variable); ok {
+				res, err := o.resolve(vr.Ident.Literal)
+				if err != nil {
+					return err
+				}
+				v.Nodes[i] = res.clone()
+			}
+		}
+	default:
+	}
 	curr, ok := o.Props[opt.Ident]
 	if !ok {
 		o.Props[opt.Ident] = opt

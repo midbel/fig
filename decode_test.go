@@ -121,13 +121,13 @@ addr = "192.168.67.181"
 server {
 	addr = $addr
 	name = alpha
-	ttl  = $maxttl
+	ttl  = $ttl
 	enable = false
 }
 server {
 	addr = $addr
 	name = alpha
-	ttl  = $maxttl
+	ttl  = $ttl
 	enable = true
 }
 	`
@@ -140,5 +140,5 @@ server {
 
 	fmt.Printf("%+v\n", data)
 	// Output:
-	// map[name:demo server:[map[addr:192.168.67.181 enable:false name:alpha ttl:30] map[addr:192.168.67.181 enable:true name:alpha ttl:30]]]
+	// map[addr:192.168.67.181 name:demo server:[map[addr:192.168.67.181 enable:false name:alpha ttl:30] map[addr:192.168.67.181 enable:true name:alpha ttl:30]] ttl:30]
 }
