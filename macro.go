@@ -10,7 +10,19 @@ import (
 	"path/filepath"
 )
 
-type macroFunc func(Node, []Argument, map[string]Argument) error
+type macroFunc func(root, obj Node, args []Node, kwargs map[string]Node) error
+
+type macrodef struct {
+	macroFunc
+	withobject bool
+}
+
+func createMacroDef(fn macroFunc, with bool) macrodef {
+	return macrodef{
+		macroFunc:  fn,
+		withobject: with,
+	}
+}
 
 var errBadArgument = errors.New("argument")
 
@@ -42,24 +54,86 @@ func (s strategy) Valid() bool {
 }
 
 const (
-	argFile  = "file"
-	argKey   = "key"
-	argFatal = "fatal"
-	argMeth  = "method"
+	argFile   = "file"
+	argFatal  = "fatal"
+	argMeth   = "method"
+	argName   = "name"
+	argFields = "fields"
+	argDepth  = "depth"
 )
 
-func Define(root Node, _ []Argument, kwargs map[string]Argument) error {
+func Define(root, nest Node, args []Node, kwargs map[string]Node) error {
+	if len(args) == 0 && len(kwargs) == 0 {
+		return fmt.Errorf("no enough arguments supplied")
+	}
+	var (
+		name   string
+		method string
+		err    error
+	)
+	if name, err = getString(0, argName, args, kwargs); err != nil {
+		return err
+	}
+	if method, err = getString(1, argMeth, args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
+		return err
+	}
+	_ = method
+	obj, ok := root.(*object)
+	if !ok {
+		return fmt.Errorf("root should be an object! got %T", root)
+	}
+	obj.define(name, nest)
 	return nil
 }
 
-func Copy(root Node, args []Argument, kwargs map[string]Argument) error {
+func Copy(root, _ Node, args []Node, kwargs map[string]Node) error {
+	if len(args) == 0 && len(kwargs) == 0 {
+		return fmt.Errorf("no enough arguments supplied")
+	}
+	var (
+		name   string
+		fields []string
+		depth  int64
+		method string
+		err    error
+	)
+	if name, err = getString(0, argName, args, kwargs); err != nil {
+		return err
+	}
+	if fields, err = getStringSlice(1, argFields, args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
+		return err
+	}
+	if depth, err = getInt(2, argDepth, args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
+		return err
+	}
+	if method, err = getString(3, argMeth, args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
+		return err
+	}
+	obj, ok := root.(*object)
+	if !ok {
+		return fmt.Errorf("root should be an object! got %T", root)
+	}
+	other, err := obj.get(name, fields, depth)
+	if err != nil {
+		return err
+	}
+	switch do := strategyFromString(method); do {
+	case sReplace:
+		err = obj.replace(other)
+	case sAppend:
+		err = obj.insert(other)
+	case sMerge:
+		err = obj.merge(other)
+	default:
+		err = fmt.Errorf("unknown/unsupported insertion method supplied")
+	}
 	return nil
 }
 
-func Include(root Node, args []Argument, kwargs map[string]Argument) error {
+func Include(root, _ Node, args []Node, kwargs map[string]Node) error {
 	var (
 		file   string
-		key    string
+		name   string
 		method string
 		fatal  bool
 		err    error
@@ -68,7 +142,7 @@ func Include(root Node, args []Argument, kwargs map[string]Argument) error {
 	if file, err = getString(0, argFile, args, kwargs); err != nil {
 		return err
 	}
-	if key, err = getString(1, argKey, args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
+	if name, err = getString(1, argName, args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
 		return err
 	}
 	if fatal, err = getBool(2, argFatal, args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
@@ -77,7 +151,7 @@ func Include(root Node, args []Argument, kwargs map[string]Argument) error {
 	if method, err = getString(3, argMeth, args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
 		return err
 	}
-	n, err := include(file, key, fatal)
+	n, err := include(file, name, fatal)
 	if err != nil || n == nil {
 		return err
 	}
@@ -98,7 +172,7 @@ func Include(root Node, args []Argument, kwargs map[string]Argument) error {
 	return err
 }
 
-func include(file, key string, fatal bool) (Node, error) {
+func include(file, name string, fatal bool) (Node, error) {
 	var (
 		u, _ = url.Parse(file)
 		rc   io.ReadCloser
@@ -130,8 +204,8 @@ func include(file, key string, fatal bool) (Node, error) {
 	obj, ok := node.(*object)
 	if ok {
 		obj.Name = filepath.Base(file)
-		if key != "" {
-			obj.Name = key
+		if name != "" {
+			obj.Name = name
 		}
 	}
 	return node, nil
@@ -152,24 +226,72 @@ func readRemote(file string) (io.ReadCloser, error) {
 	return res.Body, nil
 }
 
-func getString(at int, field string, args []Argument, kwargs map[string]Argument) (string, error) {
-	arg, err := checkHas(at+1, field, args, kwargs)
+func getStringSlice(at int, field string, args []Node, kwargs map[string]Node) ([]string, error) {
+	n, err := checkHas(at+1, field, args, kwargs)
+	if err != nil {
+		return nil, err
+	}
+	arg, ok := n.(Argument)
+	if ok {
+		str, err := arg.GetString()
+		return []string{str}, err
+	}
+	arr, ok := n.(*array)
+	if !ok {
+		return nil, fmt.Errorf("%s: node can not be used as argument", field)
+	}
+	var str []string
+	for _, n := range arr.Nodes {
+		if arg, ok = n.(Argument); !ok {
+			return nil, fmt.Errorf("%s: node can not be used as argument", field)
+		}
+		s, err := arg.GetString()
+		if err != nil {
+			return nil, err
+		}
+		str = append(str, s)
+	}
+	return str, nil
+}
+
+func getString(at int, field string, args []Node, kwargs map[string]Node) (string, error) {
+	n, err := checkHas(at+1, field, args, kwargs)
 	if err != nil {
 		return "", err
+	}
+	arg, ok := n.(Argument)
+	if !ok {
+		return "", fmt.Errorf("%s: node can not be used as argument", field)
 	}
 	return arg.GetString()
 }
 
-func getBool(at int, field string, args []Argument, kwargs map[string]Argument) (bool, error) {
-	arg, err := checkHas(at+1, field, args, kwargs)
+func getBool(at int, field string, args []Node, kwargs map[string]Node) (bool, error) {
+	n, err := checkHas(at+1, field, args, kwargs)
 	if err != nil {
 		return false, err
+	}
+	arg, ok := n.(Argument)
+	if !ok {
+		return false, fmt.Errorf("%s: node can not be used argument", field)
 	}
 	return arg.GetBool()
 }
 
-func checkHas(at int, field string, args []Argument, kwargs map[string]Argument) (Argument, error) {
-	arg, ok := kwargs[field]
+func getInt(at int, field string, args []Node, kwargs map[string]Node) (int64, error) {
+	n, err := checkHas(at+1, field, args, kwargs)
+	if err != nil {
+		return 0, err
+	}
+	arg, ok := n.(Argument)
+	if !ok {
+		return 0, fmt.Errorf("%s: node can not be used argument", field)
+	}
+	return arg.GetInt()
+}
+
+func checkHas(at int, field string, args []Node, kwargs map[string]Node) (Node, error) {
+	n, ok := kwargs[field]
 	if len(args) < at && !ok {
 		return nil, errArgument(field, "not supplied")
 	}
@@ -177,9 +299,9 @@ func checkHas(at int, field string, args []Argument, kwargs map[string]Argument)
 		if ok {
 			return nil, errArgument(field, "given as positional and keyword")
 		}
-		arg = args[at-1]
+		n = args[at-1]
 	}
-	return arg, nil
+	return n, nil
 }
 
 func errArgument(field, msg string) error {

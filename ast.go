@@ -111,9 +111,10 @@ func (_ *option) Type() NodeType {
 type object struct {
 	parent *object
 
-	Name    string
-	Props   map[string]Node
-	Comment Node
+	Name     string
+	Props    map[string]Node
+	Partials map[string]Node
+	Comment  Node
 }
 
 func createObject(ident string) *object {
@@ -122,9 +123,10 @@ func createObject(ident string) *object {
 
 func enclosedObject(ident string, parent *object) *object {
 	return &object{
-		parent: parent,
-		Name:   ident,
-		Props:  make(map[string]Node),
+		parent:   parent,
+		Name:     ident,
+		Props:    make(map[string]Node),
+		Partials: make(map[string]Node),
 	}
 }
 
@@ -136,6 +138,25 @@ func (_ *object) Type() NodeType {
 	return TypeObject
 }
 
+func (o *object) define(ident string, n Node) error {
+	o.Partials[ident] = n
+	return nil
+}
+
+func (o *object) get(ident string, keys []string, depth int64) (Node, error) {
+	n, ok := o.Partials[ident]
+	if ok {
+		obj, ok := n.(*object)
+		if ok {
+			return obj, nil
+		}
+	}
+	if o.parent != nil {
+		return o.parent.get(ident, keys, depth)
+	}
+	return nil, fmt.Errorf("%s: undefined node", ident)
+}
+
 func (o *object) resolve(ident string) (Node, error) {
 	n, ok := o.Props[ident]
 	if ok {
@@ -145,9 +166,9 @@ func (o *object) resolve(ident string) (Node, error) {
 		}
 	}
 	if o.parent != nil {
-		return o.parent.Resolve(ident)
+		return o.parent.resolve(ident)
 	}
-	return nil, fmt.Errorf("%s value can not be found!", ident)
+	return nil, fmt.Errorf("%s: undefined option", ident)
 }
 
 func (o *object) getObject(ident string, last bool) (*object, error) {
