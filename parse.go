@@ -33,6 +33,7 @@ func NewParser(r io.Reader) (*Parser, error) {
 		"define":  createMacroDef(Define, true),
 		"apply":   createMacroDef(Apply, false),
 		"extend":  createMacroDef(Extend, true),
+		"repeat":  createMacroDef(Repeat, true),
 	}
 	p.next()
 	p.next()
@@ -265,7 +266,8 @@ func (p *Parser) parseMacro(obj *object) error {
 		if p.curr.Type != BegObj {
 			return p.unexpected()
 		}
-		tmp := createObject("")
+		// tmp := createObject("")
+		tmp := enclosedObject("", obj)
 		if err := p.parseObject(tmp); err != nil {
 			return err
 		}

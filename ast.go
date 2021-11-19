@@ -154,6 +154,25 @@ func (o *object) clone() Node {
 	return obj
 }
 
+func (o *object) repeat(count int64, name string, nest Node) error {
+	if count <= 1 {
+		return fmt.Errorf("repeat can not be less or equal to 1! got %d", count)
+	}
+	obj, ok := nest.(*object)
+	if !ok {
+		return fmt.Errorf("node is not an object")
+	}
+	var (
+		arr = createArray()
+		i   int64
+	)
+	obj.Name = name
+	for ; i < count; i++ {
+		arr.Append(obj.clone())
+	}
+	return o.set(arr)
+}
+
 func (o *object) extend(name, as string, n Node) error {
 	ori, ok := o.Partials[name]
 	if !ok {

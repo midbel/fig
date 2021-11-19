@@ -61,7 +61,30 @@ const (
 	argAs     = "as"
 	argFields = "fields"
 	argDepth  = "depth"
+	argCount  = "count"
 )
+
+func Repeat(root, nest Node, args []Node, kwargs map[string]Node) error {
+	if len(args) == 0 && len(kwargs) == 0 {
+		return fmt.Errorf("no enough arguments supplied")
+	}
+	var (
+		count int64
+		name  string
+		err   error
+	)
+	if count, err = getInt(0, argCount, args, kwargs); err != nil {
+		return err
+	}
+	if name, err = getString(1, argName, args, kwargs); err != nil {
+		return err
+	}
+	obj, ok := root.(*object)
+	if !ok {
+		return fmt.Errorf("root should be an object! got %T", root)
+	}
+	return obj.repeat(count, name, nest)
+}
 
 func Extend(root, nest Node, args []Node, kwargs map[string]Node) error {
 	if len(args) == 0 && len(kwargs) == 0 {

@@ -130,3 +130,7 @@ depth = 1
 test {
   .apply(extended_magic, fields=[number, name, all], method=merge)
 }
+
+.repeat(4, name="repeaters") {
+  .apply(magic)
+}
