@@ -58,9 +58,32 @@ const (
 	argFatal  = "fatal"
 	argMeth   = "method"
 	argName   = "name"
+	argAs     = "as"
 	argFields = "fields"
 	argDepth  = "depth"
 )
+
+func Extend(root, nest Node, args []Node, kwargs map[string]Node) error {
+	if len(args) == 0 && len(kwargs) == 0 {
+		return fmt.Errorf("no enough arguments supplied")
+	}
+	var (
+		name string
+		as   string
+		err  error
+	)
+	if name, err = getString(0, argName, args, kwargs); err != nil {
+		return err
+	}
+	if as, err = getString(1, argAs, args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
+		return err
+	}
+	obj, ok := root.(*object)
+	if !ok {
+		return fmt.Errorf("root should be an object! got %T", root)
+	}
+	return obj.extend(name, as, nest)
+}
 
 func Define(root, nest Node, args []Node, kwargs map[string]Node) error {
 	if len(args) == 0 && len(kwargs) == 0 {

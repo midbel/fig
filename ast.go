@@ -154,6 +154,38 @@ func (o *object) clone() Node {
 	return obj
 }
 
+func (o *object) extend(name, as string, n Node) error {
+	ori, ok := o.Partials[name]
+	if !ok {
+		return fmt.Errorf("%s: undefined node", name)
+	}
+	obj, ok := ori.(*object)
+	if !ok {
+		return fmt.Errorf("%s is not an object", name)
+	}
+	nest, ok := n.(*object)
+	if !ok {
+		return fmt.Errorf("node is not an object")
+	}
+	if as != "" {
+		obj = obj.clone().(*object)
+	}
+	if err := obj.merge(nest); err != nil {
+		return err
+	}
+	if as == "" {
+		o.Partials[name] = obj
+	} else {
+		_, ok := o.Partials[as]
+		if ok {
+			return fmt.Errorf("%s can not be replaced by extended object")
+		}
+		obj.Name = as
+		o.Partials[as] = obj
+	}
+	return nil
+}
+
 func (o *object) define(ident string, n Node) error {
 	obj, ok := n.(*object)
 	if !ok {
@@ -433,8 +465,8 @@ func (_ *array) Type() NodeType {
 
 func (a *array) clone() Node {
 	arr := createArray()
-	for i := range arr.Nodes {
-		arr.Nodes = append(arr.Nodes, arr.Nodes[i].clone())
+	for i := range a.Nodes {
+		arr.Nodes = append(arr.Nodes, a.Nodes[i].clone())
 	}
 	return arr
 }
