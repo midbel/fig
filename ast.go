@@ -14,6 +14,7 @@ const (
 	TypeOption
 	TypeArray
 	TypeObject
+	TypeCall
 )
 
 type Node interface {
@@ -633,9 +634,27 @@ func (i *literal) clone() Node {
 	return n
 }
 
-type macro struct {
-	Name    string
-	Args    []Node
-	Named   map[string]Node
-	Comment Node
+type call struct {
+	Ident string
+	Args []Node
+	Kwargs map[string]Node
+}
+
+func createCall(ident string) *call {
+	return &call{
+		Ident: ident,
+		Kwargs: make(map[string]Node),
+	}
+}
+
+func (_ *call) Type() NodeType {
+	return TypeCall
+}
+
+func (c *call) String() string {
+	return fmt.Sprintf("call(%s)", c.Ident)
+}
+
+func (c *call) clone() Node {
+	return nil
 }

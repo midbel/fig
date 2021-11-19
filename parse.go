@@ -157,6 +157,9 @@ func (p *Parser) parseValue() (Node, error) {
 		n = createVariable(p.curr)
 		p.next()
 	case p.curr.isLiteral():
+		if p.curr.Type == Ident && p.peek.Type == BegGrp {
+			return p.parseCall()
+		}
 		i := createLiteral(p.curr)
 		p.next()
 		if i.Token.isNumber() && p.curr.isIdent() {
@@ -170,6 +173,16 @@ func (p *Parser) parseValue() (Node, error) {
 		return nil, p.unexpected()
 	}
 	return n, err
+}
+
+func (p *Parser) parseCall() (Node, error) {
+	var (
+		c = createCall(p.curr.Literal)
+		err error
+	)
+	p.next()
+	c.Args, c.Kwargs, err = p.parseArgs()
+	return c, err
 }
 
 func (p *Parser) parseObject(obj *object) error {
@@ -295,9 +308,6 @@ func (p *Parser) parseArgs() ([]Node, map[string]Node, error) {
 			named = true
 		}
 		if !named {
-			if !p.curr.isValue() {
-				return nil, nil, p.unexpected()
-			}
 			n, err := p.parseValue()
 			if err != nil {
 				return nil, nil, err
