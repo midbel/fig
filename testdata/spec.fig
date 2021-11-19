@@ -120,12 +120,19 @@ object {
   number = 7
   number = 23
   name   = foobar
-  all    = true
+}
+
+.extend(magic, as=extended_magic) {
+  all = true
 }
 
 depth = 1
 test {
-  .apply(magic, fields=[number, name, all], method=merge)
+  .apply(extended_magic, fields=[number, name, all], method=merge)
+}
+
+.repeat(4, name="repeaters") {
+  .apply(magic)
 }
 
 functions {

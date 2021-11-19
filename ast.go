@@ -154,6 +154,57 @@ func (o *object) clone() Node {
 	return obj
 }
 
+func (o *object) repeat(count int64, name string, nest Node) error {
+	if count <= 1 {
+		return fmt.Errorf("repeat can not be less or equal to 1! got %d", count)
+	}
+	obj, ok := nest.(*object)
+	if !ok {
+		return fmt.Errorf("node is not an object")
+	}
+	var (
+		arr = createArray()
+		i   int64
+	)
+	obj.Name = name
+	for ; i < count; i++ {
+		arr.Append(obj.clone())
+	}
+	return o.set(arr)
+}
+
+func (o *object) extend(name, as string, n Node) error {
+	ori, ok := o.Partials[name]
+	if !ok {
+		return fmt.Errorf("%s: undefined node", name)
+	}
+	obj, ok := ori.(*object)
+	if !ok {
+		return fmt.Errorf("%s is not an object", name)
+	}
+	nest, ok := n.(*object)
+	if !ok {
+		return fmt.Errorf("node is not an object")
+	}
+	if as != "" {
+		obj = obj.clone().(*object)
+	}
+	if err := obj.merge(nest); err != nil {
+		return err
+	}
+	if as == "" {
+		o.Partials[name] = obj
+	} else {
+		_, ok := o.Partials[as]
+		if ok {
+			return fmt.Errorf("%s can not be replaced by extended object")
+		}
+		obj.Name = as
+		o.Partials[as] = obj
+	}
+	return nil
+}
+
 func (o *object) define(ident string, n Node) error {
 	obj, ok := n.(*object)
 	if !ok {
@@ -181,6 +232,11 @@ func (o *object) apply(ident string, keys []string, depth int64) (Node, error) {
 
 func (o *object) pluck(ori *object, keys []string, depth int64) (Node, error) {
 	obj := createObject(ori.Name)
+	if len(keys) == 0 {
+		for k := range ori.Props {
+			keys = append(keys, k)
+		}
+	}
 	for _, k := range keys {
 		v, ok := ori.Props[k]
 		if !ok {
@@ -428,8 +484,8 @@ func (_ *array) Type() NodeType {
 
 func (a *array) clone() Node {
 	arr := createArray()
-	for i := range arr.Nodes {
-		arr.Nodes = append(arr.Nodes, arr.Nodes[i].clone())
+	for i := range a.Nodes {
+		arr.Nodes = append(arr.Nodes, a.Nodes[i].clone())
 	}
 	return arr
 }
