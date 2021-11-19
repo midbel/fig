@@ -181,6 +181,11 @@ func (o *object) apply(ident string, keys []string, depth int64) (Node, error) {
 
 func (o *object) pluck(ori *object, keys []string, depth int64) (Node, error) {
 	obj := createObject(ori.Name)
+	if len(keys) == 0 {
+		for k := range ori.Props {
+			keys = append(keys, k)
+		}
+	}
 	for _, k := range keys {
 		v, ok := ori.Props[k]
 		if !ok {
