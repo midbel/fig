@@ -31,7 +31,9 @@ func NewParser(r io.Reader) (*Parser, error) {
 	p.macros = map[string]macrodef{
 		"include": createMacroDef(Include, false),
 		"define":  createMacroDef(Define, true),
-		"apply":    createMacroDef(Apply, false),
+		"apply":   createMacroDef(Apply, false),
+		"declare": createMacroDef(Declare, false),
+		"extend":  createMacroDef(Extend, true),
 	}
 	p.next()
 	p.next()

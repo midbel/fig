@@ -62,6 +62,14 @@ const (
 	argDepth  = "depth"
 )
 
+func Extend(root, nest Node, args []Node, kwargs map[string]Node) error {
+	return nil
+}
+
+func Declare(root, _ Node, args []Node, kwargs map[string]Node) error {
+	return nil
+}
+
 func Define(root, nest Node, args []Node, kwargs map[string]Node) error {
 	if len(args) == 0 && len(kwargs) == 0 {
 		return fmt.Errorf("no enough arguments supplied")
