@@ -177,7 +177,7 @@ func (p *Parser) parseValue() (Node, error) {
 
 func (p *Parser) parseCall() (Node, error) {
 	var (
-		c = createCall(p.curr.Literal)
+		c   = createCall(p.curr.Literal)
 		err error
 	)
 	p.next()

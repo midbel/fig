@@ -198,7 +198,7 @@ func (o *object) extend(name, as string, n Node) error {
 	} else {
 		_, ok := o.Partials[as]
 		if ok {
-			return fmt.Errorf("%s can not be replaced by extended object")
+			return fmt.Errorf("%s can not be replaced by extended object", as)
 		}
 		obj.Name = as
 		o.Partials[as] = obj
@@ -635,14 +635,14 @@ func (i *literal) clone() Node {
 }
 
 type call struct {
-	Ident string
-	Args []Node
+	Ident  string
+	Args   []Node
 	Kwargs map[string]Node
 }
 
 func createCall(ident string) *call {
 	return &call{
-		Ident: ident,
+		Ident:  ident,
 		Kwargs: make(map[string]Node),
 	}
 }
@@ -656,5 +656,12 @@ func (c *call) String() string {
 }
 
 func (c *call) clone() Node {
+	a := createCall(c.Ident)
+	for i := range c.Args {
+		a.Args = append(a.Args, c.Args[i].clone())
+	}
+	for k, v := range c.Kwargs {
+		a.Kwargs[k] = v.clone()
+	}
 	return nil
 }

@@ -135,9 +135,11 @@ test {
   .apply(magic)
 }
 
+name  = foobar
 call1 = join([1, 2, 3], " ")
 call2 = repeat("test", 5)
-call3 = upper("foobar")
+call3 = upper(lower("foobar"))
+call4 = uuid3($name)
 
 # functions {
 #   echo(arg1, karg1=value, karg2=value) {

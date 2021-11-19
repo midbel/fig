@@ -68,7 +68,7 @@ server {
 		Servers []Server               `fig:"server"`
 	}
 	var in Config
-	if err := fig.Decode(strings.NewReader(demo), &in); err != nil {
+	if err := fig.NewDecoder(strings.NewReader(demo)).Decode(&in); err != nil {
 		fmt.Printf("fail to decode input string: %s\n", err)
 		return
 	}
@@ -95,13 +95,13 @@ server {
 	`
 
 	var empty interface{}
-	if err := fig.Decode(strings.NewReader(demo), &empty); err != nil {
+	if err := fig.NewDecoder(strings.NewReader(demo)).Decode(&empty); err != nil {
 		fmt.Printf("fail to decode input string into interface{}: %s\n", err)
 		return
 	}
 
 	data := make(map[string]interface{})
-	if err := fig.Decode(strings.NewReader(demo), &data); err != nil {
+	if err := fig.NewDecoder(strings.NewReader(demo)).Decode(&data); err != nil {
 		fmt.Printf("fail to decode input string into map[string]interface{}: %s\n", err)
 		return
 	}
@@ -133,7 +133,7 @@ server {
 	`
 
 	data := make(map[string]interface{})
-	if err := fig.Decode(strings.NewReader(demo), &data); err != nil {
+	if err := fig.NewDecoder(strings.NewReader(demo)).Decode(&data); err != nil {
 		fmt.Printf("fail to decode input string into map[string]interface{}: %s\n", err)
 		return
 	}

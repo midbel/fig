@@ -7,8 +7,28 @@ import (
 	"strings"
 )
 
-func Decode(r io.Reader, v interface{}) error {
-	n, err := Parse(r)
+type FuncMap map[string]interface{}
+
+type Decoder struct {
+	read io.Reader
+	set  FuncMap
+}
+
+func NewDecoder(r io.Reader) *Decoder {
+	return &Decoder{
+		read: r,
+		set:  make(FuncMap),
+	}
+}
+
+func (d *Decoder) Funcs(set FuncMap) {
+	for k, v := range set {
+		d.set[k] = v
+	}
+}
+
+func (d *Decoder) Decode(v interface{}) error {
+	n, err := Parse(d.read)
 	if err != nil {
 		return err
 	}
@@ -25,7 +45,7 @@ func Decode(r io.Reader, v interface{}) error {
 		if !ok {
 			return fmt.Errorf("root node is not an object")
 		}
-		if err = decodeMap(obj, v); err == nil {
+		if err = d.decodeMap(obj, v); err == nil {
 			value.Set(v)
 		}
 		return err
@@ -39,29 +59,29 @@ func Decode(r io.Reader, v interface{}) error {
 		if !ok {
 			return fmt.Errorf("root node is not an object")
 		}
-		return decodeMap(obj, value)
+		return d.decodeMap(obj, value)
 	}
-	return decode(n, value.Elem())
+	return d.decode(n, value.Elem())
 }
 
-func decode(n Node, value reflect.Value) error {
+func (d *Decoder) decode(n Node, value reflect.Value) error {
 	var err error
 	switch n := n.(type) {
 	case *array:
-		err = decodeArray(n, value)
+		err = d.decodeArray(n, value)
 	case *object:
-		err = decodeObject(n, value)
+		err = d.decodeObject(n, value)
 	case *option:
-		err = decodeOption(n, value)
+		err = d.decodeOption(n, value)
 	case *literal:
-		err = decodeLiteral(n, value)
+		err = d.decodeLiteral(n, value)
 	default:
 		err = fmt.Errorf("value (%s) can not be decoded from %T", value.Kind(), n)
 	}
 	return err
 }
 
-func decodeInterface(lit *literal, v reflect.Value) error {
+func (d *Decoder) decodeInterface(lit *literal, v reflect.Value) error {
 	var (
 		val reflect.Value
 		err error
@@ -112,7 +132,7 @@ func decodeInterface(lit *literal, v reflect.Value) error {
 	return err
 }
 
-func decodeLiteral(lit *literal, v reflect.Value) error {
+func (d *Decoder) decodeLiteral(lit *literal, v reflect.Value) error {
 	var err error
 	switch k := v.Kind(); k {
 	case reflect.String:
@@ -163,29 +183,35 @@ func decodeLiteral(lit *literal, v reflect.Value) error {
 	return err
 }
 
-func decodeOption(opt *option, v reflect.Value) error {
+func (d *Decoder) decodeOption(opt *option, v reflect.Value) error {
 	switch opt.Value.Type() {
 	case TypeLiteral:
 		lit, _ := opt.getLiteral()
 		if k := v.Kind(); k == reflect.Interface {
-			return decodeInterface(lit, v)
+			return d.decodeInterface(lit, v)
 		}
-		return decodeLiteral(lit, v)
+		return d.decodeLiteral(lit, v)
 	case TypeArray:
-		return decode(opt.Value, v)
+		return d.decode(opt.Value, v)
+	case TypeCall:
+		return d.decodeCall(opt.Value.(*call), v)
 	default:
 		return fmt.Errorf("literal/array/slice expected!")
 	}
 }
 
-func decodeArray(arr *array, v reflect.Value) error {
+func (d *Decoder) decodeCall(fn *call, v reflect.Value) error {
+	return nil
+}
+
+func (d *Decoder) decodeArray(arr *array, v reflect.Value) error {
 	if k := v.Kind(); k != reflect.Slice && k != reflect.Array {
 		return fmt.Errorf("slice/array type expected! got %s", k)
 	}
 	vs := reflect.MakeSlice(v.Type(), 0, v.Len())
 	for _, n := range arr.Nodes {
 		vf := reflect.New(v.Type().Elem()).Elem()
-		if err := decode(n, vf); err != nil {
+		if err := d.decode(n, vf); err != nil {
 			return err
 		}
 		vs = reflect.Append(vs, vf)
@@ -194,14 +220,14 @@ func decodeArray(arr *array, v reflect.Value) error {
 	return nil
 }
 
-func decodeObject(obj *object, v reflect.Value) error {
+func (d *Decoder) decodeObject(obj *object, v reflect.Value) error {
 	switch k := v.Kind(); k {
-	case reflect.Map:
-		return decodeMap(obj, v)
 	case reflect.Struct:
+	case reflect.Map:
+		return d.decodeMap(obj, v)
 	case reflect.Slice, reflect.Array:
 		n := reflect.New(v.Type().Elem()).Elem()
-		if err := decodeObject(obj, n); err != nil {
+		if err := d.decodeObject(obj, n); err != nil {
 			return err
 		}
 		v.Set(reflect.Append(v, n))
@@ -210,10 +236,10 @@ func decodeObject(obj *object, v reflect.Value) error {
 		if v.IsNil() {
 			v.Set(reflect.New(v.Type().Elem()))
 		}
-		return decodeObject(obj, v.Elem())
+		return d.decodeObject(obj, v.Elem())
 	case reflect.Interface:
 		m := reflect.ValueOf(make(map[string]interface{}))
-		if err := decodeMap(obj, m); err != nil {
+		if err := d.decodeMap(obj, m); err != nil {
 			return err
 		}
 		v.Set(m)
@@ -245,14 +271,14 @@ func decodeObject(obj *object, v reflect.Value) error {
 				continue
 			}
 		}
-		if err := decode(node, f); err != nil {
+		if err := d.decode(node, f); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func decodeMap(obj *object, v reflect.Value) error {
+func (d *Decoder) decodeMap(obj *object, v reflect.Value) error {
 	key := v.Type().Key()
 	if k := key.Kind(); k != reflect.String {
 		return fmt.Errorf("key should be of type string")
@@ -268,17 +294,17 @@ func decodeMap(obj *object, v reflect.Value) error {
 		switch o := o.(type) {
 		case *object:
 			vf = reflect.MakeMap(v.Type())
-			err = decodeMap(o, vf)
+			err = d.decodeMap(o, vf)
 		case *option:
 			vf = reflect.New(v.Type().Elem()).Elem()
-			err = decodeOption(o, vf)
+			err = d.decodeOption(o, vf)
 		case *array:
 			var (
 				s = reflect.SliceOf(v.Type().Elem())
 				f = reflect.MakeSlice(s, 0, len(o.Nodes))
 			)
 			vf = reflect.New(f.Type()).Elem()
-			err = decodeArray(o, vf)
+			err = d.decodeArray(o, vf)
 		default:
 			err = fmt.Errorf("%s: can not decode %T", k, o)
 		}
