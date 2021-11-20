@@ -36,13 +36,13 @@ server {
   addr     = "192.168.67.181"
   backup   = "10.100.0.1"
   backup   = "10.100.0.2"
-  hostname = "alpha"
+  hostname = upper(alpha)
 }
 server {
   addr     = "192.168.67.236"
   backup   = ["10.101.0.1", "10.101.0.2"]
   backup   = "10.101.0.3"
-  hostname = "omega"
+  hostname = upper(omega)
 }
   `
 	type Server struct {
@@ -67,14 +67,22 @@ server {
 		Rule    Rule                   `fig:"ports"`
 		Servers []Server               `fig:"server"`
 	}
-	var in Config
-	if err := fig.NewDecoder(strings.NewReader(demo)).Decode(&in); err != nil {
+	var (
+		in    Config
+		fnmap = fig.FuncMap{
+			"lower": strings.ToLower,
+			"upper": strings.ToUpper,
+		}
+	)
+	dec := fig.NewDecoder(strings.NewReader(demo))
+	dec.Funcs(fnmap)
+	if err := dec.Decode(&in); err != nil {
 		fmt.Printf("fail to decode input string: %s\n", err)
 		return
 	}
 	fmt.Printf("%+v\n", in)
 	// Output:
-	// {Email:midbel@midbel.org Admin:true TTL:100 Meta:map[tracker:redmine vcs:git version:1.0.1] Rule:{TCP:[{List:[80 443 22] Action:allow Disable:false}] UDP:[{List:[80 443 22] Action:block Disable:false}]} Servers:[{Addr:192.168.67.181 Host:alpha Back:[10.100.0.1 10.100.0.2]} {Addr:192.168.67.236 Host:omega Back:[10.101.0.1 10.101.0.2 10.101.0.3]}]}
+	// {Email:midbel@midbel.org Admin:true TTL:100 Meta:map[tracker:redmine vcs:git version:1.0.1] Rule:{TCP:[{List:[80 443 22] Action:allow Disable:false}] UDP:[{List:[80 443 22] Action:block Disable:false}]} Servers:[{Addr:192.168.67.181 Host:ALPHA Back:[10.100.0.1 10.100.0.2]} {Addr:192.168.67.236 Host:OMEGA Back:[10.101.0.1 10.101.0.2 10.101.0.3]}]}
 }
 
 func ExampleDecode_Generic() {

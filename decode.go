@@ -200,7 +200,43 @@ func (d *Decoder) decodeOption(opt *option, v reflect.Value) error {
 	}
 }
 
-func (d *Decoder) decodeCall(fn *call, v reflect.Value) error {
+var errtype = reflect.TypeOf((*error)(nil)).Elem()
+
+func (d *Decoder) decodeCall(c *call, v reflect.Value) error {
+	call := reflect.ValueOf(d.set[c.Ident])
+	if call.Kind() != reflect.Func {
+		return fmt.Errorf("%s: undefined function", c.Ident)
+	}
+	var (
+		typ  = call.Type()
+		nin  = typ.NumIn()
+		nout = typ.NumOut()
+		args []reflect.Value
+	)
+	if nout == 0 || nout > 2 || nin != len(c.Args) {
+		return fmt.Errorf("%s: invalid function signature ", c.Ident)
+	}
+	for i := 0; i < nin; i++ {
+		f := reflect.New(typ.In(i)).Elem()
+		if err := d.decode(c.Args[i], f); err != nil {
+			return err
+		}
+		args = append(args, f)
+	}
+	ret := call.Call(args)
+	if len(ret) == 2 {
+		if ret[1].Type() != errtype {
+			return fmt.Errorf("return value should be of type error")
+		}
+		err, _ := ret[1].Interface().(error)
+		if err != nil {
+			return err
+		}
+	}
+	if !ret[0].Type().AssignableTo(v.Type()) && !ret[0].Type().ConvertibleTo(v.Type()) {
+		return fmt.Errorf("return value can not be assigned to %s", v.Type())
+	}
+	v.Set(ret[0].Convert(v.Type()))
 	return nil
 }
 
