@@ -574,6 +574,14 @@ type literal struct {
 	Comment Node
 }
 
+func createLiteralFromString(str string) *literal {
+	tok := Token{
+		Literal: str,
+		Type:    String,
+	}
+	return createLiteral(tok)
+}
+
 func createLiteral(tok Token) *literal {
 	return &literal{
 		Token: tok,

@@ -29,11 +29,12 @@ func NewParser(r io.Reader) (*Parser, error) {
 	var p Parser
 	p.scan = sc
 	p.macros = map[string]macrodef{
-		"include": createMacroDef(Include, false),
-		"define":  createMacroDef(Define, true),
-		"apply":   createMacroDef(Apply, false),
-		"extend":  createMacroDef(Extend, true),
-		"repeat":  createMacroDef(Repeat, true),
+		"include":  createMacroDef(Include, false),
+		"define":   createMacroDef(Define, true),
+		"apply":    createMacroDef(Apply, false),
+		"extend":   createMacroDef(Extend, true),
+		"repeat":   createMacroDef(Repeat, true),
+		"readfile": createMacroDef(ReadFile, false),
 	}
 	p.next()
 	p.next()

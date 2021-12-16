@@ -64,6 +64,33 @@ const (
 	argCount  = "count"
 )
 
+func ReadFile(root, _ Node, args []Node, kwargs map[string]Node) error {
+	if len(args) == 0 && len(kwargs) == 0 {
+		return fmt.Errorf("no enough arguments supplied")
+	}
+	var (
+		name string
+		file string
+		err  error
+	)
+	if file, err = getString(0, argFile, args, kwargs); err != nil {
+		return err
+	}
+	if name, err = getString(1, argName, args, kwargs); err != nil {
+		return err
+	}
+	content, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+	obj, ok := root.(*object)
+	if !ok {
+		return fmt.Errorf("root should be an object! got %T", root)
+	}
+	opt := createOption(name, createLiteralFromString(string(content)))
+	return obj.set(opt)
+}
+
 func Repeat(root, nest Node, args []Node, kwargs map[string]Node) error {
 	if len(args) == 0 && len(kwargs) == 0 {
 		return fmt.Errorf("no enough arguments supplied")
