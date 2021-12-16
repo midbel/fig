@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type macroFunc func(root, obj Node, args []Node, kwargs map[string]Node) error
@@ -76,8 +77,14 @@ func ReadFile(root, _ Node, args []Node, kwargs map[string]Node) error {
 	if file, err = getString(0, argFile, args, kwargs); err != nil {
 		return err
 	}
-	if name, err = getString(1, argName, args, kwargs); err != nil {
+	if name, err = getString(1, argName, args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
 		return err
+	}
+	if name == "" {
+		name = filepath.Base(file)
+		for ext := filepath.Ext(name); ext != ""; ext = filepath.Ext(name) {
+			name = strings.TrimSuffix(name, ext)
+		}
 	}
 	content, err := os.ReadFile(file)
 	if err != nil {
