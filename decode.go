@@ -10,15 +10,27 @@ import (
 type FuncMap map[string]interface{}
 
 type Decoder struct {
-	read io.Reader
-	set  FuncMap
+	read    io.Reader
+	set     FuncMap
+	options *env
+	locals  *env
 }
 
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{
-		read: r,
-		set:  make(FuncMap),
+		read:    r,
+		set:     make(FuncMap),
+		options: emptyEnv(),
+		locals:  emptyEnv(),
 	}
+}
+
+func (d *Decoder) Define(ident string, value interface{}) {
+	d.locals.define(ident, value)
+}
+
+func (d *Decoder) Resolve(ident string) (interface{}, error) {
+	return d.locals.resolve(ident)
 }
 
 func (d *Decoder) Funcs(set FuncMap) {
