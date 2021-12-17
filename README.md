@@ -54,6 +54,22 @@ key = [1, 2, true, foobar]
 
 ### variables
 
+in fig, variables can take two forms:
+
+* local variables are identifier that reference an option defined in an object at the higher level that the object that used the variable
+* environment variables are variable that are defined outside the document and pass to the parser/decoder in order to be available in the document (in its "environment")
+
+example
+```
+answer = 42
+hitchhiker {
+    answer   = $answer # a local variable
+    question = @question # an environmnet variable
+}
+```
+
+### functions
+
 ### macros
 
 macros are a simple way to modify the parsed document. The supported macros can created new options from an external file, repeated the same objects multiple times, include another fig file into the current one,...

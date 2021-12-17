@@ -7,11 +7,15 @@ import (
 	"strings"
 )
 
+type Setter interface {
+	Set(interface{}) error
+}
+
 type FuncMap map[string]interface{}
 
 type Decoder struct {
 	read    io.Reader
-	set     FuncMap
+	fmap    FuncMap
 	options *env
 	locals  *env
 }
@@ -19,7 +23,7 @@ type Decoder struct {
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{
 		read:    r,
-		set:     make(FuncMap),
+		fmap:    make(FuncMap),
 		options: emptyEnv(),
 		locals:  emptyEnv(),
 	}
@@ -35,7 +39,7 @@ func (d *Decoder) Resolve(ident string) (interface{}, error) {
 
 func (d *Decoder) Funcs(set FuncMap) {
 	for k, v := range set {
-		d.set[k] = v
+		d.fmap[k] = v
 	}
 }
 
@@ -48,7 +52,7 @@ func (d *Decoder) Decode(v interface{}) error {
 	if value.Kind() != reflect.Ptr || value.IsNil() {
 		return fmt.Errorf("expecting not nil ptr")
 	}
-	if value.Kind() == reflect.Interface && value.NumMethod() == 0 {
+	if isEmpty(value) {
 		var (
 			m = make(map[string]interface{})
 			v = reflect.ValueOf(m).Elem()
@@ -80,6 +84,11 @@ func (d *Decoder) decode(n Node, value reflect.Value) error {
 	var err error
 	switch n := n.(type) {
 	case *array:
+		var ok bool
+		ok, err = d.decodeArrayFromInterface(n, value)
+		if ok {
+			break
+		}
 		err = d.decodeArray(n, value)
 	case *object:
 		err = d.decodeObject(n, value)
@@ -87,6 +96,9 @@ func (d *Decoder) decode(n Node, value reflect.Value) error {
 		err = d.decodeOption(n, value)
 	case *literal:
 		err = d.decodeLiteral(n, value)
+	case *call:
+		err = d.decodeCall(n, value)
+	case *variable:
 	default:
 		err = fmt.Errorf("value (%s) can not be decoded from %T", value.Kind(), n)
 	}
@@ -196,26 +208,38 @@ func (d *Decoder) decodeLiteral(lit *literal, v reflect.Value) error {
 }
 
 func (d *Decoder) decodeOption(opt *option, v reflect.Value) error {
+	if opt.Value == nil {
+		return nil
+	}
+	var err error
 	switch opt.Value.Type() {
 	case TypeLiteral:
 		lit, _ := opt.getLiteral()
 		if k := v.Kind(); k == reflect.Interface {
-			return d.decodeInterface(lit, v)
+			err = d.decodeInterface(lit, v)
+			break
 		}
-		return d.decodeLiteral(lit, v)
+		err = d.decodeLiteral(lit, v)
 	case TypeArray:
-		return d.decode(opt.Value, v)
+		var ok bool
+		ok, err = d.decodeArrayFromInterface(opt.Value, v)
+		if ok {
+			break
+		}
+		err = d.decode(opt.Value, v)
 	case TypeCall:
-		return d.decodeCall(opt.Value.(*call), v)
+		err = d.decodeCall(opt.Value.(*call), v)
+	case TypeVariable:
 	default:
-		return fmt.Errorf("literal/array/slice expected!")
+		err = fmt.Errorf("literal/array/slice expected!")
 	}
+	return err
 }
 
 var errtype = reflect.TypeOf((*error)(nil)).Elem()
 
 func (d *Decoder) decodeCall(c *call, v reflect.Value) error {
-	call := reflect.ValueOf(d.set[c.Ident])
+	call := reflect.ValueOf(d.fmap[c.Ident])
 	if call.Kind() != reflect.Func {
 		return fmt.Errorf("%s: undefined function", c.Ident)
 	}
@@ -250,6 +274,22 @@ func (d *Decoder) decodeCall(c *call, v reflect.Value) error {
 	}
 	v.Set(ret[0].Convert(v.Type()))
 	return nil
+}
+
+func (d *Decoder) decodeArrayFromInterface(n Node, v reflect.Value) (bool, error) {
+	if !isEmpty(v) {
+		return false, nil
+	}
+	var (
+		s  = reflect.SliceOf(v.Type())
+		f  = reflect.MakeSlice(s, 0, 2)
+		vf = reflect.New(f.Type()).Elem()
+	)
+	if err := d.decode(n, vf); err != nil {
+		return true, err
+	}
+	v.Set(vf)
+	return true, nil
 }
 
 func (d *Decoder) decodeArray(arr *array, v reflect.Value) error {
@@ -362,4 +402,8 @@ func (d *Decoder) decodeMap(obj *object, v reflect.Value) error {
 		v.SetMapIndex(reflect.ValueOf(k), vf)
 	}
 	return nil
+}
+
+func isEmpty(v reflect.Value) bool {
+	return v.Kind() == reflect.Interface && v.NumMethod() == 0
 }

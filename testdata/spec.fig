@@ -48,14 +48,16 @@ strings {
 EOF
 }
 
-# variables {
-#   local = $local
-#   env   = @env
-#   array = [
-#     $local,
-#     @env,
-#   ]
-# }
+local = 42
+
+variables {
+  local = $local
+  env   = @env
+  array = [
+    $local,
+    @env,
+  ]
+}
 
 booleans {
   truthy = true
@@ -136,7 +138,7 @@ test {
 }
 
 name  = foobar
-call1 = join([1, 2, 3], " ")
+call1 = join([1, 2, 3], "|")
 call2 = repeat("test", 5)
 call3 = upper(lower("foobar"))
 call4 = uuid3($name)

@@ -355,25 +355,25 @@ func (o *object) registerObject(obj *object) error {
 }
 
 func (o *object) registerOption(opt *option) error {
-	switch v := opt.Value.(type) {
-	case *variable:
-		res, err := o.resolve(v.Ident.Literal)
-		if err != nil {
-			return err
-		}
-		opt.Value = res.Value.clone()
-	case *array:
-		for i := range v.Nodes {
-			if vr, ok := v.Nodes[i].(*variable); ok {
-				res, err := o.resolve(vr.Ident.Literal)
-				if err != nil {
-					return err
-				}
-				v.Nodes[i] = res.clone()
-			}
-		}
-	default:
-	}
+	// switch v := opt.Value.(type) {
+	// case *variable:
+	// 	res, err := o.resolve(v.Ident.Literal)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	opt.Value = res.Value.clone()
+	// case *array:
+	// 	for i := range v.Nodes {
+	// 		if vr, ok := v.Nodes[i].(*variable); ok {
+	// 			res, err := o.resolve(vr.Ident.Literal)
+	// 			if err != nil {
+	// 				return err
+	// 			}
+	// 			v.Nodes[i] = res.clone()
+	// 		}
+	// 	}
+	// default:
+	// }
 	curr, ok := o.Props[opt.Ident]
 	if !ok {
 		o.Props[opt.Ident] = opt
@@ -559,7 +559,8 @@ func multiplyFloat(mul float64) func(float64) float64 {
 func convertFloat(str, mul string) (float64, error) {
 	v, err := strconv.ParseFloat(str, 64)
 	if err != nil {
-		return v, err
+		i, err := strconv.ParseInt(str, 0, 64)
+		return float64(i), err
 	}
 	fn, ok := multipliers[mul]
 	if !ok {
