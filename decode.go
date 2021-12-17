@@ -85,8 +85,7 @@ func (d *Decoder) decode(n Node, value reflect.Value) error {
 	switch n := n.(type) {
 	case *array:
 		var ok bool
-		ok, err = d.decodeArrayFromInterface(n, value)
-		if ok {
+		if ok, err = d.decodeArrayFromInterface(n, value); ok {
 			break
 		}
 		err = d.decodeArray(n, value)
@@ -222,8 +221,7 @@ func (d *Decoder) decodeOption(opt *option, v reflect.Value) error {
 		err = d.decodeLiteral(lit, v)
 	case TypeArray:
 		var ok bool
-		ok, err = d.decodeArrayFromInterface(opt.Value, v)
-		if ok {
+		if ok, err = d.decodeArrayFromInterface(opt.Value, v); ok {
 			break
 		}
 		err = d.decode(opt.Value, v)
