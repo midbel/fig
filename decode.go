@@ -207,6 +207,12 @@ func (d *Decoder) decodeSlice(slc *slice, v reflect.Value) error {
 	if err := d.decode(slc.Node, v); err != nil {
 		return err
 	}
+	if !isArray(v) {
+		return fmt.Errorf("%s can not be sliced", v.Type())
+	}
+	if slc.IsIndex() {
+		
+	}
 	return nil
 }
 
@@ -460,4 +466,8 @@ func (d *Decoder) pop() {
 
 func isEmpty(v reflect.Value) bool {
 	return v.Kind() == reflect.Interface && v.NumMethod() == 0
+}
+
+func isArray(v reflect.Value) bool {
+	return v.Kind() == reflect.Array || v.Kind() == reflect.Slice
 }

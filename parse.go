@@ -281,6 +281,7 @@ func (p *Parser) parseSlice(node Node) (Node, error) {
 	}
 	switch p.curr.Type {
 	case EndArr:
+		slc.to = slc.from
 	case Slice:
 		p.next()
 	default:
