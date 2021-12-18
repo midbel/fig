@@ -33,10 +33,6 @@ func (d *Decoder) Define(ident string, value interface{}) {
 	d.locals.define(ident, value)
 }
 
-func (d *Decoder) Resolve(ident string) (interface{}, error) {
-	return d.locals.resolve(ident)
-}
-
 func (d *Decoder) Funcs(set FuncMap) {
 	for k, v := range set {
 		d.fmap[k] = v
@@ -98,6 +94,7 @@ func (d *Decoder) decode(n Node, value reflect.Value) error {
 	case *call:
 		err = d.decodeCall(n, value)
 	case *variable:
+		err = d.decodeVariable(n, value)
 	default:
 		err = fmt.Errorf("value (%s) can not be decoded from %T", value.Kind(), n)
 	}
@@ -206,6 +203,33 @@ func (d *Decoder) decodeLiteral(lit *literal, v reflect.Value) error {
 	return err
 }
 
+func (d *Decoder) decodeVariable(ident *variable, v reflect.Value) error {
+	var (
+		val interface{}
+		err error
+	)
+	if ident.IsLocal() {
+		val, err = d.options.resolve(ident.Name())
+	} else {
+		val, err = d.locals.resolve(ident.Name())
+	}
+	if err != nil {
+		return err
+	}
+	var (
+		value = reflect.ValueOf(val)
+		typ   = value.Type()
+	)
+	if typ.AssignableTo(v.Type()) {
+		v.Set(value)
+	} else if typ.ConvertibleTo(v.Type()) {
+		v.Set(value.Convert(v.Type()))
+	} else {
+		return fmt.Errorf("%s: %s can not be assigned to %s", ident.Name(), typ, v.Type())
+	}
+	return nil
+}
+
 func (d *Decoder) decodeOption(opt *option, v reflect.Value) error {
 	if opt.Value == nil {
 		return nil
@@ -228,8 +252,12 @@ func (d *Decoder) decodeOption(opt *option, v reflect.Value) error {
 	case TypeCall:
 		err = d.decodeCall(opt.Value.(*call), v)
 	case TypeVariable:
+		err = d.decodeVariable(opt.Value.(*variable), v)
 	default:
 		err = fmt.Errorf("literal/array/slice expected!")
+	}
+	if err == nil && v.CanInterface() {
+		d.define(opt.Ident, v.Interface())
 	}
 	return err
 }
@@ -333,6 +361,9 @@ func (d *Decoder) decodeObject(obj *object, v reflect.Value) error {
 	default:
 		return fmt.Errorf("struct/slice/array type expected! got %s", v.Kind())
 	}
+	d.push()
+	defer d.pop()
+
 	t := v.Type()
 	for i := 0; i < v.NumField(); i++ {
 		f := v.Field(i)
@@ -372,6 +403,10 @@ func (d *Decoder) decodeMap(obj *object, v reflect.Value) error {
 	if v.IsNil() {
 		v.Set(reflect.MakeMap(v.Type()))
 	}
+
+	d.push()
+	defer d.pop()
+
 	for k, o := range obj.Props {
 		var (
 			vf  reflect.Value
@@ -400,6 +435,18 @@ func (d *Decoder) decodeMap(obj *object, v reflect.Value) error {
 		v.SetMapIndex(reflect.ValueOf(k), vf)
 	}
 	return nil
+}
+
+func (d *Decoder) define(ident string, value interface{}) {
+	d.options.define(ident, value)
+}
+
+func (d *Decoder) push() {
+	d.options = enclosedEnv(d.options)
+}
+
+func (d *Decoder) pop() {
+	d.options = d.options.unwrap()
 }
 
 func isEmpty(v reflect.Value) bool {

@@ -509,6 +509,14 @@ func createVariable(tok Token) *variable {
 	}
 }
 
+func (v *variable) IsLocal() bool {
+	return v.Ident.Type == LocalVar
+}
+
+func (v *variable) Name() string {
+	return v.Ident.Literal
+}
+
 func (_ *variable) Type() NodeType {
 	return TypeVariable
 }

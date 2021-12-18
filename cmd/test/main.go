@@ -55,6 +55,7 @@ func decodeFile(r io.Reader) error {
 		}
 	)
 	dec.Funcs(fmap)
+	dec.Define("env", "environment")
 	if err := dec.Decode(&dat); err != nil {
 		return err
 	}
