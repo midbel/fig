@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 )
 
 var (
@@ -157,6 +158,7 @@ func (p *Parser) parseValue() (Node, error) {
 	case p.curr.isVariable():
 		n = createVariable(p.curr)
 		p.next()
+		n, err = p.parseSlice(n)
 	case p.curr.isLiteral():
 		if p.curr.Type == Ident && p.peek.Type == BegGrp {
 			return p.parseCall()
@@ -255,6 +257,51 @@ func (p *Parser) parseArray() (Node, error) {
 	}
 	p.next()
 	return arr, nil
+}
+
+func (p *Parser) parseSlice(node Node) (Node, error) {
+	if p.curr.Type != BegArr {
+		return node, nil
+	}
+	p.next()
+	var (
+		err error
+		slc = createSlice(node)
+	)
+	switch p.curr.Type {
+	case Integer:
+		slc.from, err = strconv.ParseInt(p.curr.Literal, 0, 64)
+		if err != nil {
+			return nil, err
+		}
+		p.next()
+	case Slice:
+	default:
+		return nil, p.unexpected()
+	}
+	switch p.curr.Type {
+	case EndArr:
+	case Slice:
+		p.next()
+	default:
+		return nil, p.unexpected()
+	}
+	switch p.curr.Type {
+	case Integer:
+		slc.to, err = strconv.ParseInt(p.curr.Literal, 0, 64)
+		if err != nil {
+			return nil, err
+		}
+		p.next()
+	case EndArr:
+	default:
+		return nil, p.unexpected()
+	}
+	if p.curr.Type != EndArr {
+		return nil, p.unexpected()
+	}
+	p.next()
+	return slc, nil
 }
 
 func (p *Parser) parseMacro(obj *object) error {

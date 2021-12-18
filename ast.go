@@ -459,9 +459,6 @@ func createArray() *array {
 }
 
 func (a *array) Append(n Node) error {
-	// if len(a.Nodes) > 0 && n.Type() != a.Nodes[0].Type() {
-	// 	return fmt.Errorf("node can not be appended")
-	// }
 	a.Nodes = append(a.Nodes, n)
 	return nil
 }
@@ -489,6 +486,34 @@ func (a *array) clone() Node {
 		arr.Nodes = append(arr.Nodes, a.Nodes[i].clone())
 	}
 	return arr
+}
+
+type slice struct {
+	Node
+	from int64
+	to   int64
+}
+
+func createSlice(node Node) *slice {
+	return &slice{
+		Node: node,
+	}
+}
+
+func (s *slice) IsIndex() bool {
+	return s.from == s.to
+}
+
+func (s *slice) String() string {
+	return ""
+}
+
+func (s *slice) Type() NodeType {
+	return TypeVariable
+}
+
+func (s *slice) clone() Node {
+	return s
 }
 
 type Argument interface {

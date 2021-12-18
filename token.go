@@ -32,6 +32,7 @@ const (
 	BegGrp
 	EndGrp
 	Comma
+	Slice
 	Assign
 	EOL
 	Invalid
@@ -59,6 +60,7 @@ var types = map[rune]string{
 	Invalid:  "invalid",
 	LocalVar: "local-var",
 	EnvVar:   "env-var",
+	Slice:    "slice",
 }
 
 type Token struct {
