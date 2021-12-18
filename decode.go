@@ -203,6 +203,13 @@ func (d *Decoder) decodeLiteral(lit *literal, v reflect.Value) error {
 	return err
 }
 
+func (d *Decoder) decodeSlice(slc *slice, v reflect.Value) error {
+	if err := d.decode(slc.Node, v); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (d *Decoder) decodeVariable(ident *variable, v reflect.Value) error {
 	var (
 		val interface{}
@@ -253,6 +260,8 @@ func (d *Decoder) decodeOption(opt *option, v reflect.Value) error {
 		err = d.decodeCall(opt.Value.(*call), v)
 	case TypeVariable:
 		err = d.decodeVariable(opt.Value.(*variable), v)
+	case TypeSlice:
+		err = d.decodeSlice(opt.Value.(*slice), v)
 	default:
 		err = fmt.Errorf("literal/array/slice expected!")
 	}

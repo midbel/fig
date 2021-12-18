@@ -9,10 +9,6 @@ empty = # option with no value is valid
 delimiter1 = newline
 delimiter2 = semicolon;
 
-# equal and colon can be used freely as assignment separator
-assign1 = equal
-assign2 : colon
-
 numbers {
   # integers are supported
   int   = 42
@@ -153,7 +149,7 @@ call4 = uuid3($name)
 
 array = [1, 2, 3, 4, 5]
 index = $array[0]
-# slice1 = $array[1:3]
-# slice2 = $array[1:]
-# slice3 = $array[:3]
-# slice4 = $array[:]
+slice1 = $array[1:3]
+slice2 = $array[1:]
+slice3 = $array[:3]
+slice4 = $array[:]

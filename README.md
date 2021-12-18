@@ -21,14 +21,12 @@ fig supports the following primitive types:
 
 ### options
 
-options are defined as a pair  key/value pair separated by a `=` or ':' symbol. There is no difference for fig between `=` and `:` as assignment operator. each option is defined on its own line. A line ends with with a `\n` or, optionally, with a `;` symbol.
+options are defined as a pair  key/value pair separated by a `=` symbol. Each option is defined on its own line. A line ends with with a `\n` or, optionally, with a `;` symbol followed by `\n`.
 
 values can be of any of the primitive types defined above and can also be an array of these values.
 
 ```
 key = value
-# or
-key : value
 ```
 
 an option without value is allowed. if such an option is present in a document, the parser/decoder should choose the more suitable zero-value for this field.

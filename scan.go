@@ -344,6 +344,8 @@ func (s *Scanner) scanDigit(accept func(rune) bool) bool {
 
 func (s *Scanner) scanDelimiter(tok *Token) {
 	switch s.char {
+	case colon:
+		tok.Type = Slice
 	case lsquare:
 		tok.Type = BegArr
 	case rsquare:
@@ -360,6 +362,9 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 		tok.Type = Comma
 	case semicolon:
 		tok.Type = EOL
+		if !isNL(s.peek()) {
+			tok.Type = Invalid
+		}
 	}
 	s.read()
 	switch tok.Type {
@@ -515,11 +520,12 @@ func isDelim(b rune) bool {
 	return b == lsquare || b == rsquare ||
 		b == lcurly || b == rcurly ||
 		b == lparen || b == rparen ||
-		b == comma || b == semicolon
+		b == comma || b == semicolon ||
+		b == colon
 }
 
 func isAssign(b rune) bool {
-	return b == colon || b == equal
+	return b == equal
 }
 
 func isHex(b rune) bool {
