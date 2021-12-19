@@ -491,14 +491,32 @@ func (a *array) clone() Node {
 
 type slice struct {
 	Node
-	from int64
-	to   int64
+	from struct {
+		index int64
+		set   bool
+	}
+	to struct {
+		index int64
+		set   bool
+	}
 }
 
 func createSlice(node Node) *slice {
 	return &slice{
 		Node: node,
 	}
+}
+
+func (s *slice) From() int {
+	return int(s.from.index)
+}
+
+func (s *slice) To() int {
+	return int(s.to.index)
+}
+
+func (s *slice) IsCopy() bool {
+	return !s.from.set && !s.to.set
 }
 
 func (s *slice) IsIndex() bool {

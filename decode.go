@@ -211,11 +211,11 @@ func (d *Decoder) decodeSlice(slc *slice, v reflect.Value) error {
 	if isEmpty(v) {
 		arr = reflect.ValueOf(v.Interface())
 	}
-	if !isArray(arr) {
+	if !isArray(arr) || arr.Len() == 0 {
 		return fmt.Errorf("%s can not be sliced", v.Type())
 	}
 	if slc.IsIndex() {
-		from := int(slc.from)
+		from := slc.From()
 		if from < 0 {
 			from = arr.Len() + from
 		}
@@ -225,6 +225,42 @@ func (d *Decoder) decodeSlice(slc *slice, v reflect.Value) error {
 		v.Set(arr.Index(from))
 		return nil
 	}
+	if slc.IsCopy() {
+		var (
+			s = reflect.SliceOf(arr.Type().Elem())
+			f = reflect.MakeSlice(s, arr.Len(), arr.Len())
+		)
+		reflect.Copy(f, arr)
+		v.Set(f)
+		return nil
+	}
+
+	reindex := func(v int, to bool) (int, error) {
+		if to && v == 0 {
+			return arr.Len(), nil
+		}
+		if v < 0 {
+			v = arr.Len() + v
+		}
+		if v < 0 || v >= arr.Len() {
+			return v, fmt.Errorf("index out of range")
+		}
+		return v, nil
+	}
+	var (
+		from, err1 = reindex(slc.From(), false)
+		to, err2   = reindex(slc.To(), !slc.to.set)
+	)
+	if err1 != nil {
+		return fmt.Errorf("from: %w", err1)
+	}
+	if err2 != nil {
+		return fmt.Errorf("to: %w", err2)
+	}
+	if from > to {
+		return fmt.Errorf("invalid slice index (%d > %d)", from, to)
+	}
+	v.Set(arr.Slice(from, to))
 	return nil
 }
 

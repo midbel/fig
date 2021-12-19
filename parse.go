@@ -270,18 +270,20 @@ func (p *Parser) parseSlice(node Node) (Node, error) {
 	)
 	switch p.curr.Type {
 	case Integer:
-		slc.from, err = strconv.ParseInt(p.curr.Literal, 0, 64)
+		slc.from.index, err = strconv.ParseInt(p.curr.Literal, 0, 64)
 		if err != nil {
 			return nil, err
 		}
+		slc.from.set = true
 		p.next()
 	case Slice:
+		slc.from.set = true
 	default:
 		return nil, p.unexpected()
 	}
 	switch p.curr.Type {
 	case EndArr:
-		slc.to = slc.from
+		slc.from = slc.to
 	case Slice:
 		p.next()
 	default:
@@ -289,10 +291,11 @@ func (p *Parser) parseSlice(node Node) (Node, error) {
 	}
 	switch p.curr.Type {
 	case Integer:
-		slc.to, err = strconv.ParseInt(p.curr.Literal, 0, 64)
+		slc.to.index, err = strconv.ParseInt(p.curr.Literal, 0, 64)
 		if err != nil {
 			return nil, err
 		}
+		slc.to.set = true
 		p.next()
 	case EndArr:
 	default:
