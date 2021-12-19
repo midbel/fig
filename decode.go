@@ -211,7 +211,7 @@ func (d *Decoder) decodeSlice(slc *slice, v reflect.Value) error {
 		return fmt.Errorf("%s can not be sliced", v.Type())
 	}
 	if slc.IsIndex() {
-		
+
 	}
 	return nil
 }
@@ -396,9 +396,9 @@ func (d *Decoder) decodeObject(obj *object, v reflect.Value) error {
 		default:
 			tag = v
 		}
-		node, ok := obj.Props[tag]
+		node, ok := obj.take(tag)
 		if !ok && tag == ft.Name {
-			node, ok = obj.Props[strings.ToLower(tag)]
+			node, ok = obj.take(strings.ToLower(tag))
 			if !ok {
 				continue
 			}
@@ -422,7 +422,7 @@ func (d *Decoder) decodeMap(obj *object, v reflect.Value) error {
 	d.push()
 	defer d.pop()
 
-	for k, o := range obj.Props {
+	for i, o := range obj.Nodes {
 		var (
 			vf  reflect.Value
 			err error
@@ -442,12 +442,12 @@ func (d *Decoder) decodeMap(obj *object, v reflect.Value) error {
 			vf = reflect.New(f.Type()).Elem()
 			err = d.decodeArray(o, vf)
 		default:
-			err = fmt.Errorf("%s: can not decode %T", k, o)
+			err = fmt.Errorf("%s: can not decode %T", obj.Revex[i], o)
 		}
 		if err != nil {
 			return err
 		}
-		v.SetMapIndex(reflect.ValueOf(k), vf)
+		v.SetMapIndex(reflect.ValueOf(obj.Revex[i]), vf)
 	}
 	return nil
 }

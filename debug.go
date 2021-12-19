@@ -22,7 +22,7 @@ func debugNode(w io.Writer, n Node, level int) {
 		fmt.Fprint(w, prefix)
 		fmt.Fprint(w, n)
 		fmt.Fprintln(w, "[")
-		for _, n := range n.Props {
+		for _, n := range n.Nodes {
 			debugNode(w, n, level+2)
 		}
 		fmt.Fprint(w, prefix)

@@ -7,9 +7,8 @@ import (
 	"strings"
 )
 
-
 var (
-	errObject = errors.New("not an object")
+	errObject   = errors.New("not an object")
 	errRegister = errors.New("node can not be registered")
 )
 
@@ -126,9 +125,12 @@ type object struct {
 	parent *object
 
 	Name     string
-	Props    map[string]Node
 	Partials map[string]Node
 	Comment  Node
+
+	Index map[string]int
+	Revex map[int]string
+	Nodes []Node
 }
 
 func createObject(ident string) *object {
@@ -139,8 +141,9 @@ func enclosedObject(ident string, parent *object) *object {
 	return &object{
 		parent:   parent,
 		Name:     ident,
-		Props:    make(map[string]Node),
 		Partials: make(map[string]Node),
+		Index:    make(map[string]int),
+		Revex:    make(map[int]string),
 	}
 }
 
@@ -157,8 +160,8 @@ func (o *object) clone() Node {
 	// when "plucking" a defined object to be inserted somewhere else in the tree
 	// then, the plucked object will have it's parent field set properly
 	obj := createObject(o.Name)
-	for k, v := range o.Props {
-		obj.Props[k] = v.clone()
+	for k, i := range o.Index {
+		obj.put(k, o.at(i).clone())
 	}
 	return obj
 }
@@ -239,28 +242,28 @@ func (o *object) apply(ident string, keys []string, depth int64) (Node, error) {
 func (o *object) pluck(ori *object, keys []string, depth int64) (Node, error) {
 	obj := createObject(ori.Name)
 	if len(keys) == 0 {
-		for k := range ori.Props {
+		for k := range ori.Index {
 			keys = append(keys, k)
 		}
 	}
 	for _, k := range keys {
-		v, ok := ori.Props[k]
+		v, ok := ori.take(k)
 		if !ok {
 			return nil, fmt.Errorf("%s: undefined property in %s", k, ori.Name)
 		}
 		// TODO: if v is an object, we have to check the depth value to see how depth
 		// we have to go when we clone it
-		obj.Props[k] = v.clone()
+		obj.put(k, v.clone())
 	}
 	return obj, nil
 }
 
 func (o *object) getObject(ident string, last bool) (*object, error) {
-	nest, ok := o.Props[ident]
+	nest, ok := o.take(ident)
 	if !ok {
 		// nest := createObject(ident)
 		nest := enclosedObject(ident, o)
-		o.Props[ident] = nest
+		o.put(ident, nest)
 		return nest, nil
 	}
 	if last {
@@ -290,10 +293,10 @@ func (o *object) getLastObject(ident string, parent Node) (*object, error) {
 		arr := createArray()
 		arr.Append(curr)
 		arr.Append(nest)
-		o.Props[ident] = arr
+		o.put(ident, arr)
 	case *array:
 		curr.Append(nest)
-		o.Props[ident] = curr
+		o.put(ident, curr)
 	default:
 		return nil, notAnObject("node")
 	}
@@ -321,9 +324,9 @@ func (o *object) set(n Node) error {
 }
 
 func (o *object) registerObject(obj *object) error {
-	curr, ok := o.Props[obj.Name]
+	curr, ok := o.take(obj.Name)
 	if !ok {
-		o.Props[obj.Name] = obj
+		o.put(obj.Name, obj)
 		return nil
 	}
 	switch prev := curr.(type) {
@@ -340,17 +343,16 @@ func (o *object) registerObject(obj *object) error {
 	default:
 		return fmt.Errorf("%s: %w", obj.Name, errRegister)
 	}
-	o.Props[obj.Name] = curr
+	o.put(obj.Name, curr)
 	return nil
 }
 
 func (o *object) registerOption(opt *option) error {
-	curr, ok := o.Props[opt.Ident]
+	curr, ok := o.take(opt.Ident)
 	if !ok {
-		o.Props[opt.Ident] = opt
+		o.put(opt.Ident, opt)
 		return nil
 	}
-
 	c, ok := curr.(*option)
 	if !ok {
 		return fmt.Errorf("%s: %w", opt.Ident, errRegister)
@@ -374,8 +376,12 @@ func (o *object) merge(node Node) error {
 		return notAnObject("node")
 	}
 	obj := node.(*object)
-	for k := range obj.Props {
-		if err := o.set(obj.Props[k]); err != nil {
+	for k := range obj.Index {
+		n, ok := obj.take(k)
+		if !ok {
+			return fmt.Errorf("%s: property not found", k)
+		}
+		if err := o.set(n); err != nil {
 			return err
 		}
 	}
@@ -387,7 +393,7 @@ func (o *object) replace(node Node) error {
 		return notAnObject("node")
 	}
 	obj := node.(*object)
-	o.Props[obj.Name] = obj
+	o.put(obj.Name, obj)
 	return nil
 }
 
@@ -397,10 +403,10 @@ func (o *object) insert(node Node) error {
 	}
 	var (
 		obj      = node.(*object)
-		curr, ok = o.Props[obj.Name]
+		curr, ok = o.take(obj.Name)
 	)
 	if !ok {
-		o.Props[obj.Name] = node
+		o.put(obj.Name, node)
 		return nil
 	}
 	var err error
@@ -409,7 +415,7 @@ func (o *object) insert(node Node) error {
 		arr := createArray()
 		arr.Append(curr)
 		arr.Append(node)
-		o.Props[obj.Name] = arr
+		o.put(obj.Name, arr)
 	case TypeArray:
 		arr := curr.(*array)
 		err = arr.Append(node)
@@ -417,6 +423,30 @@ func (o *object) insert(node Node) error {
 		return notAnObject(obj.Name)
 	}
 	return err
+}
+
+func (o *object) at(i int) Node {
+	return o.Nodes[i]
+}
+
+func (o *object) take(ident string) (Node, bool) {
+	i, ok := o.Index[ident]
+	if !ok {
+		return nil, ok
+	}
+	return o.at(i), ok
+}
+
+func (o *object) put(ident string, node Node) {
+	i, ok := o.Index[ident]
+	if !ok {
+		z := len(o.Nodes)
+		o.Index[ident] = z
+		o.Revex[z] = ident
+		o.Nodes = append(o.Nodes, node)
+		return
+	}
+	o.Nodes[i] = node
 }
 
 type array struct {
