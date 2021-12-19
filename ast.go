@@ -1,9 +1,16 @@
 package fig
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
+)
+
+
+var (
+	errObject = errors.New("not an object")
+	errRegister = errors.New("node can not be registered")
 )
 
 type NodeType int8
@@ -162,14 +169,11 @@ func (o *object) repeat(count int64, name string, nest Node) error {
 	}
 	obj, ok := nest.(*object)
 	if !ok {
-		return fmt.Errorf("node is not an object")
+		return notAnObject("node")
 	}
-	var (
-		arr = createArray()
-		i   int64
-	)
 	obj.Name = name
-	for ; i < count; i++ {
+	arr := createArray()
+	for i := int64(0); i < count; i++ {
 		arr.Append(obj.clone())
 	}
 	return o.set(arr)
@@ -182,11 +186,11 @@ func (o *object) extend(name, as string, n Node) error {
 	}
 	obj, ok := ori.(*object)
 	if !ok {
-		return fmt.Errorf("%s is not an object", name)
+		return notAnObject(name)
 	}
 	nest, ok := n.(*object)
 	if !ok {
-		return fmt.Errorf("node is not an object")
+		return notAnObject("node")
 	}
 	if as != "" {
 		obj = obj.clone().(*object)
@@ -210,7 +214,7 @@ func (o *object) extend(name, as string, n Node) error {
 func (o *object) define(ident string, n Node) error {
 	obj, ok := n.(*object)
 	if !ok {
-		return fmt.Errorf("%s is not an object", ident)
+		return notAnObject(ident)
 	}
 	obj.Name = ident
 	obj.parent = nil
@@ -251,20 +255,6 @@ func (o *object) pluck(ori *object, keys []string, depth int64) (Node, error) {
 	return obj, nil
 }
 
-func (o *object) resolve(ident string) (*option, error) {
-	n, ok := o.Props[ident]
-	if ok {
-		opt, ok := n.(*option)
-		if ok {
-			return opt, nil
-		}
-	}
-	if o.parent != nil {
-		return o.parent.resolve(ident)
-	}
-	return nil, fmt.Errorf("%s: undefined option", ident)
-}
-
 func (o *object) getObject(ident string, last bool) (*object, error) {
 	nest, ok := o.Props[ident]
 	if !ok {
@@ -285,17 +275,16 @@ func (o *object) getObject(ident string, last bool) (*object, error) {
 			obj = arr.Nodes[len(arr.Nodes)-1]
 		)
 		if obj.Type() != TypeObject {
-			return nil, fmt.Errorf("%s is not an object", ident)
+			return nil, notAnObject(ident)
 		}
 		return obj.(*object), nil
 	default:
-		return nil, fmt.Errorf("%s is not an object", ident)
+		return nil, notAnObject(ident)
 	}
 }
 
 func (o *object) getLastObject(ident string, parent Node) (*object, error) {
 	nest := enclosedObject(ident, o)
-	// nest := createObject(ident)
 	switch curr := parent.(type) {
 	case *object:
 		arr := createArray()
@@ -306,7 +295,7 @@ func (o *object) getLastObject(ident string, parent Node) (*object, error) {
 		curr.Append(nest)
 		o.Props[ident] = curr
 	default:
-		return nil, fmt.Errorf("%s is not an object", parent)
+		return nil, notAnObject("node")
 	}
 	return nest, nil
 }
@@ -326,7 +315,7 @@ func (o *object) set(n Node) error {
 			}
 		}
 	default:
-		return fmt.Errorf("node can not be registered")
+		return errRegister
 	}
 	return err
 }
@@ -349,32 +338,13 @@ func (o *object) registerObject(obj *object) error {
 		}
 		curr = prev
 	default:
-		return fmt.Errorf("%s: object can not be registered", obj.Name)
+		return fmt.Errorf("%s: %w", obj.Name, errRegister)
 	}
 	o.Props[obj.Name] = curr
 	return nil
 }
 
 func (o *object) registerOption(opt *option) error {
-	// switch v := opt.Value.(type) {
-	// case *variable:
-	// 	res, err := o.resolve(v.Ident.Literal)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	opt.Value = res.Value.clone()
-	// case *array:
-	// 	for i := range v.Nodes {
-	// 		if vr, ok := v.Nodes[i].(*variable); ok {
-	// 			res, err := o.resolve(vr.Ident.Literal)
-	// 			if err != nil {
-	// 				return err
-	// 			}
-	// 			v.Nodes[i] = res.clone()
-	// 		}
-	// 	}
-	// default:
-	// }
 	curr, ok := o.Props[opt.Ident]
 	if !ok {
 		o.Props[opt.Ident] = opt
@@ -383,7 +353,7 @@ func (o *object) registerOption(opt *option) error {
 
 	c, ok := curr.(*option)
 	if !ok {
-		return fmt.Errorf("%s: option can not be registered", opt.Ident)
+		return fmt.Errorf("%s: %w", opt.Ident, errRegister)
 	}
 	switch val := c.Value.(type) {
 	case *literal:
@@ -394,14 +364,14 @@ func (o *object) registerOption(opt *option) error {
 	case *array:
 		return val.Append(opt.Value)
 	default:
-		return fmt.Errorf("%s: option can not be registered", opt.Ident)
+		return fmt.Errorf("%s: %w", opt.Ident, errRegister)
 	}
 	return nil
 }
 
 func (o *object) merge(node Node) error {
 	if node.Type() != TypeObject {
-		return fmt.Errorf("node is not an object")
+		return notAnObject("node")
 	}
 	obj := node.(*object)
 	for k := range obj.Props {
@@ -414,7 +384,7 @@ func (o *object) merge(node Node) error {
 
 func (o *object) replace(node Node) error {
 	if node.Type() != TypeObject {
-		return fmt.Errorf("node is not an object")
+		return notAnObject("node")
 	}
 	obj := node.(*object)
 	o.Props[obj.Name] = obj
@@ -423,7 +393,7 @@ func (o *object) replace(node Node) error {
 
 func (o *object) insert(node Node) error {
 	if node.Type() != TypeObject {
-		return fmt.Errorf("node is not an object")
+		return notAnObject("node")
 	}
 	var (
 		obj      = node.(*object)
@@ -444,7 +414,7 @@ func (o *object) insert(node Node) error {
 		arr := curr.(*array)
 		err = arr.Append(node)
 	default:
-		err = fmt.Errorf("%s is not an object", obj.Name)
+		return notAnObject(obj.Name)
 	}
 	return err
 }
@@ -707,4 +677,8 @@ func (c *call) clone() Node {
 		a.Kwargs[k] = v.clone()
 	}
 	return nil
+}
+
+func notAnObject(what string) error {
+	return fmt.Errorf("%s is %w", what, errObject)
 }
