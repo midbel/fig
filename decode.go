@@ -207,11 +207,23 @@ func (d *Decoder) decodeSlice(slc *slice, v reflect.Value) error {
 	if err := d.decode(slc.Node, v); err != nil {
 		return err
 	}
-	if !isArray(v) {
+	arr := v
+	if isEmpty(v) {
+		arr = reflect.ValueOf(v.Interface())
+	}
+	if !isArray(arr) {
 		return fmt.Errorf("%s can not be sliced", v.Type())
 	}
 	if slc.IsIndex() {
-
+		from := int(slc.from)
+		if from < 0 {
+			from = arr.Len() + from
+		}
+		if from >= arr.Len() || from < 0 {
+			return fmt.Errorf("index out of range (%d >= %d)", slc.from, v.Len())
+		}
+		v.Set(arr.Index(from))
+		return nil
 	}
 	return nil
 }

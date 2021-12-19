@@ -59,7 +59,7 @@ func decodeFile(r io.Reader) error {
 	if err := dec.Decode(&dat); err != nil {
 		return err
 	}
-	fmt.Printf("%v\n", dat)
+	pprint(dat)
 	return nil
 }
 
@@ -87,4 +87,45 @@ func parseFile(r io.Reader) error {
 		fmt.Printf("node: %#v\n", n)
 	}
 	return err
+}
+
+func pprint(data map[string]interface{}) {
+	pretty(data, 0)
+	fmt.Println()
+}
+
+func pretty(data map[string]interface{}, level int) {
+	fmt.Println("{")
+	prefix := strings.Repeat(" ", level)
+	for k, v := range data {
+		fmt.Printf("%s  %s: ", prefix, k)
+		switch dat := v.(type) {
+		case []interface{}:
+			prettyArray(dat, level)
+		case map[string]interface{}:
+			pretty(dat, level+2)
+		default:
+			fmt.Printf("%v", dat)
+		}
+		fmt.Println()
+	}
+	fmt.Printf("%s}", prefix)
+}
+
+func prettyArray(data []interface{}, level int) {
+	fmt.Print("[")
+	for i := range data {
+		if i > 0 {
+			fmt.Print(", ")
+		}
+		switch dat := data[i].(type) {
+		case map[string]interface{}:
+			pretty(dat, level+2)
+		case []interface{}:
+			prettyArray(dat, level)
+		default:
+			fmt.Printf("%v", dat)
+		}
+	}
+	fmt.Print("]")
 }

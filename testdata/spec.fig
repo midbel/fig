@@ -148,8 +148,8 @@ call4 = uuid3($name)
 # }
 
 array = [1, 2, 3, 4, 5]
-# index = $array[0]
-# slice1 = $array[1:3]
-# slice2 = $array[1:]
-# slice3 = $array[:3]
-# slice4 = $array[:]
+index = $array[-2]
+slice1 = $array[1:3]
+slice2 = $array[1:]
+slice3 = $array[:3]
+slice4 = $array[:]
