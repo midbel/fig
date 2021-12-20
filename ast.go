@@ -524,7 +524,7 @@ func (s *slice) IsIndex() bool {
 }
 
 func (s *slice) String() string {
-	return fmt.Sprintf("slice(%s, from: %d, to: %d)", s.Node, s.from, s.to)
+	return fmt.Sprintf("slice(%s, from: %d, to: %d)", s.Node, s.from.index, s.to.index)
 }
 
 func (s *slice) Type() NodeType {

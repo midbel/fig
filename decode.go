@@ -220,7 +220,7 @@ func (d *Decoder) decodeSlice(slc *slice, v reflect.Value) error {
 			from = arr.Len() + from
 		}
 		if from >= arr.Len() || from < 0 {
-			return fmt.Errorf("index out of range (%d >= %d)", slc.from, v.Len())
+			return fmt.Errorf("index out of range (%d >= %d)", slc.from.index, v.Len())
 		}
 		v.Set(arr.Index(from))
 		return nil
