@@ -153,3 +153,5 @@ slice1 = $array[1:3]
 slice2 = $array[1:]
 slice3 = $array[:3]
 slice4 = $array[:]
+
+slice5 = [1, 2, 3, 4][2:]

@@ -155,6 +155,9 @@ func (p *Parser) parseValue() (Node, error) {
 	switch {
 	case p.curr.Type == BegArr:
 		n, err = p.parseArray()
+		if err == nil {
+			n, err = p.parseSlice(n)
+		}
 	case p.curr.isVariable():
 		n = createVariable(p.curr)
 		p.next()
