@@ -451,6 +451,9 @@ func (d *Decoder) decodeObject(obj *object, v reflect.Value) error {
 				continue
 			}
 		}
+		if node == nil {
+			continue
+		}
 		if err := d.decode(node, f); err != nil {
 			return err
 		}
