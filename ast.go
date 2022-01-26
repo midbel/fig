@@ -432,9 +432,9 @@ func (o *object) at(i int) Node {
 func (o *object) take(ident string) (Node, bool) {
 	i, ok := o.Index[ident]
 	if !ok {
-		return nil, ok
+		return nil, false
 	}
-	return o.at(i), ok
+	return o.at(i), true
 }
 
 func (o *object) put(ident string, node Node) {
