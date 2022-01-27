@@ -3,8 +3,12 @@ package fig
 import (
 	"fmt"
 	"io"
+	"net"
+	"net/url"
 	"reflect"
+	"regexp"
 	"strings"
+	"time"
 )
 
 type Setter interface {
@@ -454,6 +458,12 @@ func (d *Decoder) decodeObject(obj *object, v reflect.Value) error {
 		if node == nil {
 			continue
 		}
+		if err, ok := d.decodeSpecial(f, node); ok {
+			if err != nil {
+				return err
+			}
+			continue
+		}
 		if err := d.decode(node, f); err != nil {
 			return err
 		}
@@ -501,6 +511,119 @@ func (d *Decoder) decodeMap(obj *object, v reflect.Value) error {
 		v.SetMapIndex(reflect.ValueOf(obj.Revex[i]), vf)
 	}
 	return nil
+}
+
+func (d *Decoder) decodeSetter(v reflect.Value, n Node) error {
+	return nil
+}
+
+func (d *Decoder) decodeSpecial(v reflect.Value, n Node) (error, bool) {
+	var (
+		err error
+		nok bool
+	)
+	switch t := v.Type(); {
+	case t == timetype:
+		err = d.decodeTime(v, n)
+	case t == urltype:
+		err = d.decodeURL(v, n)
+	case t == regextype:
+		err = d.decodeRegex(v, n)
+	case t == iptype:
+		err = d.decodeIP(v, n)
+	default:
+		nok = true
+	}
+	return err, !nok
+}
+
+var timeformat = []string{
+	"2006-01-02T15:04:05Z",
+	"2006-01-02T15:04:05",
+	"2006-01-02 15:04:05Z",
+	"2006-01-02 15:04:05",
+	"2006-01-02",
+}
+
+func (d *Decoder) decodeTime(v reflect.Value, n Node) error {
+	opt, ok := n.(*option)
+	if !ok {
+		return fmt.Errorf("decoding time: option expected")
+	}
+	var (
+		str, err = opt.GetString()
+		mmt      time.Time
+	)
+	if err != nil {
+		return err
+	}
+	for _, f := range timeformat {
+		mmt, err = time.Parse(f, str)
+		if err == nil {
+			v.Set(reflect.ValueOf(mmt))
+			return nil
+		}
+	}
+	return err
+}
+
+func (d *Decoder) decodeURL(v reflect.Value, n Node) error {
+	opt, ok := n.(*option)
+	if !ok {
+		return fmt.Errorf("decoding url: option expected")
+	}
+	str, err := opt.GetString()
+	if err != nil {
+		return err
+	}
+	u, err := url.Parse(str)
+	if err != nil {
+		return err
+	}
+	v.Set(reflect.ValueOf(*u))
+	return nil
+}
+
+func (d *Decoder) decodeIP(v reflect.Value, n Node) error {
+	opt, ok := n.(*option)
+	if !ok {
+		return fmt.Errorf("decoding IP: option expected")
+	}
+	str, err := opt.GetString()
+	if err != nil {
+		return err
+	}
+	ip := net.ParseIP(str)
+	v.Set(reflect.ValueOf(ip))
+	return nil
+}
+
+func (d *Decoder) decodeRegex(v reflect.Value, n Node) error {
+	opt, ok := n.(*option)
+	if !ok {
+		return fmt.Errorf("decoding regexp: option expected")
+	}
+	str, err := opt.GetString()
+	if err != nil {
+		return err
+	}
+	rxp, err := regexp.Compile(str)
+	if err != nil {
+		return err
+	}
+	v.Set(reflect.ValueOf(*rxp))
+	return nil
+}
+
+var (
+	timetype  = reflect.TypeOf((*time.Time)(nil)).Elem()
+	urltype   = reflect.TypeOf((*url.URL)(nil)).Elem()
+	regextype = reflect.TypeOf((*regexp.Regexp)(nil)).Elem()
+	iptype    = reflect.TypeOf((*net.IP)(nil)).Elem()
+)
+
+func isSpecial(v reflect.Value) bool {
+	return v.Type() == timetype
 }
 
 func (d *Decoder) define(ident string, value interface{}) {

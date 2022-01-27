@@ -3,6 +3,7 @@ package fig_test
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/midbel/fig"
 )
@@ -149,4 +150,21 @@ server {
 	fmt.Printf("%+v\n", data)
 	// Output:
 	// map[addr:192.168.67.181 name:demo server:[map[addr:192.168.67.181 enable:false name:alpha ttl:1800] map[addr:192.168.67.181 enable:true name:alpha ttl:1800]] ttl:1800]
+}
+
+func ExampleDecode_Special() {
+	const demo = `
+when = "2022-01-28"
+	`
+	in := struct {
+		When time.Time
+	}{}
+	err := fig.NewDecoder(strings.NewReader(demo)).Decode(&in)
+	if err != nil {
+		fmt.Printf("unexpected error decoding demo (with time): %s\n", err)
+		return
+	}
+	fmt.Println(in.When.Format("2006-01-02"))
+	// Output:
+	// 2022-01-28
 }
