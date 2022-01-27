@@ -1,5 +1,10 @@
 # fig
 
+## todos
+
+* add setter interface
+* specialized decode function when type is one of: time.Time, url.URL, net.IP, regexp.Regexp
+
 ## spec
 
 ### comment
