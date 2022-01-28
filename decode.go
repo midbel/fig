@@ -12,7 +12,11 @@ import (
 )
 
 type Setter interface {
-	Set(interface{}) error
+	Set(string) error
+}
+
+type Updater interface {
+	Update() error
 }
 
 type FuncMap map[string]interface{}
@@ -299,6 +303,9 @@ func (d *Decoder) decodeOption(opt *option, v reflect.Value) error {
 	if opt.Value == nil {
 		return nil
 	}
+	if ok, err := d.decodeSetter(v, opt); ok {
+		return err
+	}
 	var err error
 	switch opt.Value.Type() {
 	case TypeLiteral:
@@ -458,7 +465,7 @@ func (d *Decoder) decodeObject(obj *object, v reflect.Value) error {
 		if node == nil {
 			continue
 		}
-		if err, ok := d.decodeSpecial(f, node); ok {
+		if ok, err := d.decodeSpecial(f, node); ok {
 			if err != nil {
 				return err
 			}
@@ -468,7 +475,7 @@ func (d *Decoder) decodeObject(obj *object, v reflect.Value) error {
 			return err
 		}
 	}
-	return nil
+	return d.triggerUpdate(v)
 }
 
 func (d *Decoder) decodeMap(obj *object, v reflect.Value) error {
@@ -513,11 +520,7 @@ func (d *Decoder) decodeMap(obj *object, v reflect.Value) error {
 	return nil
 }
 
-func (d *Decoder) decodeSetter(v reflect.Value, n Node) error {
-	return nil
-}
-
-func (d *Decoder) decodeSpecial(v reflect.Value, n Node) (error, bool) {
+func (d *Decoder) decodeSpecial(v reflect.Value, n Node) (bool, error) {
 	var (
 		err error
 		nok bool
@@ -534,7 +537,7 @@ func (d *Decoder) decodeSpecial(v reflect.Value, n Node) (error, bool) {
 	default:
 		nok = true
 	}
-	return err, !nok
+	return !nok, err
 }
 
 var timeformat = []string{
@@ -616,14 +619,45 @@ func (d *Decoder) decodeRegex(v reflect.Value, n Node) error {
 }
 
 var (
-	timetype  = reflect.TypeOf((*time.Time)(nil)).Elem()
-	urltype   = reflect.TypeOf((*url.URL)(nil)).Elem()
-	regextype = reflect.TypeOf((*regexp.Regexp)(nil)).Elem()
-	iptype    = reflect.TypeOf((*net.IP)(nil)).Elem()
+	settertype = reflect.TypeOf((*Setter)(nil)).Elem()
+	updatetype = reflect.TypeOf((*Updater)(nil)).Elem()
+	timetype   = reflect.TypeOf((*time.Time)(nil)).Elem()
+	urltype    = reflect.TypeOf((*url.URL)(nil)).Elem()
+	regextype  = reflect.TypeOf((*regexp.Regexp)(nil)).Elem()
+	iptype     = reflect.TypeOf((*net.IP)(nil)).Elem()
 )
 
-func isSpecial(v reflect.Value) bool {
-	return v.Type() == timetype
+func (d *Decoder) triggerUpdate(v reflect.Value) error {
+	if v.CanInterface() && v.Type().Implements(updatetype) {
+		return v.Interface().(Updater).Update()
+	}
+	if v.CanAddr() {
+		v = v.Addr()
+		if v.CanInterface() && v.Type().Implements(updatetype) {
+			return v.Interface().(Updater).Update()
+		}
+	}
+	return nil
+}
+
+func (d *Decoder) decodeSetter(v reflect.Value, opt *option) (bool, error) {
+	decode := func() error {
+		str, err := opt.GetString()
+		if err != nil {
+			return err
+		}
+		return v.Interface().(Setter).Set(str)
+	}
+	if v.CanInterface() && v.Type().Implements(settertype) {
+		return true, decode()
+	}
+	if v.CanAddr() {
+		v = v.Addr()
+		if v.CanInterface() && v.Type().Implements(settertype) {
+			return true, decode()
+		}
+	}
+	return false, nil
 }
 
 func (d *Decoder) define(ident string, value interface{}) {

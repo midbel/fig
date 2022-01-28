@@ -2,8 +2,9 @@
 
 ## todos
 
-* add setter interface
-* specialized decode function when type is one of: time.Time, url.URL, net.IP, regexp.Regexp
+* variable interpolation in string
+* expression evaluation: TBD
+* user defined functions inside fig file: TBD
 
 ## spec
 

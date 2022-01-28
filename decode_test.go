@@ -168,3 +168,33 @@ when = "2022-01-28"
 	// Output:
 	// 2022-01-28
 }
+
+type Settable struct {
+	Data string
+}
+
+func (s *Settable) Set(str string) error {
+	s.Data = str
+	return nil
+}
+
+func ExampleDecode_Setter() {
+	const demo = `
+set1 = foo
+set2 = bar
+	`
+	in := struct {
+		Set1 Settable
+		Set2 Settable
+	}{}
+	err := fig.NewDecoder(strings.NewReader(demo)).Decode(&in)
+	if err != nil {
+		fmt.Printf("unexpected error decoding demo (setter): %s\n", err)
+		return
+	}
+	fmt.Println(in.Set1.Data)
+	fmt.Println(in.Set2.Data)
+	// Output:
+	// foo
+	// bar
+}
