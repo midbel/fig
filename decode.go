@@ -106,6 +106,9 @@ func (d *Decoder) decode(n Node, value reflect.Value) error {
 	default:
 		err = fmt.Errorf("value (%s) can not be decoded from %T", value.Kind(), n)
 	}
+	if err == nil {
+		err = d.triggerUpdate(value)
+	}
 	return err
 }
 
@@ -475,7 +478,7 @@ func (d *Decoder) decodeObject(obj *object, v reflect.Value) error {
 			return err
 		}
 	}
-	return d.triggerUpdate(v)
+	return nil
 }
 
 func (d *Decoder) decodeMap(obj *object, v reflect.Value) error {
