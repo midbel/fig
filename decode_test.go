@@ -198,3 +198,32 @@ set2 = bar
 	// foo
 	// bar
 }
+
+func ExampleDecoder_Template() {
+	const demo = `
+arg1 = foo
+arg2 = bar
+cmd1 = %s
+cmd2 = %s
+cmd3 = %s
+	`
+
+	demo1 := fmt.Sprintf(demo, "`echo ${arg1}`", "`echo ${arg2}`", "`echo ${arg2}/${arg1}`")
+	c := struct {
+		Cmd1 string
+		Cmd2 string
+		Cmd3 string
+	}{}
+	err := fig.NewDecoder(strings.NewReader(demo1)).Decode(&c)
+	if err != nil {
+		fmt.Printf("unexpected error decoding demo (template): %s\n", err)
+		return
+	}
+	fmt.Println(c.Cmd1)
+	fmt.Println(c.Cmd2)
+	fmt.Println(c.Cmd3)
+	// Output:
+	// echo foo
+	// echo bar
+	// echo bar/foo
+}

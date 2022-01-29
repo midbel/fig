@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -275,7 +276,37 @@ func (d *Decoder) decodeSlice(slc *slice, v reflect.Value) error {
 	return nil
 }
 
-func (d *Decoder) decodeVariable(ident *variable, v reflect.Value) error {
+func (d *Decoder) decodeTemplate(tpl *template) (Node, error) {
+	var str strings.Builder
+	for _, n := range tpl.Nodes {
+		switch n.Type() {
+		case TypeLiteral:
+			s, _ := n.(*literal).GetString()
+			str.WriteString(s)
+		case TypeVariable:
+			val, err := d.resolveVariable(n.(*variable))
+			if err != nil {
+				return nil, err
+			}
+			switch v := val.(type) {
+			case string:
+				str.WriteString(v)
+			case int64:
+				str.WriteString(strconv.FormatInt(v, 10))
+			case float64:
+				str.WriteString(strconv.FormatFloat(v, 'f', -1, 64))
+			case bool:
+				str.WriteString(strconv.FormatBool(v))
+			default:
+			}
+		default:
+			return nil, fmt.Errorf("unexpected node type")
+		}
+	}
+	return createLiteralFromString(str.String()), nil
+}
+
+func (d *Decoder) resolveVariable(ident *variable) (interface{}, error) {
 	var (
 		val interface{}
 		err error
@@ -285,6 +316,11 @@ func (d *Decoder) decodeVariable(ident *variable, v reflect.Value) error {
 	} else {
 		val, err = d.locals.resolve(ident.Name())
 	}
+	return val, err
+}
+
+func (d *Decoder) decodeVariable(ident *variable, v reflect.Value) error {
+	val, err := d.resolveVariable(ident)
 	if err != nil {
 		return err
 	}
@@ -318,6 +354,12 @@ func (d *Decoder) decodeOption(opt *option, v reflect.Value) error {
 			break
 		}
 		err = d.decodeLiteral(lit, v)
+	case TypeTemplate:
+		opt.Value, err = d.decodeTemplate(opt.Value.(*template))
+		if err != nil {
+			break
+		}
+		return d.decodeOption(opt, v)
 	case TypeArray:
 		var ok bool
 		if ok, err = d.decodeArrayFromInterface(opt.Value, v); ok {
