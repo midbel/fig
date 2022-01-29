@@ -95,6 +95,15 @@ func (d *Decoder) decode(n Node, value reflect.Value) error {
 		}
 		err = d.decodeArray(n, value)
 	case *object:
+		for _, n := range n.Nodes {
+			o, ok := n.(*option)
+			if !ok {
+				continue
+			}
+			if val, err := o.Get(); err == nil {
+				d.options.define(o.Ident, val)
+			}
+		}
 		err = d.decodeObject(n, value)
 	case *option:
 		err = d.decodeOption(n, value)

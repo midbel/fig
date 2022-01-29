@@ -102,6 +102,14 @@ func (o *option) GetFloat() (float64, error) {
 	return i.GetFloat()
 }
 
+func (o *option) Get() (interface{}, error) {
+	i, err := o.getLiteral()
+	if err != nil {
+		return nil, err
+	}
+	return i.Get()
+}
+
 func (o *option) getLiteral() (*literal, error) {
 	i, ok := o.Value.(*literal)
 	if !ok {
@@ -703,7 +711,7 @@ func (i *literal) Get() (interface{}, error) {
 	switch i.Token.Type {
 	case Boolean:
 		return i.GetBool()
-	case String, Heredoc:
+	case String, Heredoc, Ident:
 		return i.GetString()
 	case Integer:
 		return i.GetInt()
