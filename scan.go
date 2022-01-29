@@ -43,6 +43,7 @@ const (
 	tilde      = '~'
 	question   = '?'
 	semicolon  = ';'
+	backtick   = '`'
 )
 
 var escapes = map[rune]rune{
@@ -63,6 +64,8 @@ type Scanner struct {
 	line   int
 	column int
 	seen   int
+
+	template bool
 }
 
 func Scan(r io.Reader) (*Scanner, error) {
@@ -80,13 +83,21 @@ func Scan(r io.Reader) (*Scanner, error) {
 }
 
 func (s *Scanner) Scan() Token {
-	s.reset()
-	s.skipBlank()
 	var tok Token
 	tok.Position = Position{
 		Line: s.line,
 		Col:  s.column,
 	}
+	s.reset()
+
+	if s.template {
+		s.scanTemplate(&tok)
+		return tok
+	}
+
+	s.skipBlank()
+	tok.Position.Line = s.line
+	tok.Position.Line = s.column
 	if s.char == 0 || s.char == utf8.RuneError {
 		tok.Type = EOF
 		return tok
@@ -105,6 +116,8 @@ func (s *Scanner) Scan() Token {
 		s.scanVariable(&tok)
 	case isDigit(s.char) || isSign(s.char):
 		s.scanNumber(&tok)
+	case isBacktick(s.char):
+		s.scanTemplate(&tok)
 	case isQuote(s.char):
 		s.scanString(&tok)
 	case isDelim(s.char):
@@ -123,6 +136,58 @@ func (s *Scanner) Scan() Token {
 		tok.Type = Invalid
 	}
 	return tok
+}
+
+func (s *Scanner) scanTemplate(tok *Token) {
+	switch {
+	case isBacktick(s.char):
+		tok.Type = Template
+		s.template = !s.template
+		s.read()
+	case isVariable(s.char):
+		s.scanPlaceholder(tok)
+	default:
+		s.scanLiteral(tok)
+	}
+}
+
+func (s *Scanner) scanPlaceholder(tok *Token) {
+	tok.Type = LocalVar
+	if s.char == arobase {
+		tok.Type = EnvVar
+	}
+	s.read()
+	if s.char != lcurly {
+		tok.Type = Invalid
+		return
+	}
+	s.read()
+	if !isLetter(s.char) {
+		tok.Type = Invalid
+		return
+	}
+	for isIdent(s.char) {
+		s.str.WriteRune(s.char)
+		s.read()
+	}
+	if s.char != rcurly {
+		tok.Type = Invalid
+		return
+	}
+	s.read()
+	tok.Literal = s.str.String()
+}
+
+func (s *Scanner) scanLiteral(tok *Token) {
+	for !s.done() {
+		if isBacktick(s.char) || isVariable(s.char) {
+			break
+		}
+		s.str.WriteRune(s.char)
+		s.read()
+	}
+	tok.Type = String
+	tok.Literal = s.str.String()
 }
 
 func (s *Scanner) scanHeredoc(tok *Token) {
@@ -498,6 +563,10 @@ func isDigit(b rune) bool {
 
 func isSign(b rune) bool {
 	return b == plus || b == minus
+}
+
+func isBacktick(b rune) bool {
+	return b == backtick
 }
 
 func isQuote(b rune) bool {

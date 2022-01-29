@@ -42,6 +42,7 @@ strings {
   blanks (space, tabs, newline) in heredoc are kept! this is why the closing label
   should always be at the very beginning of a line
 EOF
+  template = `echo ${foobar}`
 }
 
 local = 42

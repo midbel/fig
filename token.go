@@ -21,6 +21,7 @@ const (
 	Boolean
 	Heredoc
 	String
+	Template
 	Integer
 	Float
 	LocalVar
@@ -45,6 +46,7 @@ var types = map[rune]string{
 	Macro:    "macro",
 	Heredoc:  "heredoc",
 	String:   "string",
+	Template: "template",
 	Integer:  "integer",
 	Float:    "float",
 	Boolean:  "boolean",
@@ -108,6 +110,10 @@ func (t Token) isValue() bool {
 
 func (t Token) isVariable() bool {
 	return t.Type == LocalVar || t.Type == EnvVar
+}
+
+func (t Token) isTemplate() bool {
+	return t.Type == Template
 }
 
 func (t Token) isEOL() bool {

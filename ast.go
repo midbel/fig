@@ -16,6 +16,7 @@ type NodeType int8
 
 const (
 	TypeLiteral NodeType = iota
+	TypeTemplate
 	TypeVariable
 	TypeSlice
 	TypeOption
@@ -619,6 +620,30 @@ func convertFloat(str, mul string) (float64, error) {
 		return v, fmt.Errorf("%s: unsupported/unknown multipliers", mul)
 	}
 	return fn(v), nil
+}
+
+type template struct {
+	Nodes []Node
+}
+
+func (t *template) String() string {
+	var str []string
+	for _, n := range t.Nodes {
+		str = append(str, n.String())
+	}
+	return fmt.Sprintf("template(%s)", strings.Join(str, ", "))
+}
+
+func (_ *template) Type() NodeType {
+	return TypeTemplate
+}
+
+func (t *template) clone() Node {
+	var c template
+	for _, n := range t.Nodes {
+		c.Nodes = append(c.Nodes, n.clone())
+	}
+	return &c
 }
 
 type literal struct {

@@ -158,6 +158,8 @@ func (p *Parser) parseValue() (Node, error) {
 		if err == nil {
 			n, err = p.parseSlice(n)
 		}
+	case p.curr.isTemplate():
+		n, err = p.parseTemplate()
 	case p.curr.isVariable():
 		n = createVariable(p.curr)
 		p.next()
@@ -179,6 +181,31 @@ func (p *Parser) parseValue() (Node, error) {
 		return nil, p.unexpected()
 	}
 	return n, err
+}
+
+func (p *Parser) parseTemplate() (Node, error) {
+	p.next()
+	var (
+		t template
+		n Node
+	)
+	for !p.done() && !p.curr.isTemplate() {
+		switch p.curr.Type {
+		case String:
+			n = createLiteral(p.curr)
+		case LocalVar, EnvVar:
+			n = createVariable(p.curr)
+		default:
+			return nil, p.unexpected()
+		}
+		p.next()
+		t.Nodes = append(t.Nodes, n)
+	}
+	if !p.curr.isTemplate() {
+		return nil, p.unexpected()
+	}
+	p.next()
+	return &t, nil
 }
 
 func (p *Parser) parseCall() (Node, error) {
