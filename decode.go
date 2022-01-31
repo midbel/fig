@@ -85,6 +85,26 @@ func (d *Decoder) Decode(v interface{}) error {
 	return d.decode(n, value.Elem())
 }
 
+func (d *Decoder) registerObject(obj *object) error {
+	for _, n := range obj.Nodes {
+		o, ok := n.(*option)
+		if !ok {
+			continue
+		}
+		if t, ok := o.Value.(*template); ok {
+			var err error
+			o.Value, err = d.decodeTemplate(t)
+			if err != nil {
+				return err
+			}
+		}
+		if val, err := o.Get(); err == nil {
+			d.options.define(o.Ident, val)
+		}
+	}
+	return nil
+}
+
 func (d *Decoder) decode(n Node, value reflect.Value) error {
 	var err error
 	switch n := n.(type) {
@@ -95,15 +115,7 @@ func (d *Decoder) decode(n Node, value reflect.Value) error {
 		}
 		err = d.decodeArray(n, value)
 	case *object:
-		for _, n := range n.Nodes {
-			o, ok := n.(*option)
-			if !ok {
-				continue
-			}
-			if val, err := o.Get(); err == nil {
-				d.options.define(o.Ident, val)
-			}
-		}
+		d.registerObject(n)
 		err = d.decodeObject(n, value)
 	case *option:
 		err = d.decodeOption(n, value)
@@ -364,11 +376,12 @@ func (d *Decoder) decodeOption(opt *option, v reflect.Value) error {
 		}
 		err = d.decodeLiteral(lit, v)
 	case TypeTemplate:
-		opt.Value, err = d.decodeTemplate(opt.Value.(*template))
+		var n Node
+		n, err = d.decodeTemplate(opt.Value.(*template))
 		if err != nil {
 			break
 		}
-		return d.decodeOption(opt, v)
+		err = d.decodeOption(createOption(opt.Ident, n), v)
 	case TypeArray:
 		var ok bool
 		if ok, err = d.decodeArrayFromInterface(opt.Value, v); ok {

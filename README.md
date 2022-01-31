@@ -1,8 +1,7 @@
 # fig
 
-## todos
+## todos/nice to have
 
-* variable interpolation in string
 * expression evaluation: TBD
 * user defined functions inside fig file: TBD
 
