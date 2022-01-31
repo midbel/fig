@@ -186,6 +186,9 @@ func (d *Decoder) decodeInterface(lit *literal, v reflect.Value) error {
 }
 
 func (d *Decoder) decodeLiteral(lit *literal, v reflect.Value) error {
+	if ok, err := d.decodeSetter(v, lit); ok {
+		return err
+	}
 	var err error
 	switch k := v.Kind(); k {
 	case reflect.String:
@@ -707,9 +710,20 @@ func (d *Decoder) triggerUpdate(v reflect.Value) error {
 	return nil
 }
 
-func (d *Decoder) decodeSetter(v reflect.Value, opt *option) (bool, error) {
+func (d *Decoder) decodeSetter(v reflect.Value, n Node) (bool, error) {
 	decode := func() error {
-		str, err := opt.GetString()
+		var (
+			str string
+			err error
+		)
+		switch n := n.(type) {
+		case *option:
+			str, err = n.GetString()
+		case *literal:
+			str, err = n.GetString()
+		default:
+			return fmt.Errorf("unexpected node type %T", n)
+		}
 		if err != nil {
 			return err
 		}
