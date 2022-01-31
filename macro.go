@@ -65,6 +65,14 @@ const (
 	argCount  = "count"
 )
 
+func IfEq(root, nest Node, args []Node, kwargs map[string]Node) error {
+	return nil
+}
+
+func IfNotEq(root, nest Node, args []Node, kwargs map[string]Node) error {
+	return nil
+}
+
 func ReadFile(root, _ Node, args []Node, kwargs map[string]Node) error {
 	if len(args) == 0 && len(kwargs) == 0 {
 		return fmt.Errorf("no enough arguments supplied")
