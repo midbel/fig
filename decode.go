@@ -233,6 +233,12 @@ func (d *Decoder) decodeLiteral(lit *literal, v reflect.Value) error {
 			break
 		}
 		v.Set(reflect.ValueOf(i))
+	case reflect.Slice, reflect.Array:
+		vf := reflect.New(v.Type().Elem()).Elem()
+		if err = d.decodeLiteral(lit, vf); err != nil {
+			break
+		}
+		v.Set(reflect.Append(v, vf))
 	default:
 		return fmt.Errorf("primitive type expected! got %s", k)
 	}
