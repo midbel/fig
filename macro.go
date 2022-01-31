@@ -66,10 +66,22 @@ const (
 )
 
 func IfEq(root, nest Node, args []Node, kwargs map[string]Node) error {
+	if len(kwargs) > 0 {
+		return fmt.Errorf("ifeq does not accept keyword argument")
+	}
+	if len(args) <= 1 {
+		return fmt.Errorf("ifeq: not enough argument given")
+	}
 	return nil
 }
 
 func IfNotEq(root, nest Node, args []Node, kwargs map[string]Node) error {
+	if len(kwargs) > 0 {
+		return fmt.Errorf("ifne does not accept keyword argument")
+	}
+	if len(args) <= 1 {
+		return fmt.Errorf("ifne: not enough argument given")
+	}
 	return nil
 }
 
