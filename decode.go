@@ -23,19 +23,25 @@ type Updater interface {
 type FuncMap map[string]interface{}
 
 type Decoder struct {
-	read    io.Reader
-	fmap    FuncMap
-	options *env
-	locals  *env
+	read     io.Reader
+	fmap     FuncMap
+	options  *env
+	locals   *env
+	specials *env
 }
 
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{
-		read:    r,
-		fmap:    make(FuncMap),
-		options: emptyEnv(),
-		locals:  emptyEnv(),
+		read:     r,
+		fmap:     make(FuncMap),
+		options:  emptyEnv(),
+		locals:   emptyEnv(),
+		specials: emptyEnv(),
 	}
+}
+
+func (d *Decoder) Register(ident string, value interface{}) {
+	d.specials.define(ident, value)
 }
 
 func (d *Decoder) Define(ident string, value interface{}) {

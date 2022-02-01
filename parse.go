@@ -38,6 +38,7 @@ func NewParser(r io.Reader) (*Parser, error) {
 		"readfile": createMacroDef(ReadFile, false),
 		"ifeq":     createMacroDef(IfEq, true),
 		"ifne":     createMacroDef(IfNotEq, true),
+		"register": createMacroDef(Register, true),
 	}
 	p.next()
 	p.next()

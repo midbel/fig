@@ -65,6 +65,10 @@ const (
 	argCount  = "count"
 )
 
+func Register(root, nest Node, args []Node, kwargs map[string]Node) error {
+	return nil
+}
+
 func IfEq(root, nest Node, args []Node, kwargs map[string]Node) error {
 	if len(kwargs) > 0 {
 		return fmt.Errorf("ifeq does not accept keyword argument")
