@@ -65,32 +65,29 @@ const (
 	argCount  = "count"
 )
 
-func Register(root, nest Node, args []Node, kwargs map[string]Node) error {
+func Register(root, _ Node, args []Node, kwargs map[string]Node) error {
 	if len(kwargs) > 0 {
 		return fmt.Errorf("register does not accept keyword arguments")
 	}
-	if len(args) > 0 {
-		return fmt.Errorf("register does not accept positional arguments")
+	if len(args) != 2 {
+		return fmt.Errorf("register: wrong number of arguments given")
 	}
 	obj, ok := root.(*object)
 	if !ok {
 		return fmt.Errorf("root should be an object! got %T", root)
 	}
-	sub, ok := nest.(*object)
-	if !ok {
-		return fmt.Errorf("nest should be an object! got %T", nest)
+	var (
+		ident string
+		value string
+		err   error
+	)
+	if ident, err = getString(0, "", args, kwargs); err != nil {
+		return err
 	}
-	for _, n := range sub.Nodes {
-		o, ok := n.(*option)
-		if !ok {
-			continue
-		}
-		val, err := o.Get()
-		if err != nil {
-			return err
-		}
-		obj.register(o.Ident, val)
+	if value, err = getString(1, "", args, kwargs); err != nil {
+		return err
 	}
+	obj.register(ident, value)
 	return nil
 }
 
