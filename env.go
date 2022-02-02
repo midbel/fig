@@ -24,6 +24,10 @@ func enclosedEnv(parent *env) *env {
 	}
 }
 
+func combinedEnv(e ...*env) *env {
+	return nil
+}
+
 func (e *env) Resolve(ident string) (interface{}, error) {
 	return e.resolve(ident)
 }
