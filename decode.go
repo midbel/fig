@@ -17,31 +17,25 @@ type Setter interface {
 }
 
 type Updater interface {
-	Update() error
+	Update(Resolver) error
 }
 
 type FuncMap map[string]interface{}
 
 type Decoder struct {
-	read     io.Reader
-	fmap     FuncMap
-	options  *env
-	locals   *env
-	specials *env
+	read    io.Reader
+	fmap    FuncMap
+	options *env
+	locals  *env
 }
 
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{
-		read:     r,
-		fmap:     make(FuncMap),
-		options:  emptyEnv(),
-		locals:   emptyEnv(),
-		specials: emptyEnv(),
+		read:    r,
+		fmap:    make(FuncMap),
+		options: emptyEnv(),
+		locals:  emptyEnv(),
 	}
-}
-
-func (d *Decoder) Register(ident string, value interface{}) {
-	d.specials.define(ident, value)
 }
 
 func (d *Decoder) Define(ident string, value interface{}) {
@@ -135,7 +129,10 @@ func (d *Decoder) decode(n Node, value reflect.Value) error {
 		err = fmt.Errorf("value (%s) can not be decoded from %T", value.Kind(), n)
 	}
 	if err == nil {
-		err = d.triggerUpdate(value)
+		r, ok := n.(Resolver)
+		if ok {
+			err = d.triggerUpdate(value, r)
+		}
 	}
 	return err
 }
@@ -709,14 +706,14 @@ var (
 	iptype     = reflect.TypeOf((*net.IP)(nil)).Elem()
 )
 
-func (d *Decoder) triggerUpdate(v reflect.Value) error {
+func (d *Decoder) triggerUpdate(v reflect.Value, res Resolver) error {
 	if v.CanInterface() && v.Type().Implements(updatetype) {
-		return v.Interface().(Updater).Update()
+		return v.Interface().(Updater).Update(res)
 	}
 	if v.CanAddr() {
 		v = v.Addr()
 		if v.CanInterface() && v.Type().Implements(updatetype) {
-			return v.Interface().(Updater).Update()
+			return v.Interface().(Updater).Update(res)
 		}
 	}
 	return nil

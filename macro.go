@@ -66,27 +66,86 @@ const (
 )
 
 func Register(root, nest Node, args []Node, kwargs map[string]Node) error {
+	if len(kwargs) > 0 {
+		return fmt.Errorf("register does not accept keyword arguments")
+	}
+	if len(args) > 0 {
+		return fmt.Errorf("register does not accept positional arguments")
+	}
+	obj, ok := root.(*object)
+	if !ok {
+		return fmt.Errorf("root should be an object! got %T", root)
+	}
+	sub, ok := nest.(*object)
+	if !ok {
+		return fmt.Errorf("nest should be an object! got %T", nest)
+	}
+	for _, n := range sub.Nodes {
+		o, ok := n.(*option)
+		if !ok {
+			continue
+		}
+		val, err := o.Get()
+		if err != nil {
+			return err
+		}
+		obj.register(o.Ident, val)
+	}
 	return nil
 }
 
 func IfEq(root, nest Node, args []Node, kwargs map[string]Node) error {
 	if len(kwargs) > 0 {
-		return fmt.Errorf("ifeq does not accept keyword argument")
+		return fmt.Errorf("ifeq does not accept keyword arguments")
 	}
 	if len(args) <= 1 {
 		return fmt.Errorf("ifeq: not enough argument given")
+	}
+	str, err := getString(0, "", args, kwargs)
+	if err != nil {
+		return err
+	}
+	ok := compare(str, args[1:], func(s1, s2 string) bool {
+		return s1 == s2
+	})
+	if root, ok1 := root.(*object); ok1 && ok {
+		return root.merge(nest)
 	}
 	return nil
 }
 
 func IfNotEq(root, nest Node, args []Node, kwargs map[string]Node) error {
 	if len(kwargs) > 0 {
-		return fmt.Errorf("ifne does not accept keyword argument")
+		return fmt.Errorf("ifneq does not accept keyword arguments")
 	}
 	if len(args) <= 1 {
-		return fmt.Errorf("ifne: not enough argument given")
+		return fmt.Errorf("ifneq: not enough argument given")
+	}
+	str, err := getString(0, "", args, kwargs)
+	if err != nil {
+		return err
+	}
+	ok := compare(str, args[1:], func(s1, s2 string) bool {
+		return s1 != s2
+	})
+	if root, ok1 := root.(*object); ok1 && ok {
+		return root.merge(nest)
 	}
 	return nil
+}
+
+func compare(str string, args []Node, cmp func(string, string) bool) bool {
+	for _, other := range args {
+		arg, ok := other.(Argument)
+		if !ok {
+			continue
+		}
+		other, _ := arg.GetString()
+		if cmp(str, other) {
+			return true
+		}
+	}
+	return false
 }
 
 func ReadFile(root, _ Node, args []Node, kwargs map[string]Node) error {

@@ -4,6 +4,10 @@ import (
 	"fmt"
 )
 
+type Resolver interface {
+	Resolve(string) (interface{}, error)
+}
+
 type env struct {
 	parent *env
 	values map[string]interface{}
@@ -18,6 +22,10 @@ func enclosedEnv(parent *env) *env {
 		parent: parent,
 		values: make(map[string]interface{}),
 	}
+}
+
+func (e *env) Resolve(ident string) (interface{}, error) {
+	return e.resolve(ident)
 }
 
 func (e *env) resolve(ident string) (interface{}, error) {

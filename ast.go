@@ -140,6 +140,8 @@ type object struct {
 	Index map[string]int
 	Revex map[int]string
 	Nodes []Node
+
+	env *env
 }
 
 func createObject(ident string) *object {
@@ -153,6 +155,7 @@ func enclosedObject(ident string, parent *object) *object {
 		Partials: make(map[string]Node),
 		Index:    make(map[string]int),
 		Revex:    make(map[int]string),
+		env:      emptyEnv(),
 	}
 }
 
@@ -173,6 +176,10 @@ func (o *object) clone() Node {
 		obj.put(k, o.at(i).clone())
 	}
 	return obj
+}
+
+func (o *object) register(ident string, value interface{}) {
+	o.env.define(ident, value)
 }
 
 func (o *object) repeat(count int64, name string, nest Node) error {
