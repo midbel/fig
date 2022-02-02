@@ -465,5 +465,8 @@ func checkHas(at int, field string, args []Node, kwargs map[string]Node) (Node, 
 }
 
 func errArgument(field, msg string) error {
+	if field == "" {
+		field = "node"
+	}
 	return fmt.Errorf("%s: %w %s", field, errBadArgument, msg)
 }
