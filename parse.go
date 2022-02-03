@@ -364,7 +364,6 @@ func (p *Parser) parseMacro(obj *object) error {
 		if p.curr.Type != BegObj {
 			return p.unexpected()
 		}
-		// tmp := createObject("")
 		tmp := enclosedObject("", obj)
 		if err := p.parseObject(tmp); err != nil {
 			return err

@@ -156,3 +156,15 @@ slice3 = $array[:3]
 slice4 = $array[:]
 
 slice5 = [1, 2, 3, 4][2:]
+
+.ifeq(@version, 42) {
+  key1 = foo
+  key2 = bar
+}
+
+.ifneq($local, @version) {
+  .register(test, foobar)
+  .register(version, $local)
+  key1 = foo
+  key2 = bar
+}
