@@ -105,39 +105,6 @@ func (d *Decoder) registerObject(obj *object) error {
 	return nil
 }
 
-func (d *Decoder) decodeEquality(eq *equality) (Node, error) {
-	get := func(n Node, e *env) (interface{}, error) {
-		var (
-			val interface{}
-			err error
-		)
-		switch n := n.(type) {
-		case *literal:
-			val, err = n.Get()
-		case *variable:
-			val, err = d.resolveVariable(n)
-		default:
-			err = fmt.Errorf("")
-		}
-		return val, err
-	}
-	e := combinedEnv(d.options, d.locals)
-	val, err := get(eq.node, e)
-	if err != nil {
-		return nil, err
-	}
-	for _, n := range eq.values {
-		other, err := get(n, e)
-		if err != nil {
-			return nil, err
-		}
-		if eq.cmp(val, other) {
-			return eq.nest, nil
-		}
-	}
-	return nil, nil
-}
-
 func (d *Decoder) decode(n Node, value reflect.Value) error {
 	var err error
 	switch n := n.(type) {
@@ -150,15 +117,6 @@ func (d *Decoder) decode(n Node, value reflect.Value) error {
 	case *object:
 		d.registerObject(n)
 		err = d.decodeObject(n, value)
-	case *equality:
-		x, err1 := d.decodeEquality(n)
-		if err1 != nil {
-			err = err1
-			break
-		}
-		if x != nil {
-			err = d.decode(x, value)
-		}
 	case *option:
 		err = d.decodeOption(n, value)
 	case *literal:

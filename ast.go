@@ -131,33 +131,6 @@ func (_ *option) Type() NodeType {
 	return TypeOption
 }
 
-type equality struct {
-	node   Node
-	cmp    func(v1, v2 interface{}) bool
-	values []Node
-	nest   Node
-}
-
-func (e *equality) String() string {
-	return "equality()"
-}
-
-func (_ *equality) Type() NodeType {
-	return TypeEqual
-}
-
-func (e *equality) clone() Node {
-	x := equality{
-		node: e.node.clone(),
-		nest: e.nest.clone(),
-		cmp:  e.cmp,
-	}
-	for _, n := range e.values {
-		x.values = append(x.values, n.clone())
-	}
-	return &x
-}
-
 type object struct {
 	parent *object
 
