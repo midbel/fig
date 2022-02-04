@@ -18,6 +18,8 @@ type Parser struct {
 	curr Token
 	peek Token
 
+	env *env
+
 	macros map[string]macrodef
 }
 
@@ -47,7 +49,12 @@ func NewParser(r io.Reader) (*Parser, error) {
 }
 
 func Parse(r io.Reader) (Node, error) {
+	return parseWithEnv(r, emptyEnv())
+}
+
+func parseWithEnv(r io.Reader, env *env) (Node, error) {
 	p, err := NewParser(r)
+	p.env = env
 	if err != nil {
 		return nil, err
 	}
@@ -374,7 +381,7 @@ func (p *Parser) parseMacro(obj *object) error {
 	if err != nil {
 		return err
 	}
-	return def.macroFunc(obj, nest, args, kwargs)
+	return def.macroFunc(obj, nest, p.env, args, kwargs)
 }
 
 func (p *Parser) parseArgs() ([]Node, map[string]Node, error) {

@@ -49,7 +49,7 @@ func (d *Decoder) Funcs(set FuncMap) {
 }
 
 func (d *Decoder) Decode(v interface{}) error {
-	n, err := Parse(d.read)
+	n, err := parseWithEnv(d.read, d.locals)
 	if err != nil {
 		return err
 	}

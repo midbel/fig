@@ -172,6 +172,20 @@ func (o *object) Resolve(ident string) (interface{}, error) {
 	return o.env.resolve(ident)
 }
 
+func (o *object) resolve(ident string) (interface{}, error) {
+	i, ok := o.Index[ident]
+	if ok && i < len(o.Nodes) {
+		opt, ok := o.Nodes[i].(*option)
+		if ok {
+			return opt.Get()
+		}
+	}
+	if o.parent != nil {
+		return o.parent.resolve(ident)
+	}
+	return nil, fmt.Errorf("%s: undefined option", ident)
+}
+
 func (o *object) clone() Node {
 	// INFO: we don't include parent in clone object because clone is only used
 	// when "plucking" a defined object to be inserted somewhere else in the tree
