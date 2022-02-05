@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"net/url"
 	"reflect"
 	"regexp"
@@ -666,6 +667,40 @@ func (d *Decoder) decodeURL(v reflect.Value, n Node) error {
 	return nil
 }
 
+func (d *Decoder) decodeAddr(v reflect.Value, n Node) error {
+	opt, ok := n.(*option)
+	if !ok {
+		return fmt.Errorf("decoding IP: option expected")
+	}
+	str, err := opt.GetString()
+	if err != nil {
+		return err
+	}
+	addr, err := netip.ParseAddr(str)
+	if err != nil {
+		return err
+	}
+	v.Set(reflect.ValueOf(addr))
+	return nil
+}
+
+func (d *Decoder) decodeAddrPort(v reflect.Value, n Node) error {
+	opt, ok := n.(*option)
+	if !ok {
+		return fmt.Errorf("decoding IP: option expected")
+	}
+	str, err := opt.GetString()
+	if err != nil {
+		return err
+	}
+	addr, err := netip.ParseAddrPort(str)
+	if err != nil {
+		return err
+	}
+	v.Set(reflect.ValueOf(addr))
+	return nil
+}
+
 func (d *Decoder) decodeIP(v reflect.Value, n Node) error {
 	opt, ok := n.(*option)
 	if !ok {
@@ -698,12 +733,14 @@ func (d *Decoder) decodeRegex(v reflect.Value, n Node) error {
 }
 
 var (
-	settertype = reflect.TypeOf((*Setter)(nil)).Elem()
-	updatetype = reflect.TypeOf((*Updater)(nil)).Elem()
-	timetype   = reflect.TypeOf((*time.Time)(nil)).Elem()
-	urltype    = reflect.TypeOf((*url.URL)(nil)).Elem()
-	regextype  = reflect.TypeOf((*regexp.Regexp)(nil)).Elem()
-	iptype     = reflect.TypeOf((*net.IP)(nil)).Elem()
+	settertype   = reflect.TypeOf((*Setter)(nil)).Elem()
+	updatetype   = reflect.TypeOf((*Updater)(nil)).Elem()
+	timetype     = reflect.TypeOf((*time.Time)(nil)).Elem()
+	urltype      = reflect.TypeOf((*url.URL)(nil)).Elem()
+	regextype    = reflect.TypeOf((*regexp.Regexp)(nil)).Elem()
+	iptype       = reflect.TypeOf((*net.IP)(nil)).Elem()
+	addrtype     = reflect.TypeOf((*netip.Addr)(nil)).Elem()
+	addrporttype = reflect.TypeOf((*netip.AddrPort)(nil)).Elem()
 )
 
 func (d *Decoder) triggerUpdate(v reflect.Value, res Resolver) error {
