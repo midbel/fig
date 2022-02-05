@@ -93,6 +93,14 @@ func Register(root, _ Node, env *Env, args []Node, kwargs map[string]Node) error
 	return nil
 }
 
+func IfDef(root, nest Node, env *Env, args []Node, kwargs map[string]Node) error {
+	return nil
+}
+
+func IfNotDef(root, nest Node, env *Env, args []Node, kwargs map[string]Node) error {
+	return nil
+}
+
 func IfEq(root, nest Node, env *Env, args []Node, kwargs map[string]Node) error {
 	if len(kwargs) > 0 {
 		return fmt.Errorf("ifeq does not accept keyword arguments")
