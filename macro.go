@@ -94,10 +94,38 @@ func Register(root, _ Node, env *Env, args []Node, kwargs map[string]Node) error
 }
 
 func IfDef(root, nest Node, env *Env, args []Node, kwargs map[string]Node) error {
+	if len(kwargs) > 0 {
+		return fmt.Errorf("ifdef does not accept keyword arguments")
+	}
+	if len(args) != 1 {
+		return fmt.Errorf("ifdef: wrong number of arguments given")
+	}
+	mcall := callMacro(root, env)
+	if mcall.IsDefined(args[0]) {
+		root, ok := root.(*object)
+		if !ok {
+			return nil
+		}
+		return root.merge(nest)
+	}
 	return nil
 }
 
 func IfNotDef(root, nest Node, env *Env, args []Node, kwargs map[string]Node) error {
+	if len(kwargs) > 0 {
+		return fmt.Errorf("ifndef does not accept keyword arguments")
+	}
+	if len(args) != 1 {
+		return fmt.Errorf("ifndef: wrong number of arguments given")
+	}
+	mcall := callMacro(root, env)
+	if mcall.IsNotDefined(args[0]) {
+		root, ok := root.(*object)
+		if !ok {
+			return nil
+		}
+		return root.merge(nest)
+	}
 	return nil
 }
 
@@ -406,6 +434,42 @@ func callMacro(root Node, env *Env) macrocall {
 		root: root,
 		env:  env,
 	}
+}
+
+func (c macrocall) IsDefined(n Node) bool {
+	v, ok := n.(*variable)
+	if !ok {
+		return ok
+	}
+	obj, ok := c.root.(*object)
+	if !ok {
+		return ok
+	}
+	var err error
+	if v.IsLocal() {
+		_, err = obj.resolve(v.Name())
+	} else {
+		_, err = c.env.resolve(v.Name())
+	}
+	return err == nil
+}
+
+func (c macrocall) IsNotDefined(n Node) bool {
+	v, ok := n.(*variable)
+	if !ok {
+		return ok
+	}
+	obj, ok := c.root.(*object)
+	if !ok {
+		return ok
+	}
+	var err error
+	if v.IsLocal() {
+		_, err = obj.resolve(v.Name())
+	} else {
+		_, err = c.env.resolve(v.Name())
+	}
+	return err != nil
 }
 
 func (c macrocall) Compare(str string, args []Node, cmp func(string, string) bool) bool {

@@ -35,11 +35,11 @@ func main() {
 	} else {
 		err = decodeFile(r)
 	}
-	fmt.Println("elapsed:", time.Since(now))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	fmt.Println("elapsed:", time.Since(now))
 }
 
 func decodeFile(r io.Reader) error {
@@ -55,7 +55,8 @@ func decodeFile(r io.Reader) error {
 		}
 	)
 	dec.Funcs(fmap)
-	dec.Define("env", "environment")
+	dec.Define("env", "dev")
+	dec.Define("lang", "en")
 	if err := dec.Decode(&dat); err != nil {
 		return err
 	}

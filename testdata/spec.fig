@@ -30,6 +30,8 @@ multipliers {
   hours   = 2h
 }
 
+local = 42
+
 strings {
   single  = 'foobar'
   double  = "foobar"
@@ -42,10 +44,8 @@ strings {
   blanks (space, tabs, newline) in heredoc are kept! this is why the closing label
   should always be at the very beginning of a line
 EOF
-  template = `echo ${foobar}`
+  template = `echo ${local}`
 }
-
-local = 42
 
 variables {
   local = $local
@@ -169,4 +169,14 @@ slice5 = [1, 2, 3, 4][2:]
 
 .ifeq(@lang, en) {
   lang = @lang
+}
+
+.ifdef($local) {
+  key1-ifdef = foo1
+  key2-ifdef = foo2
+}
+
+.ifndef($global) {
+  key1-ifndef = bar1
+  key2-ifndef = bar2
 }
