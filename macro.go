@@ -281,7 +281,7 @@ func Apply(root, _ Node, env *Env, args []Node, kwargs map[string]Node) error {
 	if name, err = mcall.GetString(0, argName, args, kwargs); err != nil {
 		return err
 	}
-	if fields, err = mcall.GetStringSlice(1, argFields, args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
+	if fields, err = mcall.GetStringArray(1, argFields, args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
 		return err
 	}
 	if depth, err = mcall.GetInt(2, argDepth, args, kwargs); err != nil && !errors.Is(err, errBadArgument) {
@@ -422,7 +422,7 @@ func callMacro(root Node, env *Env) macrocall {
 	}
 }
 
-func (c macrocall) GetStringSlice(at int, field string, args []Node, kwargs map[string]Node) ([]string, error) {
+func (c macrocall) GetStringArray(at int, field string, args []Node, kwargs map[string]Node) ([]string, error) {
 	n, err := checkHas(at+1, field, args, kwargs)
 	if err != nil {
 		return nil, err
@@ -434,16 +434,24 @@ func (c macrocall) GetStringSlice(at int, field string, args []Node, kwargs map[
 	}
 	arr, ok := n.(*array)
 	if !ok {
-		return nil, fmt.Errorf("%s: node can not be used as argument", field)
+		arr, ok = tryFromVarArray(n, c.env, c.root)
+		if !ok {
+			return nil, fmt.Errorf("%s: node can not be used as argument", field)
+		}
 	}
 	var str []string
 	for _, n := range arr.Nodes {
-		if arg, ok = n.(Argument); !ok {
-			return nil, fmt.Errorf("%s: node can not be used as argument", field)
+		if arg, ok = n.(Argument); ok {
+			s, err := arg.GetString()
+			if err != nil {
+				return nil, err
+			}
+			str = append(str, s)
+			continue
 		}
-		s, err := arg.GetString()
-		if err != nil {
-			return nil, err
+		s, ok := tryStringFromVar(n, c.env, c.root)
+		if !ok {
+			return nil, fmt.Errorf("%s: node can not be used as argument", field)
 		}
 		str = append(str, s)
 	}
@@ -581,6 +589,28 @@ func tryFromVar(n Node, env *Env, root Node) (interface{}, bool) {
 		val = v
 	}
 	return val, ok
+}
+
+func tryFromVarArray(n Node, env *Env, root Node) (*array, bool) {
+	v, ok := n.(*variable)
+	if !ok {
+		return nil, ok
+	}
+	obj, ok := root.(*object)
+	if !ok {
+		return nil, false
+	}
+	for _, n := range obj.Nodes {
+		opt, ok := n.(*option)
+		if !ok {
+			continue
+		}
+		if opt.Ident == v.Name() {
+			arr, ok := opt.Value.(*array)
+			return arr, ok
+		}
+	}
+	return nil, false
 }
 
 func resolveFromNode(node Node, ident string) (interface{}, bool) {
