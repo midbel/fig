@@ -18,7 +18,7 @@ type Parser struct {
 	curr Token
 	peek Token
 
-	env *env
+	env *Env
 
 	macros map[string]macrodef
 }
@@ -49,10 +49,10 @@ func NewParser(r io.Reader) (*Parser, error) {
 }
 
 func Parse(r io.Reader) (Node, error) {
-	return parseWithEnv(r, emptyEnv())
+	return ParseWithEnv(r, EmptyEnv())
 }
 
-func parseWithEnv(r io.Reader, env *env) (Node, error) {
+func ParseWithEnv(r io.Reader, env *Env) (Node, error) {
 	p, err := NewParser(r)
 	p.env = env
 	if err != nil {

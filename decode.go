@@ -25,16 +25,16 @@ type FuncMap map[string]interface{}
 type Decoder struct {
 	read    io.Reader
 	fmap    FuncMap
-	options *env
-	locals  *env
+	options *Env
+	locals  *Env
 }
 
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{
 		read:    r,
 		fmap:    make(FuncMap),
-		options: emptyEnv(),
-		locals:  emptyEnv(),
+		options: EmptyEnv(),
+		locals:  EmptyEnv(),
 	}
 }
 
@@ -49,7 +49,7 @@ func (d *Decoder) Funcs(set FuncMap) {
 }
 
 func (d *Decoder) Decode(v interface{}) error {
-	n, err := parseWithEnv(d.read, d.locals)
+	n, err := ParseWithEnv(d.read, d.locals)
 	if err != nil {
 		return err
 	}
@@ -755,7 +755,7 @@ func (d *Decoder) define(ident string, value interface{}) {
 }
 
 func (d *Decoder) push() {
-	d.options = enclosedEnv(d.options)
+	d.options = EnclosedEnv(d.options)
 }
 
 func (d *Decoder) pop() {

@@ -166,3 +166,7 @@ slice5 = [1, 2, 3, 4][2:]
   key1-ifneq = foo0
   key2-ifneq = bar0
 }
+
+.ifeq(@lang, en) {
+  lang = @lang
+}

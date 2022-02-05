@@ -142,7 +142,7 @@ type object struct {
 	Revex map[int]string
 	Nodes []Node
 
-	env *env
+	env *Env
 }
 
 func createObject(ident string) *object {
@@ -156,7 +156,7 @@ func enclosedObject(ident string, parent *object) *object {
 		Partials: make(map[string]Node),
 		Index:    make(map[string]int),
 		Revex:    make(map[int]string),
-		env:      emptyEnv(),
+		env:      EmptyEnv(),
 	}
 }
 

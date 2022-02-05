@@ -8,27 +8,27 @@ type Resolver interface {
 	Resolve(string) (interface{}, error)
 }
 
-type env struct {
-	parent *env
+type Env struct {
+	parent *Env
 	values map[string]interface{}
 }
 
-func emptyEnv() *env {
-	return enclosedEnv(nil)
+func EmptyEnv() *Env {
+	return EnclosedEnv(nil)
 }
 
-func enclosedEnv(parent *env) *env {
-	return &env{
+func EnclosedEnv(parent *Env) *Env {
+	return &Env{
 		parent: parent,
 		values: make(map[string]interface{}),
 	}
 }
 
-func (e *env) Resolve(ident string) (interface{}, error) {
+func (e *Env) Resolve(ident string) (interface{}, error) {
 	return e.resolve(ident)
 }
 
-func (e *env) resolve(ident string) (interface{}, error) {
+func (e *Env) resolve(ident string) (interface{}, error) {
 	v, ok := e.values[ident]
 	if ok {
 		return v, nil
@@ -39,10 +39,14 @@ func (e *env) resolve(ident string) (interface{}, error) {
 	return nil, fmt.Errorf("%s not defined", ident)
 }
 
-func (e *env) define(ident string, value interface{}) {
+func (e *Env) Define(ident string, value interface{}) {
+	e.define(ident, value)
+}
+
+func (e *Env) define(ident string, value interface{}) {
 	e.values[ident] = value
 }
 
-func (e *env) unwrap() *env {
+func (e *Env) unwrap() *Env {
 	return e.parent
 }

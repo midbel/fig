@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-type macroFunc func(root, obj Node, env *env, args []Node, kwargs map[string]Node) error
+type macroFunc func(root, obj Node, env *Env, args []Node, kwargs map[string]Node) error
 
 type macrodef struct {
 	macroFunc
@@ -66,7 +66,7 @@ const (
 	argCount  = "count"
 )
 
-func Register(root, _ Node, env *env, args []Node, kwargs map[string]Node) error {
+func Register(root, _ Node, env *Env, args []Node, kwargs map[string]Node) error {
 	if len(kwargs) > 0 {
 		return fmt.Errorf("register does not accept keyword arguments")
 	}
@@ -93,7 +93,7 @@ func Register(root, _ Node, env *env, args []Node, kwargs map[string]Node) error
 	return nil
 }
 
-func IfEq(root, nest Node, env *env, args []Node, kwargs map[string]Node) error {
+func IfEq(root, nest Node, env *Env, args []Node, kwargs map[string]Node) error {
 	if len(kwargs) > 0 {
 		return fmt.Errorf("ifeq does not accept keyword arguments")
 	}
@@ -116,7 +116,7 @@ func IfEq(root, nest Node, env *env, args []Node, kwargs map[string]Node) error 
 	return nil
 }
 
-func IfNotEq(root, nest Node, env *env, args []Node, kwargs map[string]Node) error {
+func IfNotEq(root, nest Node, env *Env, args []Node, kwargs map[string]Node) error {
 	if len(kwargs) > 0 {
 		return fmt.Errorf("ifneq does not accept keyword arguments")
 	}
@@ -153,7 +153,7 @@ func compare(str string, args []Node, cmp func(string, string) bool) bool {
 	return false
 }
 
-func ReadFile(root, _ Node, env *env, args []Node, kwargs map[string]Node) error {
+func ReadFile(root, _ Node, env *Env, args []Node, kwargs map[string]Node) error {
 	if len(args) == 0 && len(kwargs) == 0 {
 		return fmt.Errorf("no enough arguments supplied")
 	}
@@ -187,7 +187,7 @@ func ReadFile(root, _ Node, env *env, args []Node, kwargs map[string]Node) error
 	return obj.set(opt)
 }
 
-func Repeat(root, nest Node, env *env, args []Node, kwargs map[string]Node) error {
+func Repeat(root, nest Node, env *Env, args []Node, kwargs map[string]Node) error {
 	if len(args) == 0 && len(kwargs) == 0 {
 		return fmt.Errorf("no enough arguments supplied")
 	}
@@ -210,7 +210,7 @@ func Repeat(root, nest Node, env *env, args []Node, kwargs map[string]Node) erro
 	return obj.repeat(count, name, nest)
 }
 
-func Extend(root, nest Node, env *env, args []Node, kwargs map[string]Node) error {
+func Extend(root, nest Node, env *Env, args []Node, kwargs map[string]Node) error {
 	if len(args) == 0 && len(kwargs) == 0 {
 		return fmt.Errorf("no enough arguments supplied")
 	}
@@ -233,7 +233,7 @@ func Extend(root, nest Node, env *env, args []Node, kwargs map[string]Node) erro
 	return obj.extend(name, as, nest)
 }
 
-func Define(root, nest Node, env *env, args []Node, kwargs map[string]Node) error {
+func Define(root, nest Node, env *Env, args []Node, kwargs map[string]Node) error {
 	if len(args) == 0 && len(kwargs) == 0 {
 		return fmt.Errorf("no enough arguments supplied")
 	}
@@ -258,7 +258,7 @@ func Define(root, nest Node, env *env, args []Node, kwargs map[string]Node) erro
 	return nil
 }
 
-func Apply(root, _ Node, env *env, args []Node, kwargs map[string]Node) error {
+func Apply(root, _ Node, env *Env, args []Node, kwargs map[string]Node) error {
 	if len(args) == 0 && len(kwargs) == 0 {
 		return fmt.Errorf("no enough arguments supplied")
 	}
@@ -303,7 +303,7 @@ func Apply(root, _ Node, env *env, args []Node, kwargs map[string]Node) error {
 	return nil
 }
 
-func Include(root, _ Node, env *env, args []Node, kwargs map[string]Node) error {
+func Include(root, _ Node, env *Env, args []Node, kwargs map[string]Node) error {
 	var (
 		mcall  = callMacro(root, env)
 		file   string
@@ -404,10 +404,10 @@ type macrocall struct {
 	args   []Node
 	kwargs map[string]Node
 	root   Node
-	env    *env
+	env    *Env
 }
 
-func callMacro(root Node, env *env) macrocall {
+func callMacro(root Node, env *Env) macrocall {
 	return macrocall{
 		root: root,
 		env:  env,
@@ -490,7 +490,7 @@ func (c macrocall) GetBool(at int, field string, args []Node, kwargs map[string]
 	return b, nil
 }
 
-func tryBoolFromVar(n Node, env *env, root Node) (bool, bool) {
+func tryBoolFromVar(n Node, env *Env, root Node) (bool, bool) {
 	val, ok := tryFromVar(n, env, root)
 	if !ok {
 		return ok, ok
@@ -513,7 +513,7 @@ func tryBoolFromVar(n Node, env *env, root Node) (bool, bool) {
 	return b, true
 }
 
-func tryIntFromVar(n Node, env *env, root Node) (int64, bool) {
+func tryIntFromVar(n Node, env *Env, root Node) (int64, bool) {
 	val, ok := tryFromVar(n, env, root)
 	if !ok {
 		return 0, ok
@@ -538,7 +538,7 @@ func tryIntFromVar(n Node, env *env, root Node) (int64, bool) {
 	return num, ok
 }
 
-func tryStringFromVar(n Node, env *env, root Node) (string, bool) {
+func tryStringFromVar(n Node, env *Env, root Node) (string, bool) {
 	val, ok := tryFromVar(n, env, root)
 	if !ok {
 		return "", ok
@@ -557,7 +557,7 @@ func tryStringFromVar(n Node, env *env, root Node) (string, bool) {
 	return str, true
 }
 
-func tryFromVar(n Node, env *env, root Node) (interface{}, bool) {
+func tryFromVar(n Node, env *Env, root Node) (interface{}, bool) {
 	v, ok := n.(*variable)
 	if !ok {
 		return nil, ok
