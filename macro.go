@@ -115,7 +115,7 @@ func IfEq(root, nest Node, env *Env, args []Node, kwargs map[string]Node) error 
 	if err != nil {
 		return err
 	}
-	ok := compare(str, args[1:], func(s1, s2 string) bool {
+	ok := mcall.Compare(str, args[1:], func(s1, s2 string) bool {
 		return s1 == s2
 	})
 	if root, ok1 := root.(*object); ok1 && ok {
@@ -138,27 +138,13 @@ func IfNotEq(root, nest Node, env *Env, args []Node, kwargs map[string]Node) err
 	if err != nil {
 		return err
 	}
-	ok := compare(str, args[1:], func(s1, s2 string) bool {
+	ok := mcall.Compare(str, args[1:], func(s1, s2 string) bool {
 		return s1 != s2
 	})
 	if root, ok1 := root.(*object); ok1 && ok {
 		return root.merge(nest)
 	}
 	return nil
-}
-
-func compare(str string, args []Node, cmp func(string, string) bool) bool {
-	for _, other := range args {
-		arg, ok := other.(Argument)
-		if !ok {
-			continue
-		}
-		other, _ := arg.GetString()
-		if cmp(str, other) {
-			return true
-		}
-	}
-	return false
 }
 
 func ReadFile(root, _ Node, env *Env, args []Node, kwargs map[string]Node) error {
@@ -422,6 +408,16 @@ func callMacro(root Node, env *Env) macrocall {
 	}
 }
 
+func (c macrocall) Compare(str string, args []Node, cmp func(string, string) bool) bool {
+	for _, other := range args {
+		other, _ := c.getString(other, str)
+		if cmp(str, other) {
+			return true
+		}
+	}
+	return false
+}
+
 func (c macrocall) GetStringArray(at int, field string, args []Node, kwargs map[string]Node) ([]string, error) {
 	n, err := checkHas(at+1, field, args, kwargs)
 	if err != nil {
@@ -432,25 +428,14 @@ func (c macrocall) GetStringArray(at int, field string, args []Node, kwargs map[
 		str, err := arg.GetString()
 		return []string{str}, err
 	}
-	arr, ok := n.(*array)
-	if !ok {
-		arr, ok = tryFromVarArray(n, c.env, c.root)
-		if !ok {
-			return nil, fmt.Errorf("%s: node can not be used as argument", field)
-		}
+	arr, err := c.getArray(n, field)
+	if err != nil {
+		return nil, err
 	}
 	var str []string
 	for _, n := range arr.Nodes {
-		if arg, ok = n.(Argument); ok {
-			s, err := arg.GetString()
-			if err != nil {
-				return nil, err
-			}
-			str = append(str, s)
-			continue
-		}
-		s, ok := tryStringFromVar(n, c.env, c.root)
-		if !ok {
+		s, err := c.getString(n, field)
+		if err != nil {
 			return nil, fmt.Errorf("%s: node can not be used as argument", field)
 		}
 		str = append(str, s)
@@ -463,6 +448,38 @@ func (c macrocall) GetString(at int, field string, args []Node, kwargs map[strin
 	if err != nil {
 		return "", err
 	}
+	return c.getString(n, field)
+}
+
+func (c macrocall) GetInt(at int, field string, args []Node, kwargs map[string]Node) (int64, error) {
+	n, err := checkHas(at+1, field, args, kwargs)
+	if err != nil {
+		return 0, err
+	}
+	return c.getInt(n, field)
+}
+
+func (c macrocall) GetBool(at int, field string, args []Node, kwargs map[string]Node) (bool, error) {
+	n, err := checkHas(at+1, field, args, kwargs)
+	if err != nil {
+		return false, err
+	}
+	return c.getBool(n, field)
+}
+
+func (c macrocall) getBool(n Node, field string) (bool, error) {
+	arg, ok := n.(Argument)
+	if ok {
+		return arg.GetBool()
+	}
+	b, ok := tryBoolFromVar(n, c.env, c.root)
+	if !ok {
+		return false, fmt.Errorf("%s: node can not be used argument", field)
+	}
+	return b, nil
+}
+
+func (c macrocall) getString(n Node, field string) (string, error) {
 	arg, ok := n.(Argument)
 	if ok {
 		return arg.GetString()
@@ -474,11 +491,7 @@ func (c macrocall) GetString(at int, field string, args []Node, kwargs map[strin
 	return str, nil
 }
 
-func (c macrocall) GetInt(at int, field string, args []Node, kwargs map[string]Node) (int64, error) {
-	n, err := checkHas(at+1, field, args, kwargs)
-	if err != nil {
-		return 0, err
-	}
+func (c macrocall) getInt(n Node, field string) (int64, error) {
 	arg, ok := n.(Argument)
 	if ok {
 		return arg.GetInt()
@@ -490,20 +503,16 @@ func (c macrocall) GetInt(at int, field string, args []Node, kwargs map[string]N
 	return num, nil
 }
 
-func (c macrocall) GetBool(at int, field string, args []Node, kwargs map[string]Node) (bool, error) {
-	n, err := checkHas(at+1, field, args, kwargs)
-	if err != nil {
-		return false, err
-	}
-	arg, ok := n.(Argument)
+func (c macrocall) getArray(n Node, field string) (*array, error) {
+	arr, ok := n.(*array)
 	if ok {
-		return arg.GetBool()
+		return arr, nil
 	}
-	b, ok := tryBoolFromVar(n, c.env, c.root)
+	arr, ok = tryFromVarArray(n, c.env, c.root)
 	if !ok {
-		return false, fmt.Errorf("%s: node can not be used argument", field)
+		return nil, fmt.Errorf("%s: node can not be used as argument", field)
 	}
-	return b, nil
+	return arr, nil
 }
 
 func tryBoolFromVar(n Node, env *Env, root Node) (bool, bool) {
