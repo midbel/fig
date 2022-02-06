@@ -92,3 +92,13 @@ the following section describes each macros supported currently by fig as well a
 #### repeat
 
 #### readfile
+
+#### register
+
+#### ifeq
+
+#### ifneq
+
+#### ifdef
+
+#### ifndef
