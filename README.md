@@ -95,6 +95,8 @@ the following section describes each macros supported currently by fig as well a
 
 #### register
 
+the `register` macro allows to register a variable that will be given to the decoder.
+
 #### ifeq
 
 #### ifneq
