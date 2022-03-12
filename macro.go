@@ -71,17 +71,18 @@ const (
 
 func Script(root, _ Node, env *Env, args []Node, kwargs map[string]Node) error {
 	var (
-		key string
-		cmd string
-		err error
+		mcall = callMacro(root, env)
+		key   string
+		cmd   string
+		err   error
 	)
-	if key, err = getString(0, argKey, args, kwargs); err != nil {
+	if key, err = mcall.GetString(0, argKey, args, kwargs); err != nil {
 		return err
 	}
-	if cmd, err = getString(1, argCmd, args, kwargs); err != nil {
+	if cmd, err = mcall.GetString(1, argCmd, args, kwargs); err != nil {
 		return err
 	}
-	out, err := exec.Command("shell", "-c", cmd).Output()
+	out, err := exec.Command("sh", "-c", cmd).Output()
 	if err != nil {
 		return err
 	}
