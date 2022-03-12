@@ -156,3 +156,5 @@ slice3 = $array[:3]
 slice4 = $array[:]
 
 slice5 = [1, 2, 3, 4][2:]
+
+.script(key=version, command="git tag | tail -n 1")

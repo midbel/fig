@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -63,10 +64,32 @@ const (
 	argFields = "fields"
 	argDepth  = "depth"
 	argCount  = "count"
+	argKey    = "key"
+	argCmd    = "command"
 )
 
 func Script(root, _ Node, env *Env, args []Node, kwargs map[string]Node) error {
-	return nil
+	var (
+		key string
+		cmd string
+		err error
+	)
+	if key, err = getString(0, argKey, args, kwargs); err != nil {
+		return err
+	}
+	if cmd, err = getString(1, argCmd, args, kwargs); err != nil {
+		return err
+	}
+	out, err := exec.Command("shell", "-c", cmd).Output()
+	if err != nil {
+		return err
+	}
+	obj, ok := root.(*object)
+	if !ok {
+		return fmt.Errorf("root should be an object! got %T", root)
+	}
+	opt := createOption(key, createLiteralFromString(string(out)))
+	return obj.set(opt)
 }
 
 func Register(root, _ Node, env *Env, args []Node, kwargs map[string]Node) error {
