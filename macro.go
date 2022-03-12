@@ -1,6 +1,7 @@
 package fig
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -86,6 +87,7 @@ func Script(root, _ Node, env *Env, args []Node, kwargs map[string]Node) error {
 	if err != nil {
 		return err
 	}
+	out = bytes.TrimSpace(out)
 	obj, ok := root.(*object)
 	if !ok {
 		return fmt.Errorf("root should be an object! got %T", root)
