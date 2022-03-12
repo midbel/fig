@@ -14,7 +14,10 @@ func TestParser(t *testing.T) {
 	}
 	defer r.Close()
 
-	_, err = fig.Parse(r)
+	env := fig.EmptyEnv()
+	env.Define("lang", "en")
+	env.Define("hash", "md5")
+	_, err = fig.ParseWithEnv(r, env)
 	if err != nil {
 		t.Fatalf("fail to parse spec file: %s", err)
 	}

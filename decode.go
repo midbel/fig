@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"net/url"
 	"reflect"
 	"regexp"
@@ -17,7 +18,7 @@ type Setter interface {
 }
 
 type Updater interface {
-	Update() error
+	Update(Resolver) error
 }
 
 type FuncMap map[string]interface{}
@@ -25,16 +26,16 @@ type FuncMap map[string]interface{}
 type Decoder struct {
 	read    io.Reader
 	fmap    FuncMap
-	options *env
-	locals  *env
+	options *Env
+	locals  *Env
 }
 
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{
 		read:    r,
 		fmap:    make(FuncMap),
-		options: emptyEnv(),
-		locals:  emptyEnv(),
+		options: EmptyEnv(),
+		locals:  EmptyEnv(),
 	}
 }
 
@@ -49,7 +50,7 @@ func (d *Decoder) Funcs(set FuncMap) {
 }
 
 func (d *Decoder) Decode(v interface{}) error {
-	n, err := Parse(d.read)
+	n, err := ParseWithEnv(d.read, d.locals)
 	if err != nil {
 		return err
 	}
@@ -129,7 +130,10 @@ func (d *Decoder) decode(n Node, value reflect.Value) error {
 		err = fmt.Errorf("value (%s) can not be decoded from %T", value.Kind(), n)
 	}
 	if err == nil {
-		err = d.triggerUpdate(value)
+		r, ok := n.(Resolver)
+		if ok {
+			err = d.triggerUpdate(value, r)
+		}
 	}
 	return err
 }
@@ -233,6 +237,12 @@ func (d *Decoder) decodeLiteral(lit *literal, v reflect.Value) error {
 			break
 		}
 		v.Set(reflect.ValueOf(i))
+	case reflect.Slice, reflect.Array:
+		vf := reflect.New(v.Type().Elem()).Elem()
+		if err = d.decodeLiteral(lit, vf); err != nil {
+			break
+		}
+		v.Set(reflect.Append(v, vf))
 	default:
 		return fmt.Errorf("primitive type expected! got %s", k)
 	}
@@ -657,6 +667,40 @@ func (d *Decoder) decodeURL(v reflect.Value, n Node) error {
 	return nil
 }
 
+func (d *Decoder) decodeAddr(v reflect.Value, n Node) error {
+	opt, ok := n.(*option)
+	if !ok {
+		return fmt.Errorf("decoding IP: option expected")
+	}
+	str, err := opt.GetString()
+	if err != nil {
+		return err
+	}
+	addr, err := netip.ParseAddr(str)
+	if err != nil {
+		return err
+	}
+	v.Set(reflect.ValueOf(addr))
+	return nil
+}
+
+func (d *Decoder) decodeAddrPort(v reflect.Value, n Node) error {
+	opt, ok := n.(*option)
+	if !ok {
+		return fmt.Errorf("decoding IP: option expected")
+	}
+	str, err := opt.GetString()
+	if err != nil {
+		return err
+	}
+	addr, err := netip.ParseAddrPort(str)
+	if err != nil {
+		return err
+	}
+	v.Set(reflect.ValueOf(addr))
+	return nil
+}
+
 func (d *Decoder) decodeIP(v reflect.Value, n Node) error {
 	opt, ok := n.(*option)
 	if !ok {
@@ -689,22 +733,24 @@ func (d *Decoder) decodeRegex(v reflect.Value, n Node) error {
 }
 
 var (
-	settertype = reflect.TypeOf((*Setter)(nil)).Elem()
-	updatetype = reflect.TypeOf((*Updater)(nil)).Elem()
-	timetype   = reflect.TypeOf((*time.Time)(nil)).Elem()
-	urltype    = reflect.TypeOf((*url.URL)(nil)).Elem()
-	regextype  = reflect.TypeOf((*regexp.Regexp)(nil)).Elem()
-	iptype     = reflect.TypeOf((*net.IP)(nil)).Elem()
+	settertype   = reflect.TypeOf((*Setter)(nil)).Elem()
+	updatetype   = reflect.TypeOf((*Updater)(nil)).Elem()
+	timetype     = reflect.TypeOf((*time.Time)(nil)).Elem()
+	urltype      = reflect.TypeOf((*url.URL)(nil)).Elem()
+	regextype    = reflect.TypeOf((*regexp.Regexp)(nil)).Elem()
+	iptype       = reflect.TypeOf((*net.IP)(nil)).Elem()
+	addrtype     = reflect.TypeOf((*netip.Addr)(nil)).Elem()
+	addrporttype = reflect.TypeOf((*netip.AddrPort)(nil)).Elem()
 )
 
-func (d *Decoder) triggerUpdate(v reflect.Value) error {
+func (d *Decoder) triggerUpdate(v reflect.Value, res Resolver) error {
 	if v.CanInterface() && v.Type().Implements(updatetype) {
-		return v.Interface().(Updater).Update()
+		return v.Interface().(Updater).Update(res)
 	}
 	if v.CanAddr() {
 		v = v.Addr()
 		if v.CanInterface() && v.Type().Implements(updatetype) {
-			return v.Interface().(Updater).Update()
+			return v.Interface().(Updater).Update(res)
 		}
 	}
 	return nil
@@ -746,7 +792,7 @@ func (d *Decoder) define(ident string, value interface{}) {
 }
 
 func (d *Decoder) push() {
-	d.options = enclosedEnv(d.options)
+	d.options = EnclosedEnv(d.options)
 }
 
 func (d *Decoder) pop() {

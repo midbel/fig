@@ -22,6 +22,7 @@ const (
 	TypeOption
 	TypeArray
 	TypeObject
+	TypeEqual
 	TypeCall
 )
 
@@ -140,6 +141,8 @@ type object struct {
 	Index map[string]int
 	Revex map[int]string
 	Nodes []Node
+
+	env *Env
 }
 
 func createObject(ident string) *object {
@@ -153,6 +156,7 @@ func enclosedObject(ident string, parent *object) *object {
 		Partials: make(map[string]Node),
 		Index:    make(map[string]int),
 		Revex:    make(map[int]string),
+		env:      EmptyEnv(),
 	}
 }
 
@@ -164,6 +168,24 @@ func (_ *object) Type() NodeType {
 	return TypeObject
 }
 
+func (o *object) Resolve(ident string) (interface{}, error) {
+	return o.env.resolve(ident)
+}
+
+func (o *object) resolve(ident string) (interface{}, error) {
+	i, ok := o.Index[ident]
+	if ok && i < len(o.Nodes) {
+		opt, ok := o.Nodes[i].(*option)
+		if ok {
+			return opt.Get()
+		}
+	}
+	if o.parent != nil {
+		return o.parent.resolve(ident)
+	}
+	return nil, fmt.Errorf("%s: undefined option", ident)
+}
+
 func (o *object) clone() Node {
 	// INFO: we don't include parent in clone object because clone is only used
 	// when "plucking" a defined object to be inserted somewhere else in the tree
@@ -173,6 +195,10 @@ func (o *object) clone() Node {
 		obj.put(k, o.at(i).clone())
 	}
 	return obj
+}
+
+func (o *object) register(ident string, value interface{}) {
+	o.env.define(ident, value)
 }
 
 func (o *object) repeat(count int64, name string, nest Node) error {
