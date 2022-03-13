@@ -132,7 +132,7 @@ func (d *Decoder) decode(n Node, value reflect.Value) error {
 	if err == nil {
 		r, ok := n.(Resolver)
 		if ok {
-			err = d.triggerUpdate(value, r)
+			err = d.triggerUpdate(value, wrapResolver(d.locals, r))
 		}
 	}
 	return err

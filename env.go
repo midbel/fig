@@ -50,3 +50,23 @@ func (e *Env) define(ident string, value interface{}) {
 func (e *Env) unwrap() *Env {
 	return e.parent
 }
+
+type nested struct {
+	Resolver
+	env *Env
+}
+
+func wrapResolver(env *Env, res Resolver) Resolver {
+	return nested{
+		env:      env,
+		Resolver: res,
+	}
+}
+
+func (n nested) Resolve(ident string) (interface{}, error) {
+	v, err := n.Resolver.Resolve(ident)
+	if err == nil {
+		return v, nil
+	}
+	return n.env.Resolve(ident)
+}
